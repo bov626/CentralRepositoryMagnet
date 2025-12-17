@@ -1,0 +1,147 @@
+Build me a simple, clean web app for tracking sales leads for my business Jumpseat. This is not a full CRM — it should feel lightweight and fast.
+
+Core idea
+
+It’s a Kanban-style board with two sections on one page:
+
+Jumpseat Pipeline (top)
+
+Community Pipeline (below it)
+
+Each lead is a card that is basically just a person’s name. When I click a card, I should see a detail panel with notes + call recording.
+
+1) Jumpseat Pipeline (Kanban)
+
+Columns should be:
+
+Backlog
+
+New leads automatically appear here when a new meeting is detected.
+
+Pitch Call
+
+Decision Pending
+
+Nudge Scheduled
+
+Closed
+
+Disqualified (For Now)
+
+Card behavior
+
+Each card has:
+
+Name
+
+Tags (1–2 short tags like: price, timing, spouse, logistics, fear, confidence, perfect-fit)
+
+Next follow-up date (optional)
+
+Owner action needed (optional checkbox or flag like “waiting on me”)
+
+2) Community Pipeline (Kanban)
+
+This is for people who didn’t buy Jumpseat but might later.
+
+Columns should be:
+
+New Leads
+
+To Pitch
+
+Too Expensive
+
+Would Buy
+
+Nurture
+
+Unsubscribe / Not a Fit
+
+When I move someone from Jumpseat → Community, it should preserve their history and tags.
+
+3) Lead Details (when I click a card)
+
+When I click a card, open a side panel or modal showing:
+
+Full Fathom call summary (auto-imported)
+
+Key takeaways
+
+Blocker / objection (single line)
+
+Decision trigger (single line: “What would have to be true for you to move forward?”)
+
+Follow-up angle (single line: how I should re-engage)
+
+Call recording link / embedded player at the bottom
+
+A small history log of stage moves (optional)
+
+4) Fathom integration (must-have)
+
+The app needs to connect with Fathom so that after a call:
+
+A lead card is created in Backlog
+
+The card automatically includes:
+
+call notes / summary
+
+recording link
+
+call date
+
+If the person already exists, append the newest call notes to that lead rather than creating a duplicate.
+
+If Fathom integration is hard, build the app so I can manually paste a Fathom summary + recording link into the lead detail panel for now, but make the structure ready for real integration later.
+
+5) “Today” view (must-have)
+
+Create a simple “Today” page/tab that shows:
+
+Follow-ups due today
+
+Follow-ups overdue
+
+People tagged “waiting on me”
+
+Today’s scheduled pitch calls (if available from meetings, otherwise let me add them manually)
+
+This page should feel like a daily checklist.
+
+6) Blockers / Objections Library (separate tab)
+
+Add a separate tab called Blockers.
+
+This is NOT tied to a single lead — it’s a library to collect objections over time so I can see patterns.
+
+Features:
+
+Every time I save a blocker on a lead, it gets added to the Blockers library (unless it already exists).
+
+The Blockers tab shows a list of blockers with:
+
+blocker text (short)
+
+category tag (price / timing / spouse / trust / logistics / etc.)
+
+count (how many times it happened)
+
+example leads associated with it (clickable)
+
+my “response” or “counter” (1–3 bullet points: what I should say next time)
+
+I should be able to edit the response/counter so I’m building an objection-handling playbook over time.
+
+7) Design requirements
+
+Extremely minimal, clean UI (not “corporate CRM”)
+
+Fast to use, low friction
+
+Keyboard-friendly if possible
+
+No bloated dashboards
+
+The goal is: I open this daily, it tells me exactly who to follow up with, and I never lose context because the call notes + recording are attached.
