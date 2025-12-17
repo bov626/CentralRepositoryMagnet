@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, CheckSquare, ShieldAlert, Plus, Search } from "lucide-react";
+import { LayoutDashboard, CheckSquare, ShieldAlert, Plus, Search, Settings } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -9,6 +9,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/", label: "Pipeline", icon: LayoutDashboard },
     { href: "/today", label: "Today", icon: CheckSquare },
     { href: "/blockers", label: "Blockers", icon: ShieldAlert },
+    { href: "/settings", label: "Settings", icon: Settings },
   ];
 
   return (

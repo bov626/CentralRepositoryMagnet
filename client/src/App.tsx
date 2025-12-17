@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import PipelinePage from "@/pages/pipeline";
 import TodayPage from "@/pages/today";
 import BlockersPage from "@/pages/blockers";
+import SettingsPage from "@/pages/settings";
 import { StoreProvider } from "@/lib/data";
 
 function Router() {
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={PipelinePage} />
       <Route path="/today" component={TodayPage} />
       <Route path="/blockers" component={BlockersPage} />
+      <Route path="/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>
   );
