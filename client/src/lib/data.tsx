@@ -25,6 +25,7 @@ export interface Lead {
   id: string;
   name: string;
   company?: string;
+  linkedIn?: string;
   tags: string[];
   pipeline: PipelineType;
   stage: string;
@@ -56,6 +57,7 @@ const initialLeads: Lead[] = [
     id: "1",
     name: "Sarah Miller",
     company: "TechFlow",
+    linkedIn: "https://linkedin.com/in/sarahmiller-example",
     tags: ["price", "perfect-fit"],
     pipeline: "jumpseat",
     stage: "pitch-call",
@@ -72,6 +74,7 @@ const initialLeads: Lead[] = [
     id: "2",
     name: "David Chen",
     company: "Acme Corp",
+    linkedIn: "https://linkedin.com/in/davidchen-example",
     tags: ["timing", "logistics"],
     pipeline: "jumpseat",
     stage: "backlog",

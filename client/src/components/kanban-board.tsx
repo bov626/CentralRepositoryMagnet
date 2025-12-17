@@ -1,10 +1,11 @@
 import { useStore, Lead, PipelineType, JumpseatStage, CommunityStage } from "@/lib/data";
-import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, defaultDropAnimationSideEffects, DropAnimation } from "@dnd-kit/core";
+import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, defaultDropAnimationSideEffects, DropAnimation, MeasuringStrategy } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { LeadCard } from "./lead-card";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import confetti from "canvas-confetti";
 
 // Column Definitions
 const JUMPSEAT_COLUMNS: { id: JumpseatStage; title: string }[] = [
@@ -69,13 +70,36 @@ export function KanbanBoard({ pipeline, onLeadClick }: KanbanBoardProps) {
       const activeLead = leads.find(l => l.id === activeLeadId);
       if (activeLead && activeLead.stage !== overId) {
         moveLead(activeLeadId, pipeline, overId);
+        
+        // Fireworks if moved to closed
+        if (overId === "closed") {
+            triggerFireworks();
+        }
       }
     }
     
-    // Note: Reordering within a column isn't implemented in the store yet (just stage changes), 
-    // so we'll skip detailed reordering logic for this prototype and focus on stage moves.
-
     setActiveId(null);
+  };
+
+  const triggerFireworks = () => {
+    const duration = 2 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval: any = setInterval(function() {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      // since particles fall down, start a bit higher than random
+      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+    }, 250);
   };
 
   const dropAnimation: DropAnimation = {
@@ -95,6 +119,11 @@ export function KanbanBoard({ pipeline, onLeadClick }: KanbanBoardProps) {
       sensors={sensors} 
       onDragStart={handleDragStart} 
       onDragEnd={handleDragEnd}
+      measuring={{
+        droppable: {
+            strategy: MeasuringStrategy.Always,
+        }
+      }}
     >
       <div className="flex h-full gap-4 overflow-x-auto pb-4">
         {columns.map((col) => {
@@ -129,26 +158,39 @@ export function KanbanBoard({ pipeline, onLeadClick }: KanbanBoardProps) {
 import { useDroppable } from "@dnd-kit/core";
 
 function KanbanColumn({ id, title, leads, onLeadClick }: { id: string, title: string, leads: Lead[], onLeadClick: (id: string) => void }) {
-  const { setNodeRef } = useDroppable({ id });
+  const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
-    <div ref={setNodeRef} className="flex-shrink-0 w-[280px] flex flex-col h-full bg-muted/30 rounded-lg border border-border/40">
-      <div className="p-3 border-b border-border/40 flex items-center justify-between sticky top-0 bg-muted/30 backdrop-blur-md rounded-t-lg z-10">
+    <div 
+        ref={setNodeRef} 
+        className={cn(
+            "flex-shrink-0 w-[280px] flex flex-col h-full rounded-lg border transition-all duration-200",
+            isOver ? "bg-muted/50 border-primary/30 ring-1 ring-primary/20 shadow-inner" : "bg-muted/10 border-border/40"
+        )}
+    >
+      <div className="p-3 border-b border-border/40 flex items-center justify-between sticky top-0 bg-background/50 backdrop-blur-md rounded-t-lg z-10">
         <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">{title}</h3>
-        <span className="text-xs font-mono bg-background/50 px-1.5 py-0.5 rounded text-muted-foreground">
+        <span className="text-xs font-mono bg-background px-1.5 py-0.5 rounded text-muted-foreground border border-border/50">
           {leads.length}
         </span>
       </div>
       
-      <div className="flex-1 p-2 overflow-y-auto space-y-2 min-h-[150px]">
+      <div className="flex-1 p-2 overflow-y-auto space-y-2 min-h-[150px] scrollbar-none">
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
           {leads.map((lead) => (
             <LeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead.id)} />
           ))}
         </SortableContext>
+        
+        {/* Placeholder effect when empty and dragging over */}
         {leads.length === 0 && (
-          <div className="h-24 border-2 border-dashed border-muted/50 rounded-md flex items-center justify-center">
-            <span className="text-xs text-muted-foreground/50">Empty</span>
+          <div className={cn(
+              "h-24 border-2 border-dashed rounded-md flex items-center justify-center transition-colors",
+              isOver ? "border-primary/40 bg-primary/5" : "border-muted/30"
+          )}>
+            <span className={cn("text-xs", isOver ? "text-primary/70" : "text-muted-foreground/30")}>
+                {isOver ? "Drop Here" : "Empty"}
+            </span>
           </div>
         )}
       </div>

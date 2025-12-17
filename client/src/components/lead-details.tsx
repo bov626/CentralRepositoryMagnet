@@ -3,8 +3,9 @@ import { Lead, useStore } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, AlertCircle, PlayCircle, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Calendar, Clock, AlertCircle, PlayCircle, ExternalLink, CheckCircle2, Linkedin } from "lucide-react";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 
@@ -17,10 +18,12 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
   const { leads, updateLead } = useStore();
   const lead = leads.find((l) => l.id === leadId);
   const [notes, setNotes] = useState("");
+  const [linkedInUrl, setLinkedInUrl] = useState("");
 
   useEffect(() => {
     if (lead) {
       setNotes(lead.summary || "");
+      setLinkedInUrl(lead.linkedIn || "");
     }
   }, [lead]);
 
@@ -28,6 +31,10 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
 
   const handleSaveNotes = () => {
     updateLead(lead.id, { summary: notes });
+  };
+
+  const handleSaveLinkedIn = () => {
+    updateLead(lead.id, { linkedIn: linkedInUrl });
   };
 
   return (
@@ -52,17 +59,36 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                 ))}
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4" />
-                    <span>Created {format(new Date(lead.history[0].date), "MMM d")}</span>
+            <div className="flex flex-col gap-3">
+                 {/* LinkedIn Field */}
+                <div className="flex items-center gap-2">
+                    <Linkedin className="h-4 w-4 text-[#0077b5]" />
+                    <Input 
+                        value={linkedInUrl}
+                        onChange={(e) => setLinkedInUrl(e.target.value)}
+                        onBlur={handleSaveLinkedIn}
+                        placeholder="Paste LinkedIn URL..."
+                        className="h-7 text-xs bg-transparent border-transparent hover:border-border focus:border-primary px-1 w-full max-w-[300px]"
+                    />
+                    {linkedInUrl && (
+                        <a href={linkedInUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary">
+                            <ExternalLink className="h-3 w-3" />
+                        </a>
+                    )}
                 </div>
-                {lead.nextFollowUp && (
-                    <div className="flex items-center gap-1.5 text-orange-400">
-                        <Clock className="h-4 w-4" />
-                        <span>Follow-up: {format(new Date(lead.nextFollowUp), "MMM d")}</span>
+
+                <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                    <div className="flex items-center gap-1.5">
+                        <Calendar className="h-4 w-4" />
+                        <span>Created {format(new Date(lead.history[0].date), "MMM d")}</span>
                     </div>
-                )}
+                    {lead.nextFollowUp && (
+                        <div className="flex items-center gap-1.5 text-orange-400">
+                            <Clock className="h-4 w-4" />
+                            <span>Follow-up: {format(new Date(lead.nextFollowUp), "MMM d")}</span>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
 
