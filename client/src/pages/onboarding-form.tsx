@@ -578,16 +578,25 @@ export default function OnboardingForm() {
         </div>
 
         <div className="flex justify-between pt-10 mt-10 border-t border-zinc-800/50">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={handleBack}
-            disabled={currentStep === 0}
-            className="gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800/50 disabled:opacity-30"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleBack}
+              disabled={currentStep === 0}
+              className="gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800/50 disabled:opacity-30"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </Button>
+            <button
+              type="button"
+              onClick={() => setCurrentStep(prev => Math.min(prev + 1, STEPS.length - 1))}
+              className="text-xs text-zinc-600 hover:text-zinc-400 px-2 py-1 border border-zinc-800 rounded"
+            >
+              DEV: Skip
+            </button>
+          </div>
 
           {currentStep < STEPS.length - 1 ? (
             <Button
