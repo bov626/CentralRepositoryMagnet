@@ -1,23 +1,26 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft } from "lucide-react";
+import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft, Sparkles } from "lucide-react";
 import { Link as RouterLink } from "wouter";
 
 const STEPS = [
-  { id: 'name', title: 'Your Information', icon: '👤' },
-  { id: 'documents', title: 'Your Information', icon: '👤' },
-  { id: 'career', title: 'Career Narrative', icon: '📖' },
-  { id: 'thinking', title: 'How You Think', icon: '🧠' },
-  { id: 'perspective', title: 'Perspective', icon: '🔍' },
+  { id: 'name', title: 'Your Information' },
+  { id: 'resume', title: 'Resume' },
+  { id: 'linkedin', title: 'LinkedIn' },
+  { id: 'coverletter', title: 'Cover Letter' },
+  { id: 'career', title: 'Career Narrative' },
+  { id: 'thinking', title: 'How You Think' },
+  { id: 'perspective', title: 'Perspective' },
 ];
 
 export default function OnboardingForm() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [prevStep, setPrevStep] = useState(0);
+  const [showSparkle, setShowSparkle] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [name, setName] = useState("");
@@ -52,44 +55,34 @@ export default function OnboardingForm() {
 
   const progress = (currentStep / STEPS.length) * 100;
 
+  useEffect(() => {
+    if (currentStep > prevStep) {
+      setShowSparkle(true);
+      const timer = setTimeout(() => setShowSparkle(false), 600);
+      return () => clearTimeout(timer);
+    }
+    setPrevStep(currentStep);
+  }, [currentStep, prevStep]);
+
   const canProceed = () => {
-    if (currentStep === 0) {
-      return name.trim() !== "";
-    }
-    if (currentStep === 1) {
-      const hasResume = resumeFile !== null;
-      const hasLinkedIn = noLinkedIn || linkedIn.trim() !== "";
-      return hasResume && hasLinkedIn;
-    }
+    if (currentStep === 0) return name.trim() !== "";
+    if (currentStep === 1) return resumeFile !== null;
+    if (currentStep === 2) return noLinkedIn || linkedIn.trim() !== "";
     return true;
   };
 
   const handleNext = () => {
     if (currentStep === 0 && !name.trim()) {
-      toast({
-        title: "Required Field",
-        description: "Please enter your name to continue",
-        variant: "destructive",
-      });
+      toast({ title: "Required Field", description: "Please enter your name to continue", variant: "destructive" });
       return;
     }
-    if (currentStep === 1) {
-      if (!resumeFile) {
-        toast({
-          title: "Resume Required",
-          description: "Please upload your resume to continue",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (!noLinkedIn && !linkedIn.trim()) {
-        toast({
-          title: "LinkedIn Required",
-          description: "Please enter your LinkedIn URL or check N/A",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (currentStep === 1 && !resumeFile) {
+      toast({ title: "Resume Required", description: "Please upload your resume to continue", variant: "destructive" });
+      return;
+    }
+    if (currentStep === 2 && !noLinkedIn && !linkedIn.trim()) {
+      toast({ title: "LinkedIn Required", description: "Please enter your LinkedIn URL or check N/A", variant: "destructive" });
+      return;
     }
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(prev => prev + 1);
@@ -104,16 +97,12 @@ export default function OnboardingForm() {
 
   const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setResumeFile(file);
-    }
+    if (file) setResumeFile(file);
   };
 
   const handleCoverLetterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setCoverLetterFile(file);
-    }
+    if (file) setCoverLetterFile(file);
   };
 
   const handleSubmit = async () => {
@@ -134,22 +123,12 @@ export default function OnboardingForm() {
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit form');
-      }
+      if (!response.ok) throw new Error(data.error || 'Failed to submit form');
 
       setSubmitted(true);
-      toast({
-        title: "Form Submitted!",
-        description: "Your responses have been sent. We'll be in touch soon.",
-      });
+      toast({ title: "Form Submitted!", description: "Your responses have been sent. We'll be in touch soon." });
     } catch (error: any) {
-      toast({
-        title: "Submission Failed",
-        description: error.message || "Could not submit form",
-        variant: "destructive",
-      });
+      toast({ title: "Submission Failed", description: error.message || "Could not submit form", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
@@ -210,15 +189,21 @@ export default function OnboardingForm() {
             </span>
             <span className="text-zinc-500">{Math.round(progress)}%</span>
           </div>
-          <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="h-1 bg-zinc-800 rounded-full overflow-hidden relative">
             <div 
-              className="h-full bg-gradient-to-r from-red-500 to-red-400 transition-all duration-500 ease-out rounded-full"
+              className="h-full bg-gradient-to-r from-red-500 to-red-400 transition-all duration-500 ease-out rounded-full relative"
               style={{ width: `${progress}%` }}
-            />
+            >
+              {showSparkle && (
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2">
+                  <Sparkles className="h-4 w-4 text-yellow-300 animate-ping" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="min-h-[450px]">
+        <div className="min-h-[400px]">
           {currentStep === 0 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8 text-center">
@@ -241,12 +226,11 @@ export default function OnboardingForm() {
 
           {currentStep === 1 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="mb-8">
-                <h2 className="text-2xl font-light tracking-tight mb-2">Your Information</h2>
-                <p className="text-zinc-500 text-sm">Documents and links</p>
+              <div className="mb-8 text-center">
+                <h2 className="text-2xl font-light tracking-tight">Now, let's determine a starting point.</h2>
               </div>
               
-              <div className="space-y-8">
+              <div className="space-y-6">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">Current Resume <span className="text-red-400">*</span></label>
                   <input
@@ -258,7 +242,7 @@ export default function OnboardingForm() {
                   />
                   <div
                     onClick={() => resumeInputRef.current?.click()}
-                    className={`group relative border rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${
+                    className={`group relative border rounded-xl p-10 text-center cursor-pointer transition-all duration-300 ${
                       resumeFile 
                         ? 'border-emerald-500/50 bg-emerald-500/5' 
                         : 'border-zinc-800 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900/50'
@@ -266,16 +250,13 @@ export default function OnboardingForm() {
                   >
                     {resumeFile ? (
                       <div className="flex items-center justify-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                          <FileText className="h-5 w-5 text-emerald-400" />
+                        <div className="w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                          <FileText className="h-6 w-6 text-emerald-400" />
                         </div>
                         <span className="text-emerald-400 font-medium">{resumeFile.name}</span>
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setResumeFile(null);
-                          }}
+                          onClick={(e) => { e.stopPropagation(); setResumeFile(null); }}
                           className="ml-2 p-1 text-zinc-500 hover:text-white transition-colors"
                         >
                           <X className="h-4 w-4" />
@@ -283,18 +264,28 @@ export default function OnboardingForm() {
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        <div className="w-12 h-12 mx-auto rounded-xl bg-zinc-800 flex items-center justify-center group-hover:bg-zinc-700 transition-colors">
-                          <Upload className="h-6 w-6 text-zinc-500 group-hover:text-zinc-400" />
+                        <div className="w-14 h-14 mx-auto rounded-xl bg-zinc-800 flex items-center justify-center group-hover:bg-zinc-700 transition-colors">
+                          <Upload className="h-7 w-7 text-zinc-500 group-hover:text-zinc-400" />
                         </div>
                         <div>
-                          <p className="text-sm text-zinc-400">Click to upload your resume</p>
+                          <p className="text-base text-zinc-400">Click to upload your resume</p>
                           <p className="text-xs text-zinc-600 mt-1">PDF, DOC, or DOCX</p>
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
 
+          {currentStep === 2 && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="mb-8 text-center">
+                <h2 className="text-2xl font-light tracking-tight">Where can we find you online?</h2>
+              </div>
+              
+              <div className="space-y-6">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">LinkedIn Profile <span className="text-red-400">*</span></label>
                   <div className="relative">
@@ -324,7 +315,17 @@ export default function OnboardingForm() {
                     </label>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
 
+          {currentStep === 3 && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="mb-8 text-center">
+                <h2 className="text-2xl font-light tracking-tight">Do you have a cover letter?</h2>
+              </div>
+              
+              <div className="space-y-6">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">Cover Letter <span className="text-zinc-600">(optional)</span></label>
                   <input
@@ -336,7 +337,7 @@ export default function OnboardingForm() {
                   />
                   <div
                     onClick={() => coverLetterInputRef.current?.click()}
-                    className={`group relative border rounded-xl p-6 text-center cursor-pointer transition-all duration-300 ${
+                    className={`group relative border rounded-xl p-10 text-center cursor-pointer transition-all duration-300 ${
                       coverLetterFile 
                         ? 'border-emerald-500/50 bg-emerald-500/5' 
                         : 'border-zinc-800 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900/50'
@@ -344,32 +345,39 @@ export default function OnboardingForm() {
                   >
                     {coverLetterFile ? (
                       <div className="flex items-center justify-center gap-3">
-                        <FileText className="h-5 w-5 text-emerald-400" />
+                        <div className="w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                          <FileText className="h-6 w-6 text-emerald-400" />
+                        </div>
                         <span className="text-emerald-400 font-medium">{coverLetterFile.name}</span>
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCoverLetterFile(null);
-                          }}
+                          onClick={(e) => { e.stopPropagation(); setCoverLetterFile(null); }}
                           className="ml-2 p-1 text-zinc-500 hover:text-white transition-colors"
                         >
                           <X className="h-4 w-4" />
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center gap-3">
-                        <Upload className="h-5 w-5 text-zinc-600" />
-                        <p className="text-sm text-zinc-500">Upload cover letter</p>
+                      <div className="space-y-3">
+                        <div className="w-14 h-14 mx-auto rounded-xl bg-zinc-800 flex items-center justify-center group-hover:bg-zinc-700 transition-colors">
+                          <Upload className="h-7 w-7 text-zinc-500 group-hover:text-zinc-400" />
+                        </div>
+                        <div>
+                          <p className="text-base text-zinc-400">Click to upload cover letter</p>
+                          <p className="text-xs text-zinc-600 mt-1">PDF, DOC, or DOCX</p>
+                        </div>
                       </div>
                     )}
                   </div>
+                  <p className="text-center text-sm text-zinc-600 mt-4">
+                    No cover letter? No problem - just click Continue.
+                  </p>
                 </div>
               </div>
             </div>
           )}
 
-          {currentStep === 2 && (
+          {currentStep === 4 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">Career Narrative</h2>
@@ -440,7 +448,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 3 && (
+          {currentStep === 5 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">How You Think</h2>
@@ -502,7 +510,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 6 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">Perspective & Differentiation</h2>
