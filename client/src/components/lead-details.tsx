@@ -90,39 +90,6 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                     {lead.actionNeeded && (
                         <Badge variant="destructive" className="animate-pulse">Action Needed</Badge>
                     )}
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
-                                data-testid="button-delete-lead"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Lead</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Are you sure you want to delete "{lead.name}"? This action cannot be undone.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() => {
-                                        deleteLead(lead.id);
-                                        onClose();
-                                    }}
-                                    className="bg-red-600 hover:bg-red-700"
-                                    data-testid="button-confirm-delete"
-                                >
-                                    Delete
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
                 </div>
             </div>
             
@@ -284,6 +251,45 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                         </div>
                     ))}
                 </div>
+            </section>
+
+            <Separator />
+
+            {/* Delete Lead */}
+            <section className="pt-4">
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button 
+                            variant="destructive" 
+                            className="w-full bg-red-600 hover:bg-red-700"
+                            data-testid="button-delete-lead"
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Lead
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Lead</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete "{lead.name}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => {
+                                    deleteLead(lead.id);
+                                    onClose();
+                                }}
+                                className="bg-red-600 hover:bg-red-700"
+                                data-testid="button-confirm-delete"
+                            >
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </section>
         </div>
       </SheetContent>
