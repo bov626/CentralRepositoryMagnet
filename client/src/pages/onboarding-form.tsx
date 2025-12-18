@@ -54,19 +54,16 @@ export default function OnboardingForm() {
     setAnswers(prev => ({ ...prev, [key]: value }));
   };
 
-  const progress = (highestStep / STEPS.length) * 100;
+  const progress = (Math.max(highestStep, currentStep) / STEPS.length) * 100;
 
   useEffect(() => {
-    if (currentStep > prevStep) {
+    if (currentStep > highestStep) {
+      setHighestStep(currentStep);
       setShowSparkle(true);
       const timer = setTimeout(() => setShowSparkle(false), 600);
       return () => clearTimeout(timer);
     }
-    if (currentStep > highestStep) {
-      setHighestStep(currentStep);
-    }
-    setPrevStep(currentStep);
-  }, [currentStep, prevStep, highestStep]);
+  }, [currentStep, highestStep]);
 
   const canProceed = () => {
     if (currentStep === 0) return name.trim() !== "";
