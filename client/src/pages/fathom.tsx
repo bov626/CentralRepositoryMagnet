@@ -44,11 +44,12 @@ export default function FathomPage() {
   const queryClient = useQueryClient();
   const { leads } = useStore();
 
-  // Get set of imported recording IDs from existing leads
+  // Get set of imported recording IDs from existing leads (check fathomRecordingId first, then parse recordingLink)
   const importedRecordingIds = new Set(
     leads
-      .filter(l => l.recordingLink)
+      .filter(l => l.fathomRecordingId || l.recordingLink)
       .map(l => {
+        if (l.fathomRecordingId) return l.fathomRecordingId;
         const match = l.recordingLink?.match(/\/calls\/(\d+)/);
         return match ? parseInt(match[1]) : null;
       })
@@ -87,9 +88,14 @@ export default function FathomPage() {
       }
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data, _variables, context) => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
-      toast.success(`Imported "${data.name}" as a new lead`);
+      // Check if this was an enhancement (lead already existed) or new import
+      const wasEnhancement = leads.some(l => l.email && l.email === data.email);
+      toast.success(wasEnhancement 
+        ? `Enhanced "${data.name}" with Fathom call data` 
+        : `Imported "${data.name}" as a new lead`
+      );
     },
     onError: (error: Error) => {
       toast.error(error.message);
