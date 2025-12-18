@@ -41,7 +41,16 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
     if (lead) {
       setNotes(lead.summary || "");
       setLinkedInUrl(lead.linkedIn || "");
-      setFollowUpDate(lead.nextFollowUp ? new Date(lead.nextFollowUp).toISOString().split('T')[0] : "");
+      // Parse date in local timezone to avoid off-by-one day issues
+      if (lead.nextFollowUp) {
+        const date = new Date(lead.nextFollowUp);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        setFollowUpDate(`${year}-${month}-${day}`);
+      } else {
+        setFollowUpDate("");
+      }
       setEditableName(lead.name || "");
     }
   }, [leadId]);
@@ -78,9 +87,14 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
   };
 
   const handleSaveFollowUp = (dateValue: string) => {
-    updateLead(lead.id, { 
-      nextFollowUp: dateValue ? new Date(dateValue).toISOString() : null 
-    });
+    // Store date at noon local time to avoid timezone-related day shifts
+    if (dateValue) {
+      const [year, month, day] = dateValue.split('-').map(Number);
+      const date = new Date(year, month - 1, day, 12, 0, 0);
+      updateLead(lead.id, { nextFollowUp: date.toISOString() });
+    } else {
+      updateLead(lead.id, { nextFollowUp: null });
+    }
   };
 
   const handleClearFollowUp = () => {
