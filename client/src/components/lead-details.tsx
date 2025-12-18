@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, AlertCircle, PlayCircle, ExternalLink, CheckCircle2, Linkedin, X, Plus, Trash2, Archive } from "lucide-react";
+import { Calendar, Clock, AlertCircle, PlayCircle, ExternalLink, CheckCircle2, Linkedin, X, Plus, Trash2, Archive, Check } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +37,7 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [pitchAmount, setPitchAmount] = useState("");
   const [newActionItem, setNewActionItem] = useState("");
+  const [completingItems, setCompletingItems] = useState<Set<number>>(new Set());
 
   // Only sync state when opening a different lead (not on every lead update)
   useEffect(() => {
@@ -121,6 +122,33 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
     if (!lead) return;
     const updatedItems = (lead.actionItems || []).filter((_, i) => i !== index);
     updateLead(lead.id, { actionItems: updatedItems });
+  };
+
+  const handleCompleteActionItem = (index: number, itemText: string) => {
+    if (!lead) return;
+    
+    // Add to completing animation set
+    setCompletingItems(prev => new Set(prev).add(index));
+    
+    // After animation, remove item and add to history
+    setTimeout(() => {
+      const updatedItems = (lead.actionItems || []).filter((_, i) => i !== index);
+      const existingHistory = Array.isArray(lead.history) ? lead.history : [];
+      
+      updateLead(lead.id, { 
+        actionItems: updatedItems,
+        history: [...existingHistory, {
+          date: new Date().toISOString(),
+          action: `Completed: ${itemText}`
+        }]
+      });
+      
+      setCompletingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(index);
+        return newSet;
+      });
+    }, 500);
   };
 
   const handleSheetClose = () => {
@@ -337,18 +365,44 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                     <AlertCircle className="h-4 w-4" /> Action Items
                 </h3>
                 <div className="space-y-2">
-                    {(lead.actionItems || []).map((item, index) => (
-                        <div key={index} className="flex items-center gap-2 p-3 rounded bg-red-500/10 border border-red-500/20">
-                            <span className="text-red-200 text-sm flex-1">{item}</span>
+                    {(lead.actionItems || []).map((item, index) => {
+                        const isCompleting = completingItems.has(index);
+                        return (
+                          <div 
+                            key={index} 
+                            className={`flex items-center gap-2 p-3 rounded border transition-all duration-500 ${
+                              isCompleting 
+                                ? 'bg-green-500/20 border-green-500/40 scale-95 opacity-0' 
+                                : 'bg-red-500/10 border-red-500/20'
+                            }`}
+                          >
+                            <button 
+                                onClick={() => handleCompleteActionItem(index, item)}
+                                className={`p-1 rounded-full transition-all duration-300 ${
+                                  isCompleting 
+                                    ? 'bg-green-500 text-white scale-110' 
+                                    : 'border border-muted-foreground/30 text-muted-foreground hover:border-green-500 hover:text-green-500 hover:bg-green-500/10'
+                                }`}
+                                title="Mark complete"
+                                disabled={isCompleting}
+                                data-testid={`button-complete-action-item-${index}`}
+                            >
+                                <Check className="h-3 w-3" />
+                            </button>
+                            <span className={`text-sm flex-1 transition-all duration-300 ${
+                              isCompleting ? 'line-through text-green-400' : 'text-red-200'
+                            }`}>{item}</span>
                             <button 
                                 onClick={() => handleRemoveActionItem(index)}
-                                className="text-red-400 hover:text-red-300"
+                                className="text-muted-foreground hover:text-red-400 transition-colors"
+                                title="Delete"
                                 data-testid={`button-remove-action-item-${index}`}
                             >
-                                <X className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4" />
                             </button>
-                        </div>
-                    ))}
+                          </div>
+                        );
+                    })}
                     <div className="flex gap-2">
                         <Input
                             value={newActionItem}
