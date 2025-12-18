@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertLeadSchema, insertBlockerSchema } from "@shared/schema";
 import { z } from "zod";
 import { getUpcomingEvents, createEvent } from "./google-calendar";
+import { listMeetings, getMeeting, extractLeadDataFromMeeting, isFathomConfigured } from "./fathom";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -137,6 +138,72 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error creating calendar event:", error);
       res.status(500).json({ error: error.message || "Failed to create calendar event" });
+    }
+  });
+
+  // Fathom API routes
+  app.get("/api/fathom/status", async (req, res) => {
+    res.json({ configured: isFathomConfigured() });
+  });
+
+  app.get("/api/fathom/meetings", async (req, res) => {
+    try {
+      if (!isFathomConfigured()) {
+        return res.status(400).json({ error: "Fathom API key not configured" });
+      }
+      const meetings = await listMeetings({
+        includeSummary: true,
+        includeActionItems: true,
+      });
+      res.json(meetings);
+    } catch (error: any) {
+      console.error("Error fetching Fathom meetings:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch meetings from Fathom" });
+    }
+  });
+
+  app.post("/api/fathom/import/:recordingId", async (req, res) => {
+    try {
+      if (!isFathomConfigured()) {
+        return res.status(400).json({ error: "Fathom API key not configured" });
+      }
+      
+      const recordingId = parseInt(req.params.recordingId);
+      const meeting = await getMeeting(recordingId);
+      
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      
+      const leadData = extractLeadDataFromMeeting(meeting);
+      
+      const newLead = await storage.createLead({
+        name: leadData.name,
+        email: leadData.email || null,
+        company: leadData.company,
+        linkedIn: null,
+        tags: [],
+        pipeline: "jumpseat",
+        stage: "backlog",
+        onboardingStage: null,
+        nextFollowUp: null,
+        actionNeeded: true,
+        summary: leadData.summary,
+        keyTakeaways: leadData.keyTakeaways,
+        blocker: null,
+        decisionTrigger: null,
+        followUpAngle: null,
+        recordingLink: leadData.recordingLink,
+        history: [{
+          date: new Date().toISOString(),
+          action: `Imported from Fathom: ${meeting.title}`
+        }],
+      });
+      
+      res.status(201).json(newLead);
+    } catch (error: any) {
+      console.error("Error importing from Fathom:", error);
+      res.status(500).json({ error: error.message || "Failed to import meeting" });
     }
   });
 
