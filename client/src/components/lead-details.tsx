@@ -36,6 +36,7 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
   const [editableName, setEditableName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
 
+  // Only sync state when opening a different lead (not on every lead update)
   useEffect(() => {
     if (lead) {
       setNotes(lead.summary || "");
@@ -43,7 +44,7 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
       setFollowUpDate(lead.nextFollowUp ? new Date(lead.nextFollowUp).toISOString().split('T')[0] : "");
       setEditableName(lead.name || "");
     }
-  }, [lead]);
+  }, [leadId]);
 
   const handleAddTag = () => {
     if (!lead || !newTag.trim()) return;
