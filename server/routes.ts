@@ -268,11 +268,41 @@ export async function registerRoutes(
         }
         
         // Create new lead from calendar event
-        const attendeeName = externalAttendee.displayName || externalAttendee.email.split('@')[0];
+        // Priority: 1) displayName from Google, 2) event title if it looks like a name, 3) formatted email prefix
+        let attendeeName = externalAttendee.displayName;
+        
+        if (!attendeeName) {
+          // Check if event title is a person's name (1-3 words, no special chars)
+          const eventTitle = event.summary || '';
+          const looksLikeName = /^[A-Za-z]+(\s[A-Za-z]+){0,2}$/.test(eventTitle.trim());
+          if (looksLikeName && eventTitle.length < 40) {
+            attendeeName = eventTitle.trim();
+          } else {
+            // Convert email prefix to proper name: "carl.j.noonan" -> "Carl J Noonan"
+            const emailPrefix = externalAttendee.email.split('@')[0];
+            attendeeName = emailPrefix
+              .replace(/[._-]/g, ' ')
+              .replace(/\d+/g, '')
+              .trim()
+              .split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+              .join(' ');
+          }
+        }
+        
+        // Extract company from email domain
+        const emailDomain = externalAttendee.email.split('@')[1] || '';
+        const company = emailDomain
+          .replace(/\.(com|org|net|io|co|edu)$/i, '')
+          .replace(/\./g, ' ')
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ') || null;
+        
         const newLead = await storage.createLead({
-          name: attendeeName,
+          name: attendeeName || 'Unknown',
           email: externalAttendee.email,
-          company: externalAttendee.email.split('@')[1]?.replace('.com', '').replace('.org', '') || null,
+          company,
           linkedIn: null,
           tags: [],
           pipeline: "jumpseat",
