@@ -152,7 +152,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Move lead mutation
+  // Move lead mutation with optimistic updates for smooth drag-drop
   const moveLeadMutation = useMutation({
     mutationFn: async ({ id, pipeline, stage }: { id: string; pipeline: PipelineType; stage: string }) => {
       const lead = leads.find((l) => l.id === id);
@@ -178,12 +178,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!res.ok) throw new Error("Failed to move lead");
       return res.json();
     },
-    onSuccess: () => {
+    onMutate: async ({ id, pipeline, stage }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["leads"] });
+      
+      // Snapshot previous value
+      const previousLeads = queryClient.getQueryData<Lead[]>(["leads"]);
+      
+      // Optimistically update the cache
+      queryClient.setQueryData<Lead[]>(["leads"], (old) => {
+        if (!old) return old;
+        return old.map((lead) => {
+          if (lead.id === id) {
+            return {
+              ...lead,
+              pipeline,
+              stage,
+              onboardingStage: stage === "closed" && !lead.onboardingStage ? "call-1" as OnboardingStage : lead.onboardingStage,
+            };
+          }
+          return lead;
+        });
+      });
+      
+      return { previousLeads };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousLeads) {
+        queryClient.setQueryData(["leads"], context.previousLeads);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
     },
   });
 
-  // Move onboarding lead mutation
+  // Move onboarding lead mutation with optimistic updates
   const moveOnboardingLeadMutation = useMutation({
     mutationFn: async ({ id, onboardingStage }: { id: string; onboardingStage: OnboardingStage }) => {
       const lead = leads.find((l) => l.id === id);
@@ -210,7 +241,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!res.ok) throw new Error("Failed to move onboarding lead");
       return res.json();
     },
-    onSuccess: () => {
+    onMutate: async ({ id, onboardingStage }) => {
+      await queryClient.cancelQueries({ queryKey: ["leads"] });
+      const previousLeads = queryClient.getQueryData<Lead[]>(["leads"]);
+      
+      queryClient.setQueryData<Lead[]>(["leads"], (old) => {
+        if (!old) return old;
+        return old.map((lead) => lead.id === id ? { ...lead, onboardingStage } : lead);
+      });
+      
+      return { previousLeads };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousLeads) {
+        queryClient.setQueryData(["leads"], context.previousLeads);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
     },
   });
