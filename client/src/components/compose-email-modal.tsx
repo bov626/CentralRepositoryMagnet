@@ -5,8 +5,65 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useStore } from "@/lib/data";
 import { useState, useEffect } from "react";
-import { Send, Sparkles, Loader2 } from "lucide-react";
+import { Send, Loader2, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const EMAIL_TEMPLATES = {
+  "follow-up": {
+    subject: "Following up",
+    body: `{Name},
+
+Just wanted to follow-up.
+
+I've got one slot left in the group and I'm mentally holding it open for you.
+
+I know you're mid-interview right now, so if one of those turns into an offer, I'd obviously just refund you. Or we could always look for a third role ;).
+
+Let me know either way.
+
+-W.W.`
+  },
+  "initial-service": {
+    subject: "Service Agreement",
+    body: `{First Name},
+
+After our call yesterday, it's clear you're a great fit for this.
+
+I'd be excited to help you land J2.
+
+Here's the service outline in writing:
+https://bit.ly/Service-outline
+
+Happy to answer any questions, otherwise let me know how you'd like to move forward.
+
+– W.W.`
+  },
+  "onboarding-1": {
+    subject: "Onboarding Details",
+    body: `{First Name},
+
+1. Payment Link:
+https://buy.stripe.com/dRm8wP9Wo24acLEfu8gbm02
+
+2. Onboarding #1 
+The first onboarding session I want to know more about you(motivations, goals, thought process). I have provided a list of seemingly random quesitons but they will help me fine tune the applying UI(cover letter, resume, linkedIn). 
+
+Then during the second onboarding session we will get square on the exact roles we are looking for. 
+
+The first set of questions:
+https://bit.ly/Onboardingcall1
+
+ The link to schedule our first onboarding session:
+https://calendly.com/wyedoyoudothis/onboarding-call`
+  }
+};
 
 export function ComposeEmailModal() {
   const { emailingLead, setEmailingLead } = useStore();
@@ -22,6 +79,22 @@ export function ComposeEmailModal() {
       setRecipientEmail(emailingLead.email || "");
     }
   }, [emailingLead]);
+
+  const applyTemplate = (templateKey: string) => {
+    if (!emailingLead) return;
+    const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+    if (!template) return;
+
+    const firstName = emailingLead.name.split(' ')[0];
+    const fullName = emailingLead.name;
+
+    const processedBody = template.body
+      .replace(/\{First Name\}/g, firstName)
+      .replace(/\{Name\}/g, fullName);
+
+    setSubject(template.subject);
+    setBody(processedBody);
+  };
 
   const handleSend = async () => {
     if (!recipientEmail) {
@@ -116,9 +189,17 @@ export function ComposeEmailModal() {
                     className="min-h-[200px] resize-none"
                  />
                  <div className="flex gap-2 mt-2">
-                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-1 h-6">
-                        <Sparkles className="h-3 w-3" /> AI Improve
-                    </Button>
+                    <Select onValueChange={applyTemplate}>
+                      <SelectTrigger className="w-[180px] h-8 text-xs">
+                        <FileText className="h-3 w-3 mr-1" />
+                        <SelectValue placeholder="Template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="follow-up">Follow-up</SelectItem>
+                        <SelectItem value="initial-service">Initial Service</SelectItem>
+                        <SelectItem value="onboarding-1">Onboarding #1</SelectItem>
+                      </SelectContent>
+                    </Select>
                  </div>
              </div>
           </div>
