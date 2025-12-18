@@ -1,9 +1,9 @@
 import { useStore, Lead, PipelineType, JumpseatStage, CommunityStage } from "@/lib/data";
-import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, DragOverEvent, defaultDropAnimationSideEffects, DropAnimation, MeasuringStrategy } from "@dnd-kit/core";
+import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, DragOverEvent, DragMoveEvent, defaultDropAnimationSideEffects, DropAnimation, MeasuringStrategy } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { LeadCard } from "./lead-card";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
@@ -35,6 +35,8 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const [communityCollapsed, setCommunityCollapsed] = useState(false);
+  const [dragRotation, setDragRotation] = useState(0);
+  const lastX = useRef(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -46,6 +48,18 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    setDragRotation(0);
+    lastX.current = 0;
+  };
+
+  const handleDragMove = (event: DragMoveEvent) => {
+    const currentX = event.delta.x;
+    const velocity = currentX - lastX.current;
+    lastX.current = currentX;
+    
+    // Subtle rotation based on horizontal movement (-3 to 3 degrees)
+    const rotation = Math.max(-3, Math.min(3, velocity * 0.3));
+    setDragRotation(rotation);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -128,6 +142,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
     
     setActiveId(null);
     setOverColumnId(null);
+    setDragRotation(0);
   };
 
   const triggerFireworks = () => {
@@ -150,14 +165,25 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
     }, 250);
   };
 
-  const dropAnimation: DropAnimation | null = null;
+  const dropAnimation: DropAnimation = {
+    duration: 200,
+    easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+    sideEffects: defaultDropAnimationSideEffects({
+      styles: {
+        active: {
+          opacity: '0.8',
+        },
+      },
+    }),
+  };
 
   const activeLead = leads.find(l => l.id === activeId);
 
   return (
     <DndContext 
       sensors={sensors} 
-      onDragStart={handleDragStart} 
+      onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       measuring={{
@@ -239,7 +265,13 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
       {createPortal(
         <DragOverlay dropAnimation={dropAnimation}>
           {activeLead ? (
-             <div className="w-[280px] cursor-grabbing transform rotate-2 scale-105 shadow-2xl shadow-primary/20 transition-transform">
+             <div 
+               className="w-[280px] cursor-grabbing scale-105 shadow-2xl shadow-primary/20"
+               style={{ 
+                 transform: `rotate(${dragRotation}deg)`,
+                 transition: 'transform 100ms ease-out'
+               }}
+             >
                <LeadCard lead={activeLead} onClick={() => {}} isOverlay />
              </div>
           ) : null}
