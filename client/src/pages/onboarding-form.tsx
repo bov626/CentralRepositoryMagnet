@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft, Sparkles } from "lucide-react";
+import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft } from "lucide-react";
 import { Link as RouterLink } from "wouter";
 
 const STEPS = [
@@ -20,8 +20,6 @@ const STEPS = [
 export default function OnboardingForm() {
   const [currentStep, setCurrentStep] = useState(0);
   const [highestStep, setHighestStep] = useState(0);
-  const [prevStep, setPrevStep] = useState(0);
-  const [showSparkle, setShowSparkle] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [name, setName] = useState("");
@@ -59,9 +57,6 @@ export default function OnboardingForm() {
   useEffect(() => {
     if (currentStep > highestStep) {
       setHighestStep(currentStep);
-      setShowSparkle(true);
-      const timer = setTimeout(() => setShowSparkle(false), 600);
-      return () => clearTimeout(timer);
     }
   }, [currentStep, highestStep]);
 
@@ -214,11 +209,6 @@ export default function OnboardingForm() {
               className="h-full bg-gradient-to-r from-red-500 to-red-400 transition-all duration-500 ease-out rounded-full relative"
               style={{ width: `${progress}%` }}
             >
-              {showSparkle && (
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 animate-in zoom-in fade-in duration-300">
-                  <Sparkles className="h-4 w-4 text-yellow-300" />
-                </div>
-              )}
             </div>
           </div>
         </div>
