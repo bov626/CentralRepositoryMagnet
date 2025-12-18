@@ -198,21 +198,23 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
       <div className="space-y-8 pb-12 h-full flex flex-col">
         {/* Jumpseat Pipeline */}
         <section className="flex-1 min-h-[650px] flex flex-col">
-          <div className="flex items-center mb-4 px-1 shrink-0 gap-4">
-            <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-              <span className="w-2 h-8 bg-primary rounded-sm block"></span>
-              Jumpseat Pipeline
-            </h2>
-            <a
-              href="https://www.canva.com/design/DAG7gKJfndQ/JPBsVNk6ymFqfNCGN2nr_w/edit"
-              target="_blank"
-              rel="noreferrer"
-              className="px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-md transition-colors"
-              data-testid="link-pitch"
-            >
-              Pitch
-            </a>
-            <div className="relative ml-auto w-64">
+          <div className="mb-4 px-1 shrink-0 space-y-3">
+            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                <span className="w-2 h-8 bg-primary rounded-sm block"></span>
+                Jumpseat Pipeline
+              </h2>
+              <a
+                href="https://www.canva.com/design/DAG7gKJfndQ/JPBsVNk6ymFqfNCGN2nr_w/edit"
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-md transition-colors"
+                data-testid="link-pitch"
+              >
+                Pitch
+              </a>
+            </div>
+            <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
