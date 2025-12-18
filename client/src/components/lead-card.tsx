@@ -78,7 +78,7 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
       </div>
 
       <div className="flex flex-wrap gap-1 mb-3">
-        {lead.tags.slice(0, 3).map((tag) => (
+        {lead.tags.slice(0, 4).map((tag) => (
           <span 
             key={tag} 
             className="text-[10px] px-1.5 py-0.5 rounded-sm bg-secondary text-secondary-foreground border border-secondary-foreground/10"
@@ -86,7 +86,7 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
             {tag}
           </span>
         ))}
-        {lead.tags.length > 3 && (
+        {lead.tags.length > 4 && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-secondary text-secondary-foreground">+</span>
         )}
       </div>

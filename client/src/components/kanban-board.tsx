@@ -147,7 +147,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
     >
       <div className="space-y-8 pb-12 h-full flex flex-col">
         {/* Jumpseat Pipeline */}
-        <section className="flex-1 min-h-[400px] flex flex-col">
+        <section className="flex-1 min-h-[650px] flex flex-col">
           <div className="flex items-center justify-between mb-4 px-1 shrink-0">
             <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
               <span className="w-2 h-8 bg-primary rounded-sm block"></span>
