@@ -10,6 +10,7 @@ export type JumpseatStage =
   | "pitch-call"
   | "decision-pending"
   | "nudge-scheduled"
+  | "future-client"
   | "closed"
   | "disqualified";
 

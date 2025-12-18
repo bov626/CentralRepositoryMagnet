@@ -14,6 +14,7 @@ const JUMPSEAT_COLUMNS: { id: JumpseatStage; title: string }[] = [
   { id: "pitch-call", title: "Pitch Call" },
   { id: "decision-pending", title: "Decision Pending" },
   { id: "nudge-scheduled", title: "Nudge Scheduled" },
+  { id: "future-client", title: "Future Client" },
   { id: "closed", title: "Closed" },
   { id: "disqualified", title: "Disqualified" },
 ];
