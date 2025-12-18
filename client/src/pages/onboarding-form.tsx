@@ -20,6 +20,7 @@ const STEPS = [
 export default function OnboardingForm() {
   const [currentStep, setCurrentStep] = useState(0);
   const [highestStep, setHighestStep] = useState(0);
+  const [clickedContinue, setClickedContinue] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [name, setName] = useState("");
@@ -616,15 +617,22 @@ export default function OnboardingForm() {
           </div>
 
           {currentStep < STEPS.length - 1 ? (
-            <Button
-              type="button"
-              onClick={handleNext}
-              disabled={!canProceed()}
-              className="gap-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white border-0 shadow-lg shadow-red-500/20 disabled:opacity-30 disabled:shadow-none px-8"
-            >
-              Continue
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-3">
+              {clickedContinue && currentStep === 1 && (
+                <span className="text-xs text-zinc-500 animate-in fade-in duration-500">
+                  Tip: Press Enter to continue faster
+                </span>
+              )}
+              <Button
+                type="button"
+                onClick={() => { setClickedContinue(true); handleNext(); }}
+                disabled={!canProceed()}
+                className="gap-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white border-0 shadow-lg shadow-red-500/20 disabled:opacity-30 disabled:shadow-none px-8"
+              >
+                Continue
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           ) : (
             <Button
               type="button"
