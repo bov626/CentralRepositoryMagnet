@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getUpcomingEvents, createEvent } from "./google-calendar";
 import { listMeetings, getMeeting, extractLeadDataFromMeeting, isFathomConfigured } from "./fathom";
 import { summarizeClientNeeds } from "./ai-summarize";
+import { sendEmail, isGmailConfigured } from "./gmail";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -362,6 +363,28 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error syncing calendar:", error);
       res.status(500).json({ error: error.message || "Failed to sync calendar" });
+    }
+  });
+
+  // Email routes
+  app.get("/api/email/status", async (req, res) => {
+    const configured = await isGmailConfigured();
+    res.json({ configured });
+  });
+
+  app.post("/api/email/send", async (req, res) => {
+    try {
+      const { to, subject, body } = req.body;
+      
+      if (!to || !subject || !body) {
+        return res.status(400).json({ error: "Missing required fields: to, subject, body" });
+      }
+      
+      await sendEmail(to, subject, body);
+      res.json({ success: true, message: "Email sent successfully" });
+    } catch (error: any) {
+      console.error("Error sending email:", error);
+      res.status(500).json({ error: error.message || "Failed to send email" });
     }
   });
 

@@ -5,32 +5,69 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useStore } from "@/lib/data";
 import { useState, useEffect } from "react";
-import { Send, Sparkles } from "lucide-react";
+import { Send, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 export function ComposeEmailModal() {
   const { emailingLead, setEmailingLead } = useStore();
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
 
-  // Reset fields when a new lead is selected
   useEffect(() => {
     if (emailingLead) {
       setSubject(`Following up on our conversation`);
       setBody(`Hi ${emailingLead.name.split(' ')[0]},\n\nGreat chatting with you earlier. Just wanted to follow up on...`);
+      setRecipientEmail(emailingLead.email || "");
     }
   }, [emailingLead]);
 
-  if (!emailingLead) return null;
+  const handleSend = async () => {
+    if (!recipientEmail) {
+      toast({
+        title: "Missing Email",
+        description: "Please enter a recipient email address",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const handleSend = () => {
-    // Simulate sending email
-    toast({
+    setSending(true);
+    try {
+      const response = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipientEmail,
+          subject,
+          body,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send email');
+      }
+
+      toast({
         title: "Email Sent",
-        description: `Sent to ${emailingLead.email || emailingLead.name}`,
-    });
-    setEmailingLead(null);
+        description: `Sent to ${recipientEmail}`,
+      });
+      setEmailingLead(null);
+    } catch (error: any) {
+      toast({
+        title: "Failed to Send",
+        description: error.message || "Could not send email",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
   };
+
+  if (!emailingLead) return null;
 
   return (
     <Dialog open={!!emailingLead} onOpenChange={(open) => !open && setEmailingLead(null)}>
@@ -45,7 +82,7 @@ export function ComposeEmailModal() {
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right text-muted-foreground text-xs uppercase tracking-wider">From</Label>
             <Input 
-                value="Wyedoyoudothis@gmail.com" 
+                value="wyedoyoudothis@gmail.com" 
                 disabled 
                 className="col-span-3 bg-muted/50 border-transparent text-muted-foreground" 
             />
@@ -53,13 +90,12 @@ export function ComposeEmailModal() {
           
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right text-muted-foreground text-xs uppercase tracking-wider">To</Label>
-            <div className="col-span-3 flex items-center gap-2">
-                <Input 
-                    value={emailingLead.email || ""} 
-                    placeholder="recipient@example.com"
-                    className="bg-transparent"
-                />
-            </div>
+            <Input 
+                value={recipientEmail} 
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                placeholder="recipient@example.com"
+                className="col-span-3 bg-transparent"
+            />
           </div>
           
           <div className="grid grid-cols-4 items-center gap-4">
@@ -89,9 +125,12 @@ export function ComposeEmailModal() {
         </div>
 
         <DialogFooter>
-            <Button variant="outline" onClick={() => setEmailingLead(null)}>Cancel</Button>
-            <Button onClick={handleSend} className="gap-2">
-                <Send className="h-4 w-4" /> Send Email
+            <Button variant="outline" onClick={() => setEmailingLead(null)} disabled={sending}>
+              Cancel
+            </Button>
+            <Button onClick={handleSend} disabled={sending} className="gap-2">
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {sending ? "Sending..." : "Send Email"}
             </Button>
         </DialogFooter>
       </DialogContent>
