@@ -88,8 +88,27 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
     updateLead(lead.id, { nextFollowUp: null });
   };
 
+  const handleSheetClose = () => {
+    // Save all pending changes before closing
+    if (lead) {
+      // Save notes if changed
+      if (notes !== (lead.summary || "")) {
+        updateLead(lead.id, { summary: notes });
+      }
+      // Save LinkedIn if changed
+      if (linkedInUrl !== (lead.linkedIn || "")) {
+        updateLead(lead.id, { linkedIn: linkedInUrl });
+      }
+      // Save name if editing and changed
+      if (isEditingName && editableName.trim() !== lead.name) {
+        updateLead(lead.id, { name: editableName.trim() });
+      }
+    }
+    onClose();
+  };
+
   return (
-    <Sheet open={!!leadId} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={!!leadId} onOpenChange={(open) => !open && handleSheetClose()}>
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto bg-card border-l border-border p-0 gap-0">
         <div className="p-6 pb-4 border-b border-border bg-muted/20">
             <div className="flex items-start justify-between mb-4">
