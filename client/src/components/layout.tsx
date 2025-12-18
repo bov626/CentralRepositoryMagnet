@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, CheckSquare, ShieldAlert, Plus, Search, Settings } from "lucide-react";
 import { ComposeEmailModal } from "@/components/compose-email-modal";
+import logo from "@assets/AutoPilot_(6)_1766016477027.png";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -17,11 +18,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background text-foreground flex font-sans selection:bg-primary/20">
       {/* Sidebar */}
       <aside className="w-16 lg:w-64 border-r border-sidebar-border bg-sidebar flex flex-col fixed inset-y-0 z-50 transition-all duration-300">
-        <div className="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-sidebar-border">
-          <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
-            <span className="font-bold text-primary-foreground">J</span>
-          </div>
-          <span className="ml-3 font-semibold text-lg hidden lg:block tracking-tight">Jumpseat</span>
+        <div className="h-20 flex items-center justify-center lg:justify-start lg:px-6 border-b border-sidebar-border/50">
+           <img src={logo} alt="Jumpseat Logo" className="h-10 w-auto object-contain" />
         </div>
 
         <nav className="flex-1 p-2 space-y-1 mt-4">

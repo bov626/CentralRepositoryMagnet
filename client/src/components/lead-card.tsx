@@ -44,9 +44,9 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
       {...listeners}
       onClick={onClick}
       className={cn(
-        "group relative bg-card hover:bg-card/80 p-3 rounded-md border border-border shadow-sm cursor-grab active:cursor-grabbing transition-all hover:shadow-md select-none",
+        "group relative bg-card p-3 rounded-md border border-white/5 shadow-sm cursor-grab active:cursor-grabbing transition-all hover:shadow-md select-none hover:border-white/10 hover:bg-card/80",
         isDragging && "opacity-30",
-        isOverlay && "opacity-100 shadow-xl ring-2 ring-primary rotate-2 scale-105 cursor-grabbing z-50",
+        isOverlay && "opacity-100 shadow-xl ring-2 ring-primary rotate-2 scale-105 cursor-grabbing z-50 bg-card",
         lead.actionNeeded && "border-l-4 border-l-orange-500"
       )}
     >
