@@ -216,7 +216,6 @@ export default function OnboardingForm() {
               
               <div className="space-y-6">
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">First Name</label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
