@@ -152,8 +152,7 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                         {lead.email}
                       </a>
                     )}
-                    {lead.company && <p className="text-muted-foreground font-medium text-sm">{lead.company}</p>}
-                </div>
+                                    </div>
                 <div className="flex gap-2 items-center">
                     {lead.actionNeeded && (
                         <Badge variant="destructive" className="animate-pulse">Action Needed</Badge>
