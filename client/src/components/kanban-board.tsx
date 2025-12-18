@@ -1,6 +1,7 @@
 import { useStore, Lead, PipelineType, JumpseatStage, CommunityStage } from "@/lib/data";
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, defaultDropAnimationSideEffects, DropAnimation, MeasuringStrategy } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
 import { LeadCard } from "./lead-card";
 import { useState } from "react";
 import { createPortal } from "react-dom";
@@ -18,27 +19,18 @@ const JUMPSEAT_COLUMNS: { id: JumpseatStage; title: string }[] = [
 ];
 
 const COMMUNITY_COLUMNS: { id: CommunityStage; title: string }[] = [
-  { id: "new-leads", title: "New Leads" },
+  { id: "backlog", title: "Backlog" },
   { id: "to-pitch", title: "To Pitch" },
-  { id: "too-expensive", title: "Too Expensive" },
   { id: "would-buy", title: "Would Buy" },
-  { id: "nurture", title: "Nurture" },
-  { id: "unsubscribe", title: "Not a Fit" },
 ];
 
-interface KanbanBoardProps {
-  pipeline: PipelineType;
+interface UnifiedKanbanBoardProps {
   onLeadClick: (id: string) => void;
 }
 
-export function KanbanBoard({ pipeline, onLeadClick }: KanbanBoardProps) {
+export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
   const { leads, moveLead } = useStore();
   const [activeId, setActiveId] = useState<string | null>(null);
-
-  const columns = pipeline === "jumpseat" ? JUMPSEAT_COLUMNS : COMMUNITY_COLUMNS;
-  
-  // Filter leads for this pipeline
-  const pipelineLeads = leads.filter(l => l.pipeline === pipeline);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -63,16 +55,44 @@ export function KanbanBoard({ pipeline, onLeadClick }: KanbanBoardProps) {
     const activeLeadId = active.id as string;
     const overId = over.id as string; // This will be the column ID or another card ID
 
-    // If dropped over a column container (which we'll make droppable)
-    const isOverColumn = columns.some(col => col.id === overId);
-    
-    if (isOverColumn) {
+    // Determine which pipeline and stage the target belongs to
+    let targetPipeline: PipelineType | null = null;
+    let targetStage: string | null = null;
+
+    // Check Jumpseat Columns
+    const jumpseatCol = JUMPSEAT_COLUMNS.find(c => c.id === overId);
+    if (jumpseatCol) {
+        targetPipeline = "jumpseat";
+        targetStage = jumpseatCol.id;
+    }
+
+    // Check Community Columns
+    const communityCol = COMMUNITY_COLUMNS.find(c => c.id === overId);
+    if (communityCol) {
+        targetPipeline = "community";
+        targetStage = communityCol.id;
+    }
+
+    // If dropped over a card, find that card's column (complex, skipping for now, assuming drop on column)
+    // For better UX, we usually implement "sortable" strategy where dropping on a card puts it in that list.
+    // But since we are using SortableContext, dnd-kit handles sorting *within* the container.
+    // If overId is NOT a column, it might be a card ID.
+    if (!targetPipeline) {
+        // Find the lead we dropped over
+        const overLead = leads.find(l => l.id === overId);
+        if (overLead) {
+            targetPipeline = overLead.pipeline;
+            targetStage = overLead.stage;
+        }
+    }
+
+    if (targetPipeline && targetStage) {
       const activeLead = leads.find(l => l.id === activeLeadId);
-      if (activeLead && activeLead.stage !== overId) {
-        moveLead(activeLeadId, pipeline, overId);
+      if (activeLead && (activeLead.stage !== targetStage || activeLead.pipeline !== targetPipeline)) {
+        moveLead(activeLeadId, targetPipeline, targetStage);
         
         // Fireworks if moved to closed
-        if (overId === "closed") {
+        if (targetStage === "closed") {
             triggerFireworks();
         }
       }
@@ -96,7 +116,6 @@ export function KanbanBoard({ pipeline, onLeadClick }: KanbanBoardProps) {
       }
 
       const particleCount = 50 * (timeLeft / duration);
-      // since particles fall down, start a bit higher than random
       confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
       confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
     }, 250);
@@ -125,20 +144,48 @@ export function KanbanBoard({ pipeline, onLeadClick }: KanbanBoardProps) {
         }
       }}
     >
-      <div className="flex h-full gap-4 overflow-x-auto pb-4">
-        {columns.map((col) => {
-           const colLeads = pipelineLeads.filter(l => l.stage === col.id);
-           
-           return (
-             <KanbanColumn 
-               key={col.id} 
-               id={col.id} 
-               title={col.title} 
-               leads={colLeads}
-               onLeadClick={onLeadClick}
-             />
-           );
-        })}
+      <div className="space-y-8 pb-12 h-full flex flex-col">
+        {/* Jumpseat Pipeline */}
+        <section className="flex-1 min-h-[400px] flex flex-col">
+          <div className="flex items-center justify-between mb-4 px-1 shrink-0">
+            <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+              <span className="w-2 h-8 bg-primary rounded-sm block"></span>
+              Jumpseat Pipeline
+            </h2>
+          </div>
+          <div className="flex-1 min-h-0 flex gap-4 overflow-x-auto pb-4">
+             {JUMPSEAT_COLUMNS.map((col) => (
+                <KanbanColumn 
+                   key={col.id} 
+                   id={col.id} 
+                   title={col.title} 
+                   leads={leads.filter(l => l.pipeline === "jumpseat" && l.stage === col.id)}
+                   onLeadClick={onLeadClick}
+                 />
+             ))}
+          </div>
+        </section>
+        
+        {/* Community Pipeline */}
+        <section className="flex-1 min-h-[400px] flex flex-col pt-8 border-t border-white/10">
+          <div className="flex items-center justify-between mb-4 px-1 shrink-0">
+            <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+              <span className="w-2 h-8 bg-secondary rounded-sm block"></span>
+              Community Pipeline
+            </h2>
+          </div>
+          <div className="flex-1 min-h-0 flex gap-4 overflow-x-auto pb-4">
+             {COMMUNITY_COLUMNS.map((col) => (
+                <KanbanColumn 
+                   key={col.id} 
+                   id={col.id} 
+                   title={col.title} 
+                   leads={leads.filter(l => l.pipeline === "community" && l.stage === col.id)}
+                   onLeadClick={onLeadClick}
+                 />
+             ))}
+          </div>
+        </section>
       </div>
 
       {createPortal(
@@ -155,8 +202,6 @@ export function KanbanBoard({ pipeline, onLeadClick }: KanbanBoardProps) {
   );
 }
 
-import { useDroppable } from "@dnd-kit/core";
-
 function KanbanColumn({ id, title, leads, onLeadClick }: { id: string, title: string, leads: Lead[], onLeadClick: (id: string) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -165,7 +210,6 @@ function KanbanColumn({ id, title, leads, onLeadClick }: { id: string, title: st
         ref={setNodeRef} 
         className={cn(
             "flex-shrink-0 w-[280px] flex flex-col h-full rounded-lg border transition-all duration-200",
-            // Dark mode texture enhancement: added grain/noise and slightly lighter background for columns
             "bg-card/30 backdrop-blur-sm border-white/5 shadow-sm",
             isOver ? "bg-card/50 border-primary/30 ring-1 ring-primary/20 shadow-inner" : ""
         )}
@@ -184,7 +228,6 @@ function KanbanColumn({ id, title, leads, onLeadClick }: { id: string, title: st
           ))}
         </SortableContext>
         
-        {/* Placeholder effect when empty and dragging over */}
         {leads.length === 0 && (
           <div className={cn(
               "h-24 border-2 border-dashed rounded-md flex items-center justify-center transition-colors",

@@ -14,12 +14,9 @@ export type JumpseatStage =
   | "disqualified";
 
 export type CommunityStage =
-  | "new-leads"
+  | "backlog"
   | "to-pitch"
-  | "too-expensive"
-  | "would-buy"
-  | "nurture"
-  | "unsubscribe";
+  | "would-buy";
 
 export interface Lead {
   id: string;
@@ -91,7 +88,7 @@ const initialLeads: Lead[] = [
     email: "emily@designstudio.io",
     tags: ["confidence"],
     pipeline: "community",
-    stage: "nurture",
+    stage: "backlog",
     actionNeeded: false,
     history: [{ date: new Date().toISOString(), action: "Moved to Community" }],
   },
