@@ -385,5 +385,67 @@ export async function registerRoutes(
     }
   });
 
+  // Onboarding form submission
+  app.post("/api/onboarding-form", async (req, res) => {
+    try {
+      const { name, email, answers } = req.body;
+      
+      if (!name || !email) {
+        return res.status(400).json({ error: "Name and email are required" });
+      }
+
+      // Format the answers into a readable email
+      const formatSection = (title: string, items: {label: string, value: string}[]) => {
+        const content = items
+          .filter(item => item.value?.trim())
+          .map(item => `${item.label}\n${item.value}`)
+          .join('\n\n');
+        return content ? `=== ${title} ===\n\n${content}` : '';
+      };
+
+      const careerSection = formatSection('📖 CAREER NARRATIVE', [
+        { label: 'Full career history:', value: answers.careerHistory },
+        { label: 'Why you love your job:', value: answers.whyLoveJob },
+        { label: 'Dinner party explanation:', value: answers.dinnerPartyExplanation },
+        { label: 'Best job ever:', value: answers.bestJob },
+        { label: 'Unusually good at:', value: answers.unusuallyGoodAt },
+      ]);
+
+      const thinkingSection = formatSection('🧠 HOW YOU THINK', [
+        { label: 'Principles/quotes:', value: answers.principlesQuotes },
+        { label: 'Book or movie seen more than once:', value: answers.bookOrMovie },
+        { label: 'What you optimize for:', value: answers.optimizeFor },
+        { label: 'When something breaks:', value: answers.whenBreaks },
+      ]);
+
+      const perspectiveSection = formatSection('🔍 PERSPECTIVE & DIFFERENTIATION', [
+        { label: 'Biggest misconception:', value: answers.misconception },
+        { label: 'Better than resume shows:', value: answers.betterThanResume },
+        { label: 'Non-obvious thing:', value: answers.nonObviousThing },
+        { label: 'Sabbatical plans:', value: answers.sabbatical },
+        { label: 'What you notice first:', value: answers.noticeFirst },
+      ]);
+
+      const emailBody = `ONBOARDING QUESTIONNAIRE SUBMISSION
+
+From: ${name}
+Email: ${email}
+Submitted: ${new Date().toLocaleString()}
+
+${[careerSection, thinkingSection, perspectiveSection].filter(Boolean).join('\n\n\n')}`;
+
+      await sendEmail(
+        'wyedoyoudothis@gmail.com',
+        `Onboarding Form: ${name}`,
+        emailBody
+      );
+
+      res.json({ success: true, message: "Form submitted successfully" });
+    } catch (error: any) {
+      console.error("Error submitting onboarding form:", error);
+      res.status(500).json({ error: error.message || "Failed to submit form" });
+    }
+  });
+
   return httpServer;
 }

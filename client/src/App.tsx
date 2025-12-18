@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import PipelinePage from "@/pages/pipeline";
 import OnboardingPage from "@/pages/onboarding";
+import OnboardingFormPage from "@/pages/onboarding-form";
 import TodayPage from "@/pages/today";
 import SettingsPage from "@/pages/settings";
 import FathomPage from "@/pages/fathom";
@@ -37,6 +38,7 @@ function Router() {
     <Switch>
       <Route path="/" component={PipelinePage} />
       <Route path="/onboarding" component={OnboardingPage} />
+      <Route path="/onboarding-form" component={OnboardingFormPage} />
       <Route path="/today" component={TodayPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/fathom" component={FathomPage} />
