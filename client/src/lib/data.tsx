@@ -45,6 +45,8 @@ export interface Lead {
   decisionTrigger?: string | null;
   followUpAngle?: string | null;
   recordingLink?: string | null;
+  calendarEventId?: string | null;
+  fathomRecordingId?: number | null;
   history: any; // JSONB field
   createdAt: Date;
   updatedAt: Date;

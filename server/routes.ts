@@ -186,33 +186,124 @@ export async function registerRoutes(
         console.error("AI summarization failed, using original:", error);
       }
       
-      const newLead = await storage.createLead({
-        name: leadData.name,
-        email: leadData.email || null,
-        company: leadData.company,
-        linkedIn: null,
-        tags: [],
-        pipeline: "jumpseat",
-        stage: "backlog",
-        onboardingStage: null,
-        nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : null,
-        actionNeeded: leadData.keyTakeaways.length > 0,
-        summary: clientSummary,
-        keyTakeaways: leadData.keyTakeaways,
-        blocker: null,
-        decisionTrigger: null,
-        followUpAngle: null,
-        recordingLink: leadData.recordingLink,
-        history: [{
-          date: new Date().toISOString(),
-          action: `Imported from Fathom: ${meeting.title}`
-        }],
-      });
+      // Check if lead with this email already exists - ENHANCE instead of duplicate
+      let existingLead = null;
+      if (leadData.email) {
+        existingLead = await storage.getLeadByEmail(leadData.email);
+      }
       
-      res.status(201).json(newLead);
+      if (existingLead) {
+        // Enhance existing lead with Fathom data
+        const existingHistory = Array.isArray(existingLead.history) ? existingLead.history : [];
+        const updatedLead = await storage.updateLead(existingLead.id, {
+          summary: clientSummary,
+          keyTakeaways: leadData.keyTakeaways.length > 0 ? leadData.keyTakeaways : existingLead.keyTakeaways,
+          recordingLink: leadData.recordingLink,
+          fathomRecordingId: recordingId,
+          nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : existingLead.nextFollowUp,
+          actionNeeded: leadData.keyTakeaways.length > 0 || existingLead.actionNeeded,
+          history: [...existingHistory, {
+            date: new Date().toISOString(),
+            action: `Enhanced with Fathom call: ${meeting.title}`
+          }],
+        });
+        res.status(200).json(updatedLead);
+      } else {
+        // Create new lead
+        const newLead = await storage.createLead({
+          name: leadData.name,
+          email: leadData.email || null,
+          company: leadData.company,
+          linkedIn: null,
+          tags: [],
+          pipeline: "jumpseat",
+          stage: "backlog",
+          onboardingStage: null,
+          nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : null,
+          actionNeeded: leadData.keyTakeaways.length > 0,
+          summary: clientSummary,
+          keyTakeaways: leadData.keyTakeaways,
+          blocker: null,
+          decisionTrigger: null,
+          followUpAngle: null,
+          recordingLink: leadData.recordingLink,
+          fathomRecordingId: recordingId,
+          history: [{
+            date: new Date().toISOString(),
+            action: `Imported from Fathom: ${meeting.title}`
+          }],
+        });
+        res.status(201).json(newLead);
+      }
     } catch (error: any) {
       console.error("Error importing from Fathom:", error);
       res.status(500).json({ error: error.message || "Failed to import meeting" });
+    }
+  });
+
+  // Calendar sync - auto-create leads from upcoming meetings
+  app.post("/api/calendar/sync", async (req, res) => {
+    try {
+      const events = await getUpcomingEvents(20);
+      const createdLeads: any[] = [];
+      const skippedCount = { existing: 0, noAttendee: 0 };
+      
+      for (const event of events) {
+        // Get external attendee (not self)
+        const attendees = event.attendees || [];
+        const externalAttendee = attendees.find(a => !a.self && !a.organizer && a.email);
+        
+        if (!externalAttendee || !externalAttendee.email) {
+          skippedCount.noAttendee++;
+          continue;
+        }
+        
+        // Check if lead already exists with this email or calendar event ID
+        const existingByEmail = await storage.getLeadByEmail(externalAttendee.email);
+        const existingByEvent = event.id ? await storage.getLeadByCalendarEventId(event.id) : null;
+        
+        if (existingByEmail || existingByEvent) {
+          skippedCount.existing++;
+          continue;
+        }
+        
+        // Create new lead from calendar event
+        const attendeeName = externalAttendee.displayName || externalAttendee.email.split('@')[0];
+        const newLead = await storage.createLead({
+          name: attendeeName,
+          email: externalAttendee.email,
+          company: externalAttendee.email.split('@')[1]?.replace('.com', '').replace('.org', '') || null,
+          linkedIn: null,
+          tags: [],
+          pipeline: "jumpseat",
+          stage: "backlog",
+          onboardingStage: null,
+          nextFollowUp: event.start?.dateTime ? new Date(event.start.dateTime) : null,
+          actionNeeded: true,
+          summary: `Upcoming call: ${event.summary || 'Meeting'}`,
+          keyTakeaways: [],
+          blocker: null,
+          decisionTrigger: null,
+          followUpAngle: null,
+          recordingLink: null,
+          calendarEventId: event.id || null,
+          history: [{
+            date: new Date().toISOString(),
+            action: `Auto-created from calendar: ${event.summary || 'Meeting'}`
+          }],
+        });
+        
+        createdLeads.push(newLead);
+      }
+      
+      res.json({ 
+        created: createdLeads.length, 
+        skipped: skippedCount,
+        leads: createdLeads 
+      });
+    } catch (error: any) {
+      console.error("Error syncing calendar:", error);
+      res.status(500).json({ error: error.message || "Failed to sync calendar" });
     }
   });
 

@@ -3,7 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Lead, useStore } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, AlertCircle, Mail } from "lucide-react";
+import { Clock, AlertCircle, Mail, Video } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 
 interface LeadCardProps {
@@ -52,6 +52,9 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
     >
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          {(lead.recordingLink || lead.fathomRecordingId) && (
+            <Video className="h-3 w-3 text-primary shrink-0" title="Has Fathom recording" />
+          )}
           <h4 className="font-semibold text-sm leading-tight text-card-foreground truncate">
             {lead.name}
           </h4>

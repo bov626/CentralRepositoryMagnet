@@ -27,6 +27,8 @@ export const leads = pgTable("leads", {
   decisionTrigger: text("decision_trigger"),
   followUpAngle: text("follow_up_angle"),
   recordingLink: text("recording_link"),
+  calendarEventId: text("calendar_event_id"), // Google Calendar event ID for deduplication
+  fathomRecordingId: integer("fathom_recording_id"), // Fathom recording ID for tracking enrichment
   history: jsonb("history").notNull().default(sql`'[]'::jsonb`), // Array of {date: string, action: string}
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

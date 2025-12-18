@@ -11,6 +11,8 @@ export interface IStorage {
   // Lead methods
   getAllLeads(): Promise<Lead[]>;
   getLead(id: string): Promise<Lead | undefined>;
+  getLeadByEmail(email: string): Promise<Lead | undefined>;
+  getLeadByCalendarEventId(calendarEventId: string): Promise<Lead | undefined>;
   createLead(lead: InsertLead): Promise<Lead>;
   updateLead(id: string, lead: Partial<InsertLead>): Promise<Lead | undefined>;
   deleteLead(id: string): Promise<boolean>;
@@ -47,6 +49,16 @@ export class DatabaseStorage implements IStorage {
 
   async getLead(id: string): Promise<Lead | undefined> {
     const [lead] = await db.select().from(leads).where(eq(leads.id, id));
+    return lead;
+  }
+
+  async getLeadByEmail(email: string): Promise<Lead | undefined> {
+    const [lead] = await db.select().from(leads).where(eq(leads.email, email));
+    return lead;
+  }
+
+  async getLeadByCalendarEventId(calendarEventId: string): Promise<Lead | undefined> {
+    const [lead] = await db.select().from(leads).where(eq(leads.calendarEventId, calendarEventId));
     return lead;
   }
 
