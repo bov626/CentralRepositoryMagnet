@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Phone, FileText, Linkedin, CheckCircle2, User } from "lucide-react";
+import Layout from "@/components/layout";
 
 const ONBOARDING_COLUMNS: { id: OnboardingStage; title: string; icon: React.ReactNode }[] = [
   { id: "call-1", title: "Call #1", icon: <Phone className="h-4 w-4" /> },
@@ -138,59 +139,61 @@ export default function OnboardingPage() {
   const activeLead = activeId ? onboardingLeads.find(l => l.id === activeId) : null;
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground" data-testid="page-title">
-          Onboarding Pipeline
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Track new clients through the onboarding process. Leads automatically appear here when moved to "Closed".
-        </p>
-      </div>
-
-      <DndContext
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
-          {ONBOARDING_COLUMNS.map((column) => (
-            <OnboardingColumn
-              key={column.id}
-              column={column}
-              leads={getLeadsByStage(column.id)}
-            />
-          ))}
+    <Layout>
+      <div className="h-full flex flex-col">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-foreground" data-testid="page-title">
+            Onboarding Pipeline
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Track new clients through the onboarding process. Leads automatically appear here when moved to "Closed".
+          </p>
         </div>
 
-        <DragOverlay>
-          {activeLead && (
-            <div className="bg-zinc-800 border border-primary rounded-lg p-3 shadow-lg">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                  <User className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm">{activeLead.name}</p>
-                  {activeLead.company && (
-                    <p className="text-xs text-muted-foreground">{activeLead.company}</p>
-                  )}
+        <DndContext
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
+            {ONBOARDING_COLUMNS.map((column) => (
+              <OnboardingColumn
+                key={column.id}
+                column={column}
+                leads={getLeadsByStage(column.id)}
+              />
+            ))}
+          </div>
+
+          <DragOverlay>
+            {activeLead && (
+              <div className="bg-zinc-800 border border-primary rounded-lg p-3 shadow-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                    <User className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">{activeLead.name}</p>
+                    {activeLead.company && (
+                      <p className="text-xs text-muted-foreground">{activeLead.company}</p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </DragOverlay>
-      </DndContext>
+            )}
+          </DragOverlay>
+        </DndContext>
 
-      {onboardingLeads.length === 0 && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-muted-foreground">
-            <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p className="text-lg font-medium">No clients in onboarding yet</p>
-            <p className="text-sm">Move leads to "Closed" in the Pipeline to start onboarding them.</p>
+        {onboardingLeads.length === 0 && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-muted-foreground">
+              <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="text-lg font-medium">No clients in onboarding yet</p>
+              <p className="text-sm">Move leads to "Closed" in the Pipeline to start onboarding them.</p>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </Layout>
   );
 }
