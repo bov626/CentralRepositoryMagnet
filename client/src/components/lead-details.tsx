@@ -35,12 +35,15 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
   const [followUpDate, setFollowUpDate] = useState("");
   const [editableName, setEditableName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
+  const [pitchAmount, setPitchAmount] = useState("");
+  const [newActionItem, setNewActionItem] = useState("");
 
   // Only sync state when opening a different lead (not on every lead update)
   useEffect(() => {
     if (lead) {
       setNotes(lead.summary || "");
       setLinkedInUrl(lead.linkedIn || "");
+      setPitchAmount(lead.pitchAmount || "");
       // Parse date in local timezone to avoid off-by-one day issues
       if (lead.nextFollowUp) {
         const date = new Date(lead.nextFollowUp);
@@ -52,6 +55,7 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
         setFollowUpDate("");
       }
       setEditableName(lead.name || "");
+      setNewActionItem("");
     }
   }, [leadId]);
 
@@ -102,6 +106,23 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
     updateLead(lead.id, { nextFollowUp: null });
   };
 
+  const handleSavePitchAmount = () => {
+    updateLead(lead.id, { pitchAmount: pitchAmount || null });
+  };
+
+  const handleAddActionItem = () => {
+    if (!lead || !newActionItem.trim()) return;
+    const updatedItems = [...(lead.actionItems || []), newActionItem.trim()];
+    updateLead(lead.id, { actionItems: updatedItems });
+    setNewActionItem("");
+  };
+
+  const handleRemoveActionItem = (index: number) => {
+    if (!lead) return;
+    const updatedItems = (lead.actionItems || []).filter((_, i) => i !== index);
+    updateLead(lead.id, { actionItems: updatedItems });
+  };
+
   const handleSheetClose = () => {
     // Save all pending changes before closing
     if (lead) {
@@ -117,9 +138,16 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
       if (isEditingName && editableName.trim() !== lead.name) {
         updateLead(lead.id, { name: editableName.trim() });
       }
+      // Save pitch amount if changed
+      if (pitchAmount !== (lead.pitchAmount || "")) {
+        updateLead(lead.id, { pitchAmount: pitchAmount || null });
+      }
     }
     onClose();
   };
+
+  // Action Needed is determined by whether there are action items
+  const hasActionNeeded = (lead.actionItems || []).length > 0;
 
   return (
     <Sheet open={!!leadId} onOpenChange={(open) => !open && handleSheetClose()}>
@@ -154,7 +182,7 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                     )}
                                     </div>
                 <div className="flex gap-2 items-center">
-                    {lead.actionNeeded && (
+                    {hasActionNeeded && (
                         <Badge variant="destructive" className="animate-pulse">Action Needed</Badge>
                     )}
                 </div>
@@ -286,26 +314,61 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
 
             <Separator />
 
-            {/* Strategic Info */}
-            <div className="grid grid-cols-1 gap-6">
-                <section className="space-y-2">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4" /> Key Blocker
-                    </h3>
-                    <div className="p-3 rounded bg-red-500/10 border border-red-500/20 text-red-200 text-sm">
-                        {lead.blocker || "No blocker identified yet."}
-                    </div>
-                </section>
+            {/* Pitch Amount */}
+            <section className="space-y-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" /> Pitch Amount
+                </h3>
+                <Input
+                    value={pitchAmount}
+                    onChange={(e) => setPitchAmount(e.target.value)}
+                    onBlur={handleSavePitchAmount}
+                    placeholder="e.g. $6,000, 50/50 blend"
+                    className="bg-muted/30 border-border/50"
+                    data-testid="input-pitch-amount"
+                />
+            </section>
 
-                <section className="space-y-2">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4" /> Decision Trigger
-                    </h3>
-                    <div className="p-3 rounded bg-green-500/10 border border-green-500/20 text-green-200 text-sm">
-                        {lead.decisionTrigger || "What needs to happen for them to buy?"}
+            <Separator />
+
+            {/* Action Items */}
+            <section className="space-y-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" /> Action Items
+                </h3>
+                <div className="space-y-2">
+                    {(lead.actionItems || []).map((item, index) => (
+                        <div key={index} className="flex items-center gap-2 p-3 rounded bg-red-500/10 border border-red-500/20">
+                            <span className="text-red-200 text-sm flex-1">{item}</span>
+                            <button 
+                                onClick={() => handleRemoveActionItem(index)}
+                                className="text-red-400 hover:text-red-300"
+                                data-testid={`button-remove-action-item-${index}`}
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                    ))}
+                    <div className="flex gap-2">
+                        <Input
+                            value={newActionItem}
+                            onChange={(e) => setNewActionItem(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddActionItem()}
+                            placeholder="Add action item (e.g. Send contract)"
+                            className="bg-muted/30 border-border/50"
+                            data-testid="input-new-action-item"
+                        />
+                        <Button 
+                            onClick={handleAddActionItem} 
+                            size="sm" 
+                            variant="outline"
+                            data-testid="button-add-action-item"
+                        >
+                            <Plus className="h-4 w-4" />
+                        </Button>
                     </div>
-                </section>
-            </div>
+                </div>
+            </section>
 
             <Separator />
             

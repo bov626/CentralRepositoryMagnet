@@ -58,7 +58,7 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
         "group relative bg-card p-3 rounded-md border border-white/5 shadow-sm cursor-grab active:cursor-grabbing transition-all hover:shadow-md select-none hover:border-white/10 hover:bg-card/80",
         isDragging && "opacity-30",
         isOverlay && "opacity-100 shadow-xl ring-2 ring-primary rotate-2 scale-105 cursor-grabbing z-50 bg-card",
-        lead.actionNeeded && "border-l-4 border-l-orange-500"
+        (lead.actionItems || []).length > 0 && "border-l-4 border-l-orange-500"
       )}
     >
       <div className="flex justify-between items-start mb-2">
@@ -80,7 +80,7 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
               <Mail className="h-3 w-3" />
           </button>
         </div>
-        {lead.actionNeeded && (
+        {(lead.actionItems || []).length > 0 && (
            <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse shrink-0 ml-1" title="Action Needed" />
         )}
       </div>

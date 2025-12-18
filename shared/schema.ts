@@ -20,11 +20,10 @@ export const leads = pgTable("leads", {
   stage: text("stage").notNull(),
   onboardingStage: text("onboarding_stage"), // null = not onboarding, or "call-1" | "call-2" | "cover-letter" | "resume" | "linkedin" | "apply-ready"
   nextFollowUp: timestamp("next_follow_up"),
-  actionNeeded: boolean("action_needed").notNull().default(false),
   summary: text("summary"),
   keyTakeaways: text("key_takeaways").array().default(sql`ARRAY[]::text[]`),
-  blocker: text("blocker"),
-  decisionTrigger: text("decision_trigger"),
+  pitchAmount: text("pitch_amount"),
+  actionItems: text("action_items").array().default(sql`ARRAY[]::text[]`),
   followUpAngle: text("follow_up_angle"),
   recordingLink: text("recording_link"),
   calendarEventId: text("calendar_event_id"), // Google Calendar event ID for deduplication
