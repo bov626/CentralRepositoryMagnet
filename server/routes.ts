@@ -5,6 +5,7 @@ import { insertLeadSchema, insertBlockerSchema } from "@shared/schema";
 import { z } from "zod";
 import { getUpcomingEvents, createEvent } from "./google-calendar";
 import { listMeetings, getMeeting, extractLeadDataFromMeeting, isFathomConfigured } from "./fathom";
+import { summarizeClientNeeds } from "./ai-summarize";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -177,6 +178,14 @@ export async function registerRoutes(
       
       const leadData = extractLeadDataFromMeeting(meeting);
       
+      // Use AI to summarize just the client's needs (not the pitch)
+      let clientSummary = leadData.summary;
+      try {
+        clientSummary = await summarizeClientNeeds(leadData.summary, leadData.keyTakeaways);
+      } catch (error) {
+        console.error("AI summarization failed, using original:", error);
+      }
+      
       const newLead = await storage.createLead({
         name: leadData.name,
         email: leadData.email || null,
@@ -188,7 +197,7 @@ export async function registerRoutes(
         onboardingStage: null,
         nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : null,
         actionNeeded: leadData.keyTakeaways.length > 0,
-        summary: leadData.summary,
+        summary: clientSummary,
         keyTakeaways: leadData.keyTakeaways,
         blocker: null,
         decisionTrigger: null,
