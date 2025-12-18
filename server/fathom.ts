@@ -153,21 +153,56 @@ export function extractLeadDataFromMeeting(meeting: FathomMeeting): {
   summary: string;
   keyTakeaways: string[];
   recordingLink: string;
+  nextFollowUp: string | null;
 } {
-  const externalAttendee = meeting.calendar_invitees.find(inv => inv.is_external);
+  // Find external attendee - check is_external flag first, then fall back to anyone who isn't the recorder
+  const recorderEmail = meeting.recorded_by?.email?.toLowerCase();
+  let prospect = meeting.calendar_invitees.find(inv => inv.is_external);
   
-  const name = externalAttendee?.name || meeting.title.split(' - ')[0] || 'Unknown';
-  const email = externalAttendee?.email || '';
-  const company = externalAttendee?.email_domain 
-    ? externalAttendee.email_domain.split('.')[0].charAt(0).toUpperCase() + externalAttendee.email_domain.split('.')[0].slice(1)
+  // Fallback: find any attendee whose email doesn't match the recorder
+  if (!prospect && meeting.calendar_invitees.length > 0) {
+    prospect = meeting.calendar_invitees.find(inv => 
+      inv.email && inv.email.toLowerCase() !== recorderEmail
+    );
+  }
+  
+  const name = prospect?.name || prospect?.matched_speaker_display_name || meeting.title.split(' - ')[0] || 'Unknown';
+  const email = prospect?.email || '';
+  const company = prospect?.email_domain 
+    ? prospect.email_domain.split('.')[0].charAt(0).toUpperCase() + prospect.email_domain.split('.')[0].slice(1)
     : null;
   
-  const summary = meeting.default_summary?.markdown_formatted
-    ?.replace(/^##\s*Summary\s*/i, '')
-    .replace(/\n/g, ' ')
-    .trim() || '';
+  // Extract only the high-level summary section, not the full markdown
+  let summary = '';
+  const rawSummary = meeting.default_summary?.markdown_formatted || '';
+  
+  // Try to extract just the Summary section (between ## Summary and the next ## heading)
+  const summaryMatch = rawSummary.match(/##\s*Summary\s*\n([\s\S]*?)(?=\n##|$)/i);
+  if (summaryMatch) {
+    summary = summaryMatch[1]
+      .replace(/\n+/g, ' ')
+      .replace(/[-*]\s*/g, '')
+      .trim()
+      .slice(0, 500); // Limit length
+  } else {
+    // Fallback: take first paragraph only
+    const firstParagraph = rawSummary.split(/\n\n/)[0] || '';
+    summary = firstParagraph
+      .replace(/^#+\s*/gm, '')
+      .replace(/\n/g, ' ')
+      .trim()
+      .slice(0, 500);
+  }
   
   const keyTakeaways = meeting.action_items?.map(item => item.description) || [];
+  
+  // Set follow-up date: if there are action items, set follow-up for 3 days from now
+  let nextFollowUp: string | null = null;
+  if (meeting.action_items && meeting.action_items.length > 0) {
+    const followUpDate = new Date();
+    followUpDate.setDate(followUpDate.getDate() + 3);
+    nextFollowUp = followUpDate.toISOString();
+  }
   
   return {
     name,
@@ -176,6 +211,7 @@ export function extractLeadDataFromMeeting(meeting: FathomMeeting): {
     summary,
     keyTakeaways,
     recordingLink: meeting.url,
+    nextFollowUp,
   };
 }
 
