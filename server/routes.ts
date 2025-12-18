@@ -199,15 +199,33 @@ export async function registerRoutes(
       }
       
       if (existingLead) {
-        // Enhance existing lead with Fathom data
+        // Enhance existing lead with Fathom data - APPEND instead of replace
         const existingHistory = Array.isArray(existingLead.history) ? existingLead.history : [];
+        const existingTakeaways = Array.isArray(existingLead.keyTakeaways) ? existingLead.keyTakeaways : [];
+        
+        // Append summary: keep existing notes, add new Fathom summary below
+        let combinedSummary = existingLead.summary || '';
+        if (clientSummary) {
+          const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const separator = combinedSummary ? `\n\n--- Fathom Call (${dateStr}) ---\n` : '';
+          combinedSummary = combinedSummary + separator + clientSummary;
+        }
+        
+        // Merge key takeaways: existing + new (avoid duplicates)
+        const newTakeaways = leadData.keyTakeaways || [];
+        const mergedTakeaways = [...existingTakeaways];
+        for (const item of newTakeaways) {
+          if (!mergedTakeaways.includes(item)) {
+            mergedTakeaways.push(item);
+          }
+        }
+        
         const updatedLead = await storage.updateLead(existingLead.id, {
-          summary: clientSummary,
-          keyTakeaways: leadData.keyTakeaways.length > 0 ? leadData.keyTakeaways : existingLead.keyTakeaways,
+          summary: combinedSummary,
+          keyTakeaways: mergedTakeaways,
           recordingLink: leadData.recordingLink,
           fathomRecordingId: recordingId,
           nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : existingLead.nextFollowUp,
-          actionNeeded: leadData.keyTakeaways.length > 0 || existingLead.actionNeeded,
           history: [...existingHistory, {
             date: new Date().toISOString(),
             action: `Enhanced with Fathom call: ${meeting.title}`
