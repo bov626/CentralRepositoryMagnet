@@ -19,6 +19,7 @@ const STEPS = [
 
 export default function OnboardingForm() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [highestStep, setHighestStep] = useState(0);
   const [prevStep, setPrevStep] = useState(0);
   const [showSparkle, setShowSparkle] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -53,7 +54,7 @@ export default function OnboardingForm() {
     setAnswers(prev => ({ ...prev, [key]: value }));
   };
 
-  const progress = (currentStep / STEPS.length) * 100;
+  const progress = (highestStep / STEPS.length) * 100;
 
   useEffect(() => {
     if (currentStep > prevStep) {
@@ -61,8 +62,11 @@ export default function OnboardingForm() {
       const timer = setTimeout(() => setShowSparkle(false), 600);
       return () => clearTimeout(timer);
     }
+    if (currentStep > highestStep) {
+      setHighestStep(currentStep);
+    }
     setPrevStep(currentStep);
-  }, [currentStep, prevStep]);
+  }, [currentStep, prevStep, highestStep]);
 
   const canProceed = () => {
     if (currentStep === 0) return name.trim() !== "";
