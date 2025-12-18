@@ -51,28 +51,22 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
       )}
     >
       <div className="flex justify-between items-start mb-2">
-        <h4 className="font-semibold text-sm leading-tight text-card-foreground line-clamp-2">
-          {lead.name}
-        </h4>
-        {lead.actionNeeded && (
-           <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse shrink-0" title="Action Needed" />
-        )}
-      </div>
-
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 overflow-hidden flex-1">
-            {lead.company && (
-                <p className="text-xs text-muted-foreground truncate">{lead.company}</p>
-            )}
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <h4 className="font-semibold text-sm leading-tight text-card-foreground truncate">
+            {lead.name}
+          </h4>
+          <button 
+              onClick={handleEmailClick}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-primary shrink-0"
+              title={`Email ${lead.email || lead.name}`}
+              data-testid={`button-email-${lead.id}`}
+          >
+              <Mail className="h-3 w-3" />
+          </button>
         </div>
-        <button 
-            onClick={handleEmailClick}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded text-muted-foreground hover:text-primary shrink-0"
-            title={`Email ${lead.email || lead.name}`}
-            data-testid={`button-email-${lead.id}`}
-        >
-            <Mail className="h-3.5 w-3.5" />
-        </button>
+        {lead.actionNeeded && (
+           <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse shrink-0 ml-1" title="Action Needed" />
+        )}
       </div>
 
       <div className="flex flex-wrap gap-1 mb-3">
