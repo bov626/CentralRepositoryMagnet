@@ -219,9 +219,8 @@ export default function OnboardingForm() {
         <div className="min-h-[450px]">
           {currentStep === 0 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="mb-8">
-                <h2 className="text-2xl font-light tracking-tight mb-2">Your Information</h2>
-                <p className="text-zinc-500 text-sm">Let's start with a softball. "Who are you?"</p>
+              <div className="mb-8 text-center">
+                <h2 className="text-2xl font-light tracking-tight">Let's start with a softball. "Who are you?"</h2>
               </div>
               
               <div className="space-y-6">
