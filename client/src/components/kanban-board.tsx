@@ -182,6 +182,15 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
               <span className="w-2 h-8 bg-primary rounded-sm block"></span>
               Jumpseat Pipeline
             </h2>
+            <a
+              href="https://www.canva.com/design/DAG7gKJfndQ/JPBsVNk6ymFqfNCGN2nr_w/edit"
+              target="_blank"
+              rel="noreferrer"
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-md transition-colors flex items-center gap-2"
+              data-testid="link-pitch-deck"
+            >
+              Pitch Deck
+            </a>
           </div>
           <div className="flex-1 min-h-0 flex gap-4 overflow-x-auto pb-4">
              {JUMPSEAT_COLUMNS.map((col) => (
