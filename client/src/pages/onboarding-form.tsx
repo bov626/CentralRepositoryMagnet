@@ -196,8 +196,8 @@ export default function OnboardingForm() {
               style={{ width: `${progress}%` }}
             >
               {showSparkle && (
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2">
-                  <Sparkles className="h-4 w-4 text-yellow-300 animate-ping" />
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 animate-in zoom-in fade-in duration-300">
+                  <Sparkles className="h-4 w-4 text-yellow-300" />
                 </div>
               )}
             </div>
