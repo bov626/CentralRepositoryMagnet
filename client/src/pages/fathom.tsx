@@ -1,10 +1,11 @@
 import Layout from "@/components/layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Video, Clock, Users, Download, CheckCircle2, ExternalLink, AlertCircle, Key, RefreshCw } from "lucide-react";
+import { Video, Clock, Users, Download, CheckCircle2, ExternalLink, AlertCircle, Key, RefreshCw, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useStore } from "@/lib/data";
+import { useState, useEffect } from "react";
 
 interface FathomAttendee {
   name: string;
@@ -43,6 +44,20 @@ interface FathomResponse {
 export default function FathomPage() {
   const queryClient = useQueryClient();
   const { leads } = useStore();
+  
+  // Track dismissed (hidden) meeting IDs in localStorage
+  const [dismissedIds, setDismissedIds] = useState<Set<number>>(() => {
+    const stored = localStorage.getItem('fathom_dismissed');
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
+  
+  const dismissMeeting = (recordingId: number) => {
+    const newDismissed = new Set(dismissedIds);
+    newDismissed.add(recordingId);
+    setDismissedIds(newDismissed);
+    localStorage.setItem('fathom_dismissed', JSON.stringify(Array.from(newDismissed)));
+    toast.success("Meeting hidden from list");
+  };
 
   // Get set of imported recording IDs from existing leads (check fathomRecordingId first, then parse recordingLink)
   const importedRecordingIds = new Set(
@@ -102,9 +117,12 @@ export default function FathomPage() {
     },
   });
 
-  // Split meetings into available and imported
-  const availableMeetings = meetings?.items.filter(m => !importedRecordingIds.has(m.recording_id)) || [];
+  // Split meetings into available, imported, and dismissed
+  const availableMeetings = meetings?.items.filter(m => 
+    !importedRecordingIds.has(m.recording_id) && !dismissedIds.has(m.recording_id)
+  ) || [];
   const importedMeetings = meetings?.items.filter(m => importedRecordingIds.has(m.recording_id)) || [];
+  const dismissedMeetings = meetings?.items.filter(m => dismissedIds.has(m.recording_id)) || [];
 
   if (!status?.configured) {
     return (
@@ -192,6 +210,7 @@ export default function FathomPage() {
                       isImported={false}
                       isImporting={importMutation.isPending && importMutation.variables === meeting.recording_id}
                       onImport={() => importMutation.mutate(meeting.recording_id)}
+                      onDismiss={() => dismissMeeting(meeting.recording_id)}
                     />
                   ))}
                 </div>
@@ -229,11 +248,13 @@ function MeetingCard({
   isImported,
   isImporting,
   onImport,
+  onDismiss,
 }: {
   meeting: FathomMeeting;
   isImported: boolean;
   isImporting: boolean;
   onImport: () => void;
+  onDismiss?: () => void;
 }) {
   const externalAttendees = meeting.calendar_invitees?.filter(a => a.is_external) || [];
   const startTime = meeting.recording_start_time ? new Date(meeting.recording_start_time) : null;
@@ -299,6 +320,16 @@ function MeetingCard({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {onDismiss && !isImported && (
+            <button
+              onClick={onDismiss}
+              className="p-2 rounded-md hover:bg-red-500/10 transition-colors text-muted-foreground hover:text-red-400"
+              title="Hide this meeting"
+              data-testid={`button-dismiss-${meeting.recording_id}`}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
           <a
             href={meeting.url}
             target="_blank"
