@@ -143,7 +143,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete lead");
-      return res.json();
+      return { success: true };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
