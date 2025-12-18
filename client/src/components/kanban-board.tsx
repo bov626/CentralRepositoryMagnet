@@ -7,7 +7,8 @@ import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 // Column Definitions
 const JUMPSEAT_COLUMNS: { id: JumpseatStage; title: string }[] = [
@@ -28,11 +29,11 @@ const COMMUNITY_COLUMNS: { id: CommunityStage; title: string }[] = [
 
 interface UnifiedKanbanBoardProps {
   onLeadClick: (id: string) => void;
-  searchQuery?: string;
 }
 
-export function UnifiedKanbanBoard({ onLeadClick, searchQuery = "" }: UnifiedKanbanBoardProps) {
+export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
   const { leads, moveLead } = useStore();
+  const [searchQuery, setSearchQuery] = useState("");
   
   // Filter leads based on search query
   const filteredLeads = leads.filter((lead) => {
@@ -211,6 +212,26 @@ export function UnifiedKanbanBoard({ onLeadClick, searchQuery = "" }: UnifiedKan
             >
               Pitch
             </a>
+            <div className="relative ml-auto w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-8 h-9 bg-muted/50 border-border/50 text-sm"
+                data-testid="input-search-leads"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  data-testid="button-clear-search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex-1 min-h-0 flex gap-4 overflow-x-auto pb-4">
              {JUMPSEAT_COLUMNS.map((col) => (
