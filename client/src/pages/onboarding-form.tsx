@@ -41,7 +41,7 @@ export default function OnboardingForm() {
     setAnswers(prev => ({ ...prev, [key]: value }));
   };
 
-  const progress = ((currentStep + 1) / STEPS.length) * 100;
+  const progress = (currentStep / STEPS.length) * 100;
 
   const canProceed = () => {
     if (currentStep === 0) {
@@ -126,10 +126,11 @@ export default function OnboardingForm() {
           </p>
           
           <div className="space-y-2">
+            <div className="flex justify-between text-sm text-muted-foreground mb-1">
+              <span>Part {currentStep + 1} of {STEPS.length}: {STEPS[currentStep].title}</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
             <Progress value={progress} className="h-2" />
-            <p className="text-center text-sm text-muted-foreground">
-              {Math.round(progress)}% complete
-            </p>
           </div>
         </div>
 
