@@ -108,6 +108,9 @@ export default function OnboardingForm() {
   const handleBack = () => {
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1);
+      if (currentStep === 1) {
+        setClickedContinue(false);
+      }
     }
   };
 
