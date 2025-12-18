@@ -1,10 +1,10 @@
 import Layout from "@/components/layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Video, Clock, Users, Download, CheckCircle2, ExternalLink, AlertCircle, Key } from "lucide-react";
+import { Video, Clock, Users, Download, CheckCircle2, ExternalLink, AlertCircle, Key, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useStore } from "@/lib/data";
 
 interface FathomAttendee {
   name: string;
@@ -42,7 +42,18 @@ interface FathomResponse {
 
 export default function FathomPage() {
   const queryClient = useQueryClient();
-  const [importedIds, setImportedIds] = useState<Set<number>>(new Set());
+  const { leads } = useStore();
+
+  // Get set of imported recording IDs from existing leads
+  const importedRecordingIds = new Set(
+    leads
+      .filter(l => l.recordingLink)
+      .map(l => {
+        const match = l.recordingLink?.match(/\/calls\/(\d+)/);
+        return match ? parseInt(match[1]) : null;
+      })
+      .filter((id): id is number => id !== null)
+  );
 
   const { data: status } = useQuery<{ configured: boolean }>({
     queryKey: ["fathom-status"],
@@ -52,7 +63,7 @@ export default function FathomPage() {
     },
   });
 
-  const { data: meetings, isLoading, error, refetch } = useQuery<FathomResponse>({
+  const { data: meetings, isLoading, error, refetch, isFetching } = useQuery<FathomResponse>({
     queryKey: ["fathom-meetings"],
     queryFn: async () => {
       const res = await fetch("/api/fathom/meetings");
@@ -76,8 +87,7 @@ export default function FathomPage() {
       }
       return res.json();
     },
-    onSuccess: (data, recordingId) => {
-      setImportedIds(prev => new Set(Array.from(prev).concat(recordingId)));
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       toast.success(`Imported "${data.name}" as a new lead`);
     },
@@ -85,6 +95,10 @@ export default function FathomPage() {
       toast.error(error.message);
     },
   });
+
+  // Split meetings into available and imported
+  const availableMeetings = meetings?.items.filter(m => !importedRecordingIds.has(m.recording_id)) || [];
+  const importedMeetings = meetings?.items.filter(m => importedRecordingIds.has(m.recording_id)) || [];
 
   if (!status?.configured) {
     return (
@@ -127,10 +141,15 @@ export default function FathomPage() {
           </div>
           <button
             onClick={() => refetch()}
-            className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors"
+            disabled={isFetching}
+            className={cn(
+              "px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors flex items-center gap-2",
+              isFetching && "opacity-50 cursor-wait"
+            )}
             data-testid="button-refresh-fathom"
           >
-            Refresh
+            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+            {isFetching ? "Refreshing..." : "Refresh"}
           </button>
         </header>
 
@@ -148,21 +167,49 @@ export default function FathomPage() {
         )}
 
         {meetings && (
-          <div className="space-y-4">
-            {meetings.items.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-lg">
-                No meetings found. Make sure you have recordings in Fathom.
-              </div>
-            ) : (
-              meetings.items.map((meeting) => (
-                <MeetingCard
-                  key={meeting.recording_id}
-                  meeting={meeting}
-                  isImported={importedIds.has(meeting.recording_id)}
-                  isImporting={importMutation.isPending && importMutation.variables === meeting.recording_id}
-                  onImport={() => importMutation.mutate(meeting.recording_id)}
-                />
-              ))
+          <div className="space-y-8">
+            {/* Available Meetings */}
+            <section>
+              <h2 className="text-lg font-semibold mb-4 text-muted-foreground">
+                Available to Import ({availableMeetings.length})
+              </h2>
+              {availableMeetings.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground border-2 border-dashed border-border rounded-lg">
+                  All meetings have been imported
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {availableMeetings.map((meeting) => (
+                    <MeetingCard
+                      key={meeting.recording_id}
+                      meeting={meeting}
+                      isImported={false}
+                      isImporting={importMutation.isPending && importMutation.variables === meeting.recording_id}
+                      onImport={() => importMutation.mutate(meeting.recording_id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Imported Meetings */}
+            {importedMeetings.length > 0 && (
+              <section>
+                <h2 className="text-lg font-semibold mb-4 text-muted-foreground">
+                  Already Imported ({importedMeetings.length})
+                </h2>
+                <div className="space-y-4 opacity-60">
+                  {importedMeetings.map((meeting) => (
+                    <MeetingCard
+                      key={meeting.recording_id}
+                      meeting={meeting}
+                      isImported={true}
+                      isImporting={false}
+                      onImport={() => importMutation.mutate(meeting.recording_id)}
+                    />
+                  ))}
+                </div>
+              </section>
             )}
           </div>
         )}
