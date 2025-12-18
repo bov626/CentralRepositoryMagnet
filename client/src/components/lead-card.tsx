@@ -60,21 +60,19 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
       </div>
 
       <div className="flex items-center justify-between mb-3">
-        {lead.company ? (
-            <div className="flex items-center gap-2 overflow-hidden">
+        <div className="flex items-center gap-2 overflow-hidden flex-1">
+            {lead.company && (
                 <p className="text-xs text-muted-foreground truncate">{lead.company}</p>
-                {/* Email Button Next to Company */}
-                <button 
-                    onClick={handleEmailClick}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded text-muted-foreground hover:text-primary"
-                    title={`Email ${lead.email || lead.name}`}
-                >
-                    <Mail className="h-3 w-3" />
-                </button>
-            </div>
-        ) : (
-            <div className="h-4" /> 
-        )}
+            )}
+        </div>
+        <button 
+            onClick={handleEmailClick}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded text-muted-foreground hover:text-primary shrink-0"
+            title={`Email ${lead.email || lead.name}`}
+            data-testid={`button-email-${lead.id}`}
+        >
+            <Mail className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       <div className="flex flex-wrap gap-1 mb-3">

@@ -80,7 +80,7 @@ export function ComposeEmailModal() {
                     className="min-h-[200px] resize-none"
                  />
                  <div className="flex gap-2 mt-2">
-                    <Button variant="ghost" size="xs" className="text-xs text-muted-foreground gap-1 h-6">
+                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-1 h-6">
                         <Sparkles className="h-3 w-3" /> AI Improve
                     </Button>
                  </div>
