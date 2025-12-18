@@ -151,7 +151,7 @@ export function extractLeadDataFromMeeting(meeting: FathomMeeting): {
   email: string;
   company: string | null;
   summary: string;
-  keyTakeaways: string[];
+  actionItems: string[];
   recordingLink: string;
   nextFollowUp: string | null;
 } {
@@ -204,7 +204,7 @@ export function extractLeadDataFromMeeting(meeting: FathomMeeting): {
     }
   }
   
-  const keyTakeaways = meeting.action_items?.map(item => item.description) || [];
+  const actionItems = meeting.action_items?.map(item => item.description) || [];
   
   // Set follow-up date: if there are action items, set follow-up for 3 days from now
   let nextFollowUp: string | null = null;
@@ -219,7 +219,7 @@ export function extractLeadDataFromMeeting(meeting: FathomMeeting): {
     email,
     company,
     summary,
-    keyTakeaways,
+    actionItems,
     recordingLink: meeting.url,
     nextFollowUp,
   };

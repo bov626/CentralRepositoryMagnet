@@ -188,7 +188,7 @@ export async function registerRoutes(
       // Use AI to summarize just the client's needs (not the pitch)
       let clientSummary = leadData.summary;
       try {
-        clientSummary = await summarizeClientNeeds(leadData.summary, leadData.keyTakeaways);
+        clientSummary = await summarizeClientNeeds(leadData.summary, leadData.actionItems);
       } catch (error) {
         console.error("AI summarization failed, using original:", error);
       }
@@ -202,7 +202,7 @@ export async function registerRoutes(
       if (existingLead) {
         // Enhance existing lead with Fathom data - APPEND instead of replace
         const existingHistory = Array.isArray(existingLead.history) ? existingLead.history : [];
-        const existingTakeaways = Array.isArray(existingLead.keyTakeaways) ? existingLead.keyTakeaways : [];
+        const existingActionItems = Array.isArray(existingLead.actionItems) ? existingLead.actionItems : [];
         
         // Append summary: keep existing notes, add new Fathom summary below
         let combinedSummary = existingLead.summary || '';
@@ -212,18 +212,18 @@ export async function registerRoutes(
           combinedSummary = combinedSummary + separator + clientSummary;
         }
         
-        // Merge key takeaways: existing + new (avoid duplicates)
-        const newTakeaways = leadData.keyTakeaways || [];
-        const mergedTakeaways = [...existingTakeaways];
-        for (const item of newTakeaways) {
-          if (!mergedTakeaways.includes(item)) {
-            mergedTakeaways.push(item);
+        // Merge action items: existing + new (avoid duplicates)
+        const newActionItems = leadData.actionItems || [];
+        const mergedActionItems = [...existingActionItems];
+        for (const item of newActionItems) {
+          if (!mergedActionItems.includes(item)) {
+            mergedActionItems.push(item);
           }
         }
         
         const updatedLead = await storage.updateLead(existingLead.id, {
           summary: combinedSummary,
-          keyTakeaways: mergedTakeaways,
+          actionItems: mergedActionItems,
           recordingLink: leadData.recordingLink,
           fathomRecordingId: recordingId,
           nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : existingLead.nextFollowUp,
@@ -245,11 +245,8 @@ export async function registerRoutes(
           stage: "backlog",
           onboardingStage: null,
           nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : null,
-          actionNeeded: leadData.keyTakeaways.length > 0,
           summary: clientSummary,
-          keyTakeaways: leadData.keyTakeaways,
-          blocker: null,
-          decisionTrigger: null,
+          actionItems: leadData.actionItems,
           followUpAngle: null,
           recordingLink: leadData.recordingLink,
           fathomRecordingId: recordingId,
