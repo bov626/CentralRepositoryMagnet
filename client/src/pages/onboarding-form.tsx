@@ -196,9 +196,11 @@ export default function OnboardingForm() {
           <h1 className="text-4xl font-bold tracking-tight mb-4">
             <span className="bg-red-600 px-5 py-2 inline-block">Session I</span>
           </h1>
-          <p className="text-zinc-400 text-sm">
-            Complete this before our first call.
-          </p>
+          {currentStep === 0 && (
+            <p className="text-zinc-400 text-sm">
+              Complete this before our first call.
+            </p>
+          )}
         </div>
 
         <div className="mb-12">
