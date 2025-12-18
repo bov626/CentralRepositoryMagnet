@@ -47,6 +47,7 @@ export interface Lead {
   recordingLink?: string | null;
   calendarEventId?: string | null;
   fathomRecordingId?: number | null;
+  archived?: boolean;
   history: any; // JSONB field
   createdAt: Date;
   updatedAt: Date;
@@ -71,6 +72,7 @@ interface StoreContextType {
   addLead: (lead: Omit<Lead, "id" | "history" | "createdAt" | "updatedAt">) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
+  archiveLead: (id: string) => void;
   moveLead: (id: string, pipeline: PipelineType, stage: string) => void;
   moveOnboardingLead: (id: string, onboardingStage: OnboardingStage) => void;
   addBlocker: (blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">) => void;
@@ -329,6 +331,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deleteLeadMutation.mutate(id);
   };
 
+  const archiveLead = (id: string) => {
+    updateLeadMutation.mutate({ id, updates: { archived: true } });
+  };
+
   const moveLead = (id: string, pipeline: PipelineType, stage: string) => {
     moveLeadMutation.mutate({ id, pipeline, stage });
   };
@@ -345,10 +351,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     incrementBlockerMutation.mutate(id);
   };
 
+  // Filter out archived leads from the active leads list
+  const activeLeads = leads.filter(lead => !lead.archived);
+
   return (
     <StoreContext.Provider
       value={{ 
-        leads, 
+        leads: activeLeads, 
         blockers, 
         isLoading: leadsLoading || blockersLoading,
         emailingLead,
@@ -356,6 +365,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addLead, 
         updateLead,
         deleteLead,
+        archiveLead,
         moveLead, 
         moveOnboardingLead,
         addBlocker, 

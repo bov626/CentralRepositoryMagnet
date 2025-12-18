@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, AlertCircle, PlayCircle, ExternalLink, CheckCircle2, Linkedin, X, Plus, Trash2 } from "lucide-react";
+import { Calendar, Clock, AlertCircle, PlayCircle, ExternalLink, CheckCircle2, Linkedin, X, Plus, Trash2, Archive } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +26,7 @@ interface LeadDetailsProps {
 }
 
 export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
-  const { leads, updateLead, deleteLead } = useStore();
+  const { leads, updateLead, deleteLead, archiveLead } = useStore();
   const lead = leads.find((l) => l.id === leadId);
   const [notes, setNotes] = useState("");
   const [linkedInUrl, setLinkedInUrl] = useState("");
@@ -292,8 +292,20 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
 
             <Separator />
 
-            {/* Delete Lead */}
-            <section className="pt-4">
+            {/* Archive & Delete Lead */}
+            <section className="pt-4 space-y-2">
+                <Button 
+                    variant="outline" 
+                    className="w-full border-muted-foreground/30 hover:bg-muted"
+                    onClick={() => {
+                        archiveLead(lead.id);
+                        onClose();
+                    }}
+                    data-testid="button-archive-lead"
+                >
+                    <Archive className="h-4 w-4 mr-2" />
+                    Archive (Hide from Pipeline)
+                </Button>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
                         <Button 
