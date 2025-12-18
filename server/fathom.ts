@@ -112,21 +112,38 @@ export async function getMeeting(recordingId: number): Promise<FathomMeeting | n
   const params = new URLSearchParams();
   params.set('include_summary', 'true');
   params.set('include_action_items', 'true');
-  params.set('include_transcript', 'true');
+  params.set('calendar_invitees_domains_type', 'all');
   
-  const response = await fetch(`${FATHOM_API_BASE}/meetings?${params.toString()}`, {
-    headers: {
-      'X-Api-Key': apiKey,
-      'Content-Type': 'application/json',
-    },
-  });
+  let cursor: string | null = null;
   
-  if (!response.ok) {
-    throw new Error(`Fathom API error: ${response.status}`);
-  }
+  // Paginate through all meetings to find the one we want
+  do {
+    if (cursor) {
+      params.set('cursor', cursor);
+    }
+    
+    const response = await fetch(`${FATHOM_API_BASE}/meetings?${params.toString()}`, {
+      headers: {
+        'X-Api-Key': apiKey,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Fathom API error: ${response.status}`);
+    }
+    
+    const data: FathomMeetingsResponse = await response.json();
+    const meeting = data.items.find(m => m.recording_id === recordingId);
+    
+    if (meeting) {
+      return meeting;
+    }
+    
+    cursor = data.next_cursor;
+  } while (cursor);
   
-  const data: FathomMeetingsResponse = await response.json();
-  return data.items.find(m => m.recording_id === recordingId) || null;
+  return null;
 }
 
 export function extractLeadDataFromMeeting(meeting: FathomMeeting): {

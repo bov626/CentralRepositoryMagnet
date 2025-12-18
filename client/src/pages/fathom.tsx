@@ -78,7 +78,7 @@ export default function FathomPage() {
     },
     onSuccess: (data, recordingId) => {
       setImportedIds(prev => new Set(Array.from(prev).concat(recordingId)));
-      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
       toast.success(`Imported "${data.name}" as a new lead`);
     },
     onError: (error: Error) => {
