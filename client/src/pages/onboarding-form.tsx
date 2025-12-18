@@ -122,28 +122,14 @@ export default function OnboardingForm() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2 text-center">Onboarding Session I</h1>
           <p className="text-muted-foreground text-center text-sm mb-6">
-            These questions help me craft materials that present you best.
+            This will take approx. 1 hour
           </p>
           
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Step {currentStep + 1} of {STEPS.length}</span>
-              <span>{STEPS[currentStep].title}</span>
-            </div>
+          <div className="space-y-2">
             <Progress value={progress} className="h-2" />
-            <div className="flex justify-between">
-              {STEPS.map((step, idx) => (
-                <div
-                  key={step.id}
-                  className={`flex items-center gap-1 text-xs transition-colors ${
-                    idx <= currentStep ? 'text-primary' : 'text-muted-foreground/50'
-                  }`}
-                >
-                  <span>{step.icon}</span>
-                  <span className="hidden sm:inline">{step.title}</span>
-                </div>
-              ))}
-            </div>
+            <p className="text-center text-sm text-muted-foreground">
+              {Math.round(progress)}% complete
+            </p>
           </div>
         </div>
 
