@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -9,10 +9,57 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
 });
 
+export const leads = pgTable("leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  company: text("company"),
+  linkedIn: text("linked_in"),
+  email: text("email"),
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
+  pipeline: text("pipeline").notNull(), // "jumpseat" | "community"
+  stage: text("stage").notNull(),
+  nextFollowUp: timestamp("next_follow_up"),
+  actionNeeded: boolean("action_needed").notNull().default(false),
+  summary: text("summary"),
+  keyTakeaways: text("key_takeaways").array().default(sql`ARRAY[]::text[]`),
+  blocker: text("blocker"),
+  decisionTrigger: text("decision_trigger"),
+  followUpAngle: text("follow_up_angle"),
+  recordingLink: text("recording_link"),
+  history: jsonb("history").notNull().default(sql`'[]'::jsonb`), // Array of {date: string, action: string}
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const blockers = pgTable("blockers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  text: text("text").notNull(),
+  category: text("category").notNull(), // "price" | "timing" | "spouse" | "trust" | "logistics" | "other"
+  count: integer("count").notNull().default(1),
+  response: text("response").notNull(),
+  exampleLeadIds: text("example_lead_ids").array().notNull().default(sql`ARRAY[]::text[]`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
 });
 
+export const insertLeadSchema = createInsertSchema(leads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBlockerSchema = createInsertSchema(blockers).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;
+export type Blocker = typeof blockers.$inferSelect;
+export type InsertBlocker = z.infer<typeof insertBlockerSchema>;
