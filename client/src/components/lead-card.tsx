@@ -83,20 +83,16 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
         )}
       </div>
 
-      <div className="flex items-center justify-between text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
-         <div className="flex items-center gap-1">
-             {lead.nextFollowUp ? (
-                 <>
-                    <Clock className={cn("h-3 w-3", isOverdue ? "text-red-400" : isDueToday ? "text-orange-400" : "")} />
-                    <span className={cn(isOverdue ? "text-red-400 font-medium" : isDueToday ? "text-orange-400 font-medium" : "")}>
-                        {format(new Date(lead.nextFollowUp), "MMM d")}
-                    </span>
-                 </>
-             ) : (
-                 <span className="text-muted-foreground/50 italic">No date</span>
-             )}
-         </div>
-      </div>
+      {lead.nextFollowUp && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
+           <div className="flex items-center gap-1">
+              <Clock className={cn("h-3 w-3", isOverdue ? "text-red-400" : isDueToday ? "text-orange-400" : "")} />
+              <span className={cn(isOverdue ? "text-red-400 font-medium" : isDueToday ? "text-orange-400 font-medium" : "")}>
+                  {format(new Date(lead.nextFollowUp), "MMM d")}
+              </span>
+           </div>
+        </div>
+      )}
     </div>
   );
 }

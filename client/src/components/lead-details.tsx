@@ -21,11 +21,13 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
   const [linkedInUrl, setLinkedInUrl] = useState("");
   const [newTag, setNewTag] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState("");
 
   useEffect(() => {
     if (lead) {
       setNotes(lead.summary || "");
       setLinkedInUrl(lead.linkedIn || "");
+      setFollowUpDate(lead.nextFollowUp ? new Date(lead.nextFollowUp).toISOString().split('T')[0] : "");
     }
   }, [lead]);
 
@@ -51,6 +53,17 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
 
   const handleSaveLinkedIn = () => {
     updateLead(lead.id, { linkedIn: linkedInUrl });
+  };
+
+  const handleSaveFollowUp = () => {
+    updateLead(lead.id, { 
+      nextFollowUp: followUpDate ? new Date(followUpDate).toISOString() : null 
+    });
+  };
+
+  const handleClearFollowUp = () => {
+    setFollowUpDate("");
+    updateLead(lead.id, { nextFollowUp: null });
   };
 
   return (
@@ -138,11 +151,29 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                         <Calendar className="h-4 w-4" />
                         <span>Created {format(new Date(lead.history[0].date), "MMM d")}</span>
                     </div>
-                    {lead.nextFollowUp && (
-                        <div className="flex items-center gap-1.5 text-orange-400">
-                            <Clock className="h-4 w-4" />
-                            <span>Follow-up: {format(new Date(lead.nextFollowUp), "MMM d")}</span>
-                        </div>
+                </div>
+
+                {/* Editable Follow-up Date */}
+                <div className="flex items-center gap-2 mt-3">
+                    <Clock className="h-4 w-4 text-orange-400" />
+                    <span className="text-sm text-muted-foreground">Follow-up:</span>
+                    <input
+                        type="date"
+                        value={followUpDate}
+                        onChange={(e) => setFollowUpDate(e.target.value)}
+                        onBlur={handleSaveFollowUp}
+                        className="bg-transparent border border-border/50 rounded px-2 py-1 text-sm focus:border-primary focus:outline-none"
+                        data-testid="input-follow-up-date"
+                    />
+                    {followUpDate && (
+                        <button
+                            onClick={handleClearFollowUp}
+                            className="text-muted-foreground hover:text-red-400 p-1"
+                            title="Clear date"
+                            data-testid="button-clear-follow-up"
+                        >
+                            <X className="h-3 w-3" />
+                        </button>
                     )}
                 </div>
             </div>
