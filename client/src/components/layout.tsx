@@ -4,10 +4,51 @@ import { LayoutDashboard, CheckSquare, Plus, Settings, PanelLeftClose, PanelLeft
 import { ComposeEmailModal } from "@/components/compose-email-modal";
 import logo from "@assets/AutoPilot_(6)_1766016477027.png";
 import { useState } from "react";
+import { useStore } from "@/lib/data";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [showNewLeadDialog, setShowNewLeadDialog] = useState(false);
+  const [newLeadName, setNewLeadName] = useState("");
+  const [newLeadEmail, setNewLeadEmail] = useState("");
+  const { addLead } = useStore();
+
+  const handleCreateLead = () => {
+    if (!newLeadName.trim()) return;
+    addLead({
+      name: newLeadName.trim(),
+      email: newLeadEmail.trim() || null,
+      company: null,
+      linkedIn: null,
+      tags: [],
+      pipeline: "jumpseat",
+      stage: "backlog",
+      onboardingStage: null,
+      nextFollowUp: null,
+      summary: null,
+      keyTakeaways: [],
+      pitchAmount: null,
+      actionItems: [],
+      followUpAngle: null,
+      recordingLink: null,
+      calendarEventId: null,
+      fathomRecordingId: null,
+      archived: false,
+    });
+    setNewLeadName("");
+    setNewLeadEmail("");
+    setShowNewLeadDialog(false);
+  };
 
   const navItems = [
     { href: "/", label: "Pipeline", icon: LayoutDashboard },
@@ -71,11 +112,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="p-4 border-t border-sidebar-border">
           <button 
+            onClick={() => setShowNewLeadDialog(true)}
             className={cn(
               "flex items-center justify-center w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 h-10 rounded-md transition-colors",
               collapsed && "px-2"
             )}
             title={collapsed ? "New Lead" : undefined}
+            data-testid="button-new-lead"
           >
             <Plus className="h-4 w-4" />
             {!collapsed && <span className="ml-2 font-medium">New Lead</span>}
@@ -96,6 +139,48 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <ComposeEmailModal />
+
+      {/* New Lead Dialog */}
+      <Dialog open={showNewLeadDialog} onOpenChange={setShowNewLeadDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Lead</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="lead-name">Name *</Label>
+              <Input
+                id="lead-name"
+                placeholder="Enter lead name"
+                value={newLeadName}
+                onChange={(e) => setNewLeadName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateLead()}
+                data-testid="input-new-lead-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lead-email">Email</Label>
+              <Input
+                id="lead-email"
+                type="email"
+                placeholder="Enter email (optional)"
+                value={newLeadEmail}
+                onChange={(e) => setNewLeadEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateLead()}
+                data-testid="input-new-lead-email"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowNewLeadDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateLead} disabled={!newLeadName.trim()} data-testid="button-create-lead">
+              Create Lead
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
