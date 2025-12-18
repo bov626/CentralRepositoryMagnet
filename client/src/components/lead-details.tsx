@@ -76,9 +76,9 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
     updateLead(lead.id, { linkedIn: linkedInUrl });
   };
 
-  const handleSaveFollowUp = () => {
+  const handleSaveFollowUp = (dateValue: string) => {
     updateLead(lead.id, { 
-      nextFollowUp: followUpDate ? new Date(followUpDate).toISOString() : null 
+      nextFollowUp: dateValue ? new Date(dateValue).toISOString() : null 
     });
   };
 
@@ -205,8 +205,11 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                     <input
                         type="date"
                         value={followUpDate}
-                        onChange={(e) => setFollowUpDate(e.target.value)}
-                        onBlur={handleSaveFollowUp}
+                        onChange={(e) => {
+                          const newDate = e.target.value;
+                          setFollowUpDate(newDate);
+                          handleSaveFollowUp(newDate);
+                        }}
                         className="bg-transparent border border-border/50 rounded px-2 py-1 text-sm focus:border-primary focus:outline-none"
                         data-testid="input-follow-up-date"
                     />
