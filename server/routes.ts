@@ -52,7 +52,13 @@ export async function registerRoutes(
 
   app.patch("/api/leads/:id", async (req, res) => {
     try {
-      const updatedLead = await storage.updateLead(req.params.id, req.body);
+      // Convert date strings to Date objects for timestamp fields
+      const updates = { ...req.body };
+      if (updates.nextFollowUp !== undefined) {
+        updates.nextFollowUp = updates.nextFollowUp ? new Date(updates.nextFollowUp) : null;
+      }
+      
+      const updatedLead = await storage.updateLead(req.params.id, updates);
       if (!updatedLead) {
         return res.status(404).json({ error: "Lead not found" });
       }
