@@ -17,6 +17,14 @@ export type CommunityStage =
   | "to-pitch"
   | "would-buy";
 
+export type OnboardingStage = 
+  | "call-1"
+  | "call-2"
+  | "cover-letter"
+  | "resume"
+  | "linkedin"
+  | "apply-ready";
+
 export interface Lead {
   id: string;
   name: string;
@@ -26,6 +34,7 @@ export interface Lead {
   tags: string[];
   pipeline: PipelineType;
   stage: string;
+  onboardingStage?: OnboardingStage | null;
   nextFollowUp?: string | null; // ISO Date
   actionNeeded: boolean;
   
@@ -60,6 +69,7 @@ interface StoreContextType {
   addLead: (lead: Omit<Lead, "id" | "history" | "createdAt" | "updatedAt">) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
   moveLead: (id: string, pipeline: PipelineType, stage: string) => void;
+  moveOnboardingLead: (id: string, onboardingStage: OnboardingStage) => void;
   addBlocker: (blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">) => void;
   incrementBlocker: (id: string) => void;
 }
@@ -132,16 +142,55 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!lead) throw new Error("Lead not found");
 
       const updatedHistory = Array.isArray(lead.history) ? lead.history : [];
+      const updates: Record<string, unknown> = {
+        pipeline,
+        stage,
+        history: [...updatedHistory, { date: new Date().toISOString(), action: `Moved to ${stage}` }],
+      };
+      
+      // If moving to "closed", automatically add to onboarding at "call-1"
+      if (stage === "closed" && !lead.onboardingStage) {
+        updates.onboardingStage = "call-1";
+      }
+      
+      const res = await fetch(`/api/leads/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error("Failed to move lead");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    },
+  });
+
+  // Move onboarding lead mutation
+  const moveOnboardingLeadMutation = useMutation({
+    mutationFn: async ({ id, onboardingStage }: { id: string; onboardingStage: OnboardingStage }) => {
+      const lead = leads.find((l) => l.id === id);
+      if (!lead) throw new Error("Lead not found");
+
+      const updatedHistory = Array.isArray(lead.history) ? lead.history : [];
+      const stageLabels: Record<OnboardingStage, string> = {
+        "call-1": "Call #1",
+        "call-2": "Call #2",
+        "cover-letter": "Cover Letter",
+        "resume": "Resume",
+        "linkedin": "LinkedIn",
+        "apply-ready": "Apply Ready",
+      };
+      
       const res = await fetch(`/api/leads/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          pipeline,
-          stage,
-          history: [...updatedHistory, { date: new Date().toISOString(), action: `Moved to ${stage}` }],
+          onboardingStage,
+          history: [...updatedHistory, { date: new Date().toISOString(), action: `Onboarding: ${stageLabels[onboardingStage]}` }],
         }),
       });
-      if (!res.ok) throw new Error("Failed to move lead");
+      if (!res.ok) throw new Error("Failed to move onboarding lead");
       return res.json();
     },
     onSuccess: () => {
@@ -200,6 +249,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     moveLeadMutation.mutate({ id, pipeline, stage });
   };
 
+  const moveOnboardingLead = (id: string, onboardingStage: OnboardingStage) => {
+    moveOnboardingLeadMutation.mutate({ id, onboardingStage });
+  };
+
   const addBlocker = (blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">) => {
     addBlockerMutation.mutate(blocker);
   };
@@ -219,6 +272,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addLead, 
         updateLead, 
         moveLead, 
+        moveOnboardingLead,
         addBlocker, 
         incrementBlocker 
       }}

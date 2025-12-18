@@ -18,6 +18,7 @@ export const leads = pgTable("leads", {
   tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
   pipeline: text("pipeline").notNull(), // "jumpseat" | "community"
   stage: text("stage").notNull(),
+  onboardingStage: text("onboarding_stage"), // null = not onboarding, or "call-1" | "call-2" | "cover-letter" | "resume" | "linkedin" | "apply-ready"
   nextFollowUp: timestamp("next_follow_up"),
   actionNeeded: boolean("action_needed").notNull().default(false),
   summary: text("summary"),
