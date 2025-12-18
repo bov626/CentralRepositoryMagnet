@@ -226,11 +226,11 @@ function KanbanColumn({ id, title, leads, onLeadClick }: { id: string, title: st
         ref={setNodeRef} 
         className={cn(
             "flex-shrink-0 w-[280px] flex flex-col h-full rounded-lg border transition-all duration-200",
-            "bg-card/30 backdrop-blur-sm border-white/5 shadow-sm",
-            isOver ? "bg-card/50 border-primary/30 ring-1 ring-primary/20 shadow-inner" : ""
+            "bg-zinc-900/80 border-zinc-700/50 shadow-lg",
+            isOver ? "bg-zinc-800/90 border-primary/40 ring-1 ring-primary/30 shadow-inner" : ""
         )}
     >
-      <div className="p-3 border-b border-white/5 flex items-center justify-between sticky top-0 bg-background/50 backdrop-blur-md rounded-t-lg z-10">
+      <div className="p-3 border-b border-zinc-700/50 flex items-center justify-between sticky top-0 bg-zinc-900/90 backdrop-blur-md rounded-t-lg z-10">
         <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">{title}</h3>
         <span className="text-xs font-mono bg-white/5 px-1.5 py-0.5 rounded text-muted-foreground border border-white/5">
           {leads.length}
@@ -247,9 +247,9 @@ function KanbanColumn({ id, title, leads, onLeadClick }: { id: string, title: st
         {leads.length === 0 && (
           <div className={cn(
               "h-24 border-2 border-dashed rounded-md flex items-center justify-center transition-colors",
-              isOver ? "border-primary/40 bg-primary/5" : "border-white/5"
+              isOver ? "border-primary/40 bg-primary/5" : "border-zinc-600/30"
           )}>
-            <span className={cn("text-xs", isOver ? "text-primary/70" : "text-muted-foreground/30")}>
+            <span className={cn("text-xs", isOver ? "text-primary/70" : "text-muted-foreground/50")}>
                 {isOver ? "Drop Here" : "Empty"}
             </span>
           </div>
