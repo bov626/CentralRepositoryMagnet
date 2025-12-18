@@ -388,10 +388,10 @@ export async function registerRoutes(
   // Onboarding form submission
   app.post("/api/onboarding-form", async (req, res) => {
     try {
-      const { name, email, answers } = req.body;
+      const { name, linkedIn, resumeFileName, coverLetterFileName, answers } = req.body;
       
-      if (!name || !email) {
-        return res.status(400).json({ error: "Name and email are required" });
+      if (!name) {
+        return res.status(400).json({ error: "Name is required" });
       }
 
       // Format the answers into a readable email
@@ -402,6 +402,13 @@ export async function registerRoutes(
           .join('\n\n');
         return content ? `=== ${title} ===\n\n${content}` : '';
       };
+
+      const infoSection = `=== 👤 YOUR INFORMATION ===
+
+Name: ${name}
+LinkedIn: ${linkedIn || 'N/A'}
+Resume: ${resumeFileName || 'Not provided'}
+Cover Letter: ${coverLetterFileName || 'Not provided'}`;
 
       const careerSection = formatSection('📖 CAREER NARRATIVE', [
         { label: 'Full career history:', value: answers.careerHistory },
@@ -428,11 +435,9 @@ export async function registerRoutes(
 
       const emailBody = `ONBOARDING QUESTIONNAIRE SUBMISSION
 
-From: ${name}
-Email: ${email}
 Submitted: ${new Date().toLocaleString()}
 
-${[careerSection, thinkingSection, perspectiveSection].filter(Boolean).join('\n\n\n')}`;
+${[infoSection, careerSection, thinkingSection, perspectiveSection].filter(Boolean).join('\n\n\n')}`;
 
       await sendEmail(
         'wyedoyoudothis@gmail.com',

@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft } from "lucide-react";
+import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X } from "lucide-react";
 
 const STEPS = [
-  { id: 'info', title: 'Your Information', icon: '👤' },
+  { id: 'name', title: 'Your Information', icon: '👤' },
+  { id: 'documents', title: 'Your Information', icon: '👤' },
   { id: 'career', title: 'Career Narrative', icon: '📖' },
   { id: 'thinking', title: 'How You Think', icon: '🧠' },
   { id: 'perspective', title: 'Perspective', icon: '🔍' },
@@ -18,7 +20,13 @@ export default function OnboardingForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [linkedIn, setLinkedIn] = useState("");
+  const [noLinkedIn, setNoLinkedIn] = useState(false);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
+  
+  const resumeInputRef = useRef<HTMLInputElement>(null);
+  const coverLetterInputRef = useRef<HTMLInputElement>(null);
 
   const [answers, setAnswers] = useState({
     careerHistory: "",
@@ -45,19 +53,42 @@ export default function OnboardingForm() {
 
   const canProceed = () => {
     if (currentStep === 0) {
-      return name.trim() !== "" && email.trim() !== "";
+      return name.trim() !== "";
+    }
+    if (currentStep === 1) {
+      const hasResume = resumeFile !== null;
+      const hasLinkedIn = noLinkedIn || linkedIn.trim() !== "";
+      return hasResume && hasLinkedIn;
     }
     return true;
   };
 
   const handleNext = () => {
-    if (currentStep === 0 && (!name.trim() || !email.trim())) {
+    if (currentStep === 0 && !name.trim()) {
       toast({
-        title: "Required Fields",
-        description: "Please enter your name and email to continue",
+        title: "Required Field",
+        description: "Please enter your name to continue",
         variant: "destructive",
       });
       return;
+    }
+    if (currentStep === 1) {
+      if (!resumeFile) {
+        toast({
+          title: "Resume Required",
+          description: "Please upload your resume to continue",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!noLinkedIn && !linkedIn.trim()) {
+        toast({
+          title: "LinkedIn Required",
+          description: "Please enter your LinkedIn URL or check N/A",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(prev => prev + 1);
@@ -70,13 +101,35 @@ export default function OnboardingForm() {
     }
   };
 
+  const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setResumeFile(file);
+    }
+  };
+
+  const handleCoverLetterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCoverLetterFile(file);
+    }
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
+      const formData = {
+        name,
+        linkedIn: noLinkedIn ? "N/A" : linkedIn,
+        resumeFileName: resumeFile?.name || "",
+        coverLetterFileName: coverLetterFile?.name || "",
+        answers,
+      };
+
       const response = await fetch('/api/onboarding-form', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, answers }),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
@@ -147,21 +200,11 @@ export default function OnboardingForm() {
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Full Name *</label>
+                  <label className="text-sm font-medium">First Name *</label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
-                    className="bg-muted/30 h-12"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Email *</label>
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
+                    placeholder="Your first name"
                     className="bg-muted/30 h-12"
                   />
                 </div>
@@ -170,6 +213,131 @@ export default function OnboardingForm() {
           )}
 
           {currentStep === 1 && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <div className="flex items-center gap-3 border-b border-border pb-3 mb-6">
+                <span className="text-2xl">👤</span>
+                <div>
+                  <h2 className="text-xl font-semibold">Your Information</h2>
+                  <p className="text-sm text-muted-foreground">Documents and links</p>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Current Resume *</label>
+                  <input
+                    ref={resumeInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={handleResumeChange}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => resumeInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                      resumeFile ? 'border-green-500 bg-green-500/10' : 'border-border hover:border-primary/50 bg-muted/30'
+                    }`}
+                  >
+                    {resumeFile ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <FileText className="h-5 w-5 text-green-500" />
+                        <span className="text-green-500">{resumeFile.name}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setResumeFile(null);
+                          }}
+                          className="ml-2 text-muted-foreground hover:text-white"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">
+                          Click to upload your resume (PDF, DOC, DOCX)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">LinkedIn Profile *</label>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 relative">
+                      <Link className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        value={linkedIn}
+                        onChange={(e) => setLinkedIn(e.target.value)}
+                        placeholder="https://linkedin.com/in/yourprofile"
+                        className="bg-muted/30 h-12 pl-10"
+                        disabled={noLinkedIn}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Checkbox
+                      id="no-linkedin"
+                      checked={noLinkedIn}
+                      onCheckedChange={(checked) => {
+                        setNoLinkedIn(checked === true);
+                        if (checked) setLinkedIn("");
+                      }}
+                    />
+                    <label htmlFor="no-linkedin" className="text-sm text-muted-foreground cursor-pointer">
+                      N/A - I don't have a LinkedIn profile
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Cover Letter (if any)</label>
+                  <input
+                    ref={coverLetterInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={handleCoverLetterChange}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => coverLetterInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                      coverLetterFile ? 'border-green-500 bg-green-500/10' : 'border-border hover:border-primary/50 bg-muted/30'
+                    }`}
+                  >
+                    {coverLetterFile ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <FileText className="h-5 w-5 text-green-500" />
+                        <span className="text-green-500">{coverLetterFile.name}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCoverLetterFile(null);
+                          }}
+                          className="ml-2 text-muted-foreground hover:text-white"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">
+                          Click to upload cover letter (optional)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 2 && (
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center gap-3 border-b border-border pb-3 mb-6">
                 <span className="text-2xl">📖</span>
@@ -243,7 +411,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 2 && (
+          {currentStep === 3 && (
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center gap-3 border-b border-border pb-3 mb-6">
                 <span className="text-2xl">🧠</span>
@@ -308,7 +476,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 3 && (
+          {currentStep === 4 && (
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center gap-3 border-b border-border pb-3 mb-6">
                 <span className="text-2xl">🔍</span>
