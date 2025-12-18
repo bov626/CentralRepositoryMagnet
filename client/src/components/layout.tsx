@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, CheckSquare, ShieldAlert, Plus, Settings, PanelLeftClose, PanelLeft, UserPlus, Video } from "lucide-react";
+import { LayoutDashboard, CheckSquare, Plus, Settings, PanelLeftClose, PanelLeft, UserPlus, Video } from "lucide-react";
 import { ComposeEmailModal } from "@/components/compose-email-modal";
 import logo from "@assets/AutoPilot_(6)_1766016477027.png";
 import { useState } from "react";
@@ -14,7 +14,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/onboarding", label: "Onboarding", icon: UserPlus },
     { href: "/today", label: "Today", icon: CheckSquare },
     { href: "/fathom", label: "Fathom", icon: Video },
-    { href: "/blockers", label: "Blockers", icon: ShieldAlert },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 

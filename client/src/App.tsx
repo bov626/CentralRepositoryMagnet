@@ -7,7 +7,6 @@ import NotFound from "@/pages/not-found";
 import PipelinePage from "@/pages/pipeline";
 import OnboardingPage from "@/pages/onboarding";
 import TodayPage from "@/pages/today";
-import BlockersPage from "@/pages/blockers";
 import SettingsPage from "@/pages/settings";
 import FathomPage from "@/pages/fathom";
 import { StoreProvider } from "@/lib/data";
@@ -18,7 +17,6 @@ function Router() {
       <Route path="/" component={PipelinePage} />
       <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/today" component={TodayPage} />
-      <Route path="/blockers" component={BlockersPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/fathom" component={FathomPage} />
       <Route component={NotFound} />
