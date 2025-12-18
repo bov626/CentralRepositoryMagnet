@@ -177,10 +177,15 @@ export default function OnboardingForm() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-800/20 via-transparent to-transparent pointer-events-none" />
       
       <div className="relative max-w-2xl mx-auto px-6 py-12">
-        <div className="mb-6">
+        <div className="flex items-center justify-between mb-8">
+          <img 
+            src="/jumpseat-logo.png" 
+            alt="Jumpseat" 
+            className="h-8 w-auto"
+          />
           <RouterLink href="/" className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-white transition-colors duration-200">
             <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            Back
           </RouterLink>
         </div>
 
