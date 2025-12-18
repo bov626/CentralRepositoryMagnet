@@ -7,6 +7,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 // Column Definitions
 const JUMPSEAT_COLUMNS: { id: JumpseatStage; title: string }[] = [
@@ -32,6 +33,7 @@ interface UnifiedKanbanBoardProps {
 export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
   const { leads, moveLead } = useStore();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [communityCollapsed, setCommunityCollapsed] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -167,25 +169,38 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
           </div>
         </section>
         
-        {/* Community Pipeline */}
-        <section className="flex-1 min-h-[400px] flex flex-col pt-8 border-t border-white/10">
-          <div className="flex items-center justify-between mb-4 px-1 shrink-0">
+        {/* Community Pipeline - Collapsible */}
+        <section className="flex flex-col pt-8 border-t border-white/10">
+          <button 
+            onClick={() => setCommunityCollapsed(!communityCollapsed)}
+            className="flex items-center justify-between mb-4 px-1 shrink-0 w-full text-left hover:opacity-80 transition-opacity"
+          >
             <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+              {communityCollapsed ? (
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-muted-foreground" />
+              )}
               <span className="w-2 h-8 bg-secondary rounded-sm block"></span>
               Community Pipeline
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                ({leads.filter(l => l.pipeline === "community").length})
+              </span>
             </h2>
-          </div>
-          <div className="flex-1 min-h-0 flex gap-4 overflow-x-auto pb-4">
-             {COMMUNITY_COLUMNS.map((col) => (
-                <KanbanColumn 
-                   key={col.id} 
-                   id={col.id} 
-                   title={col.title} 
-                   leads={leads.filter(l => l.pipeline === "community" && l.stage === col.id)}
-                   onLeadClick={onLeadClick}
-                 />
-             ))}
-          </div>
+          </button>
+          {!communityCollapsed && (
+            <div className="flex-1 min-h-[300px] flex gap-4 overflow-x-auto pb-4">
+               {COMMUNITY_COLUMNS.map((col) => (
+                  <KanbanColumn 
+                     key={col.id} 
+                     id={col.id} 
+                     title={col.title} 
+                     leads={leads.filter(l => l.pipeline === "community" && l.stage === col.id)}
+                     onLeadClick={onLeadClick}
+                   />
+               ))}
+            </div>
+          )}
         </section>
       </div>
 

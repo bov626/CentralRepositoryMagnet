@@ -53,24 +53,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <main className="flex-1 ml-16 lg:ml-64 bg-background min-h-screen relative">
-        <header className="h-16 border-b border-border sticky top-0 bg-background/80 backdrop-blur-md z-40 px-6 flex items-center justify-between">
-           <h1 className="text-lg font-semibold capitalize">
-             {location === "/" ? "Pipeline" : location.replace("/", "")}
-           </h1>
-           
-           <div className="flex items-center gap-4">
-             <div className="relative hidden md:block">
-               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-               <input 
-                 type="text" 
-                 placeholder="Search leads..." 
-                 className="h-9 w-64 rounded-md bg-muted/50 border border-transparent focus:border-primary pl-9 pr-4 text-sm outline-none transition-all"
-               />
-             </div>
-             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 border-2 border-background ring-1 ring-border"></div>
-           </div>
-        </header>
-        <div className="p-6 h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden">
+        <div className="p-6 h-screen overflow-y-auto overflow-x-hidden">
           {children}
         </div>
       </main>
