@@ -5,7 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, AlertCircle, PlayCircle, ExternalLink, CheckCircle2, Linkedin, X, Plus } from "lucide-react";
+import { Calendar, Clock, AlertCircle, PlayCircle, ExternalLink, CheckCircle2, Linkedin, X, Plus, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 
@@ -15,7 +26,7 @@ interface LeadDetailsProps {
 }
 
 export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
-  const { leads, updateLead } = useStore();
+  const { leads, updateLead, deleteLead } = useStore();
   const lead = leads.find((l) => l.id === leadId);
   const [notes, setNotes] = useState("");
   const [linkedInUrl, setLinkedInUrl] = useState("");
@@ -75,10 +86,43 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                     <h2 className="text-2xl font-bold tracking-tight text-foreground">{lead.name}</h2>
                     {lead.company && <p className="text-muted-foreground font-medium">{lead.company}</p>}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                     {lead.actionNeeded && (
                         <Badge variant="destructive" className="animate-pulse">Action Needed</Badge>
                     )}
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                                data-testid="button-delete-lead"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Lead</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Are you sure you want to delete "{lead.name}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={() => {
+                                        deleteLead(lead.id);
+                                        onClose();
+                                    }}
+                                    className="bg-red-600 hover:bg-red-700"
+                                    data-testid="button-confirm-delete"
+                                >
+                                    Delete
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </div>
             

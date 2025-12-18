@@ -68,6 +68,7 @@ interface StoreContextType {
   setEmailingLead: (lead: Lead | null) => void;
   addLead: (lead: Omit<Lead, "id" | "history" | "createdAt" | "updatedAt">) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
+  deleteLead: (id: string) => void;
   moveLead: (id: string, pipeline: PipelineType, stage: string) => void;
   moveOnboardingLead: (id: string, onboardingStage: OnboardingStage) => void;
   addBlocker: (blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">) => void;
@@ -128,6 +129,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(updates),
       });
       if (!res.ok) throw new Error("Failed to update lead");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    },
+  });
+
+  // Delete lead mutation
+  const deleteLeadMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/leads/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete lead");
       return res.json();
     },
     onSuccess: () => {
@@ -245,6 +260,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateLeadMutation.mutate({ id, updates });
   };
 
+  const deleteLead = (id: string) => {
+    deleteLeadMutation.mutate(id);
+  };
+
   const moveLead = (id: string, pipeline: PipelineType, stage: string) => {
     moveLeadMutation.mutate({ id, pipeline, stage });
   };
@@ -270,7 +289,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         emailingLead,
         setEmailingLead,
         addLead, 
-        updateLead, 
+        updateLead,
+        deleteLead,
         moveLead, 
         moveOnboardingLead,
         addBlocker, 
