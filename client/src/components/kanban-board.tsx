@@ -165,17 +165,8 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
     }, 250);
   };
 
-  const dropAnimation: DropAnimation = {
-    duration: 200,
-    easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
-    sideEffects: defaultDropAnimationSideEffects({
-      styles: {
-        active: {
-          opacity: '0.8',
-        },
-      },
-    }),
-  };
+  // No drop animation - overlay just disappears, card appears in new spot with CSS transition
+  const dropAnimation: DropAnimation | null = null;
 
   const activeLead = leads.find(l => l.id === activeId);
 
@@ -220,6 +211,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
                    onLeadClick={onLeadClick}
                    showGhost={overColumnId === col.id && activeId !== null}
                    ghostLead={activeLead}
+                   activeId={activeId}
                  />
              ))}
           </div>
@@ -255,6 +247,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
                      onLeadClick={onLeadClick}
                      showGhost={overColumnId === col.id && activeId !== null}
                      ghostLead={activeLead}
+                     activeId={activeId}
                    />
                ))}
             </div>
@@ -282,18 +275,22 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
   );
 }
 
-function KanbanColumn({ id, title, leads, onLeadClick, showGhost, ghostLead }: { 
+function KanbanColumn({ id, title, leads, onLeadClick, showGhost, ghostLead, activeId }: { 
   id: string; 
   title: string; 
   leads: Lead[]; 
   onLeadClick: (id: string) => void;
   showGhost?: boolean;
   ghostLead?: Lead | null;
+  activeId?: string | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   
   // Only show ghost if dragging to a different column than where the lead currently is
   const shouldShowGhost = showGhost && ghostLead && ghostLead.stage !== id;
+  
+  // Filter out the actively dragged card from its original column
+  const visibleLeads = activeId ? leads.filter(l => l.id !== activeId) : leads;
 
   return (
     <div 
@@ -312,8 +309,8 @@ function KanbanColumn({ id, title, leads, onLeadClick, showGhost, ghostLead }: {
       </div>
       
       <div className="flex-1 p-2 overflow-y-auto space-y-2 min-h-[150px] scrollbar-none">
-        <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-          {leads.map((lead) => (
+        <SortableContext items={visibleLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
+          {visibleLeads.map((lead) => (
             <LeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead.id)} />
           ))}
         </SortableContext>

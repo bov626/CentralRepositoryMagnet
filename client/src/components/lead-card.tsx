@@ -35,7 +35,8 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition: transition || 'transform 250ms cubic-bezier(0.25, 1, 0.5, 1)',
+    // Heavy, satisfying easing with slight overshoot for that "click into place" feel
+    transition: transition || 'transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1)',
   };
 
   const isOverdue = lead.nextFollowUp && isPast(new Date(lead.nextFollowUp)) && !isToday(new Date(lead.nextFollowUp));
