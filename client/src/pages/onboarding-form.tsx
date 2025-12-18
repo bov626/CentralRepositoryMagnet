@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X } from "lucide-react";
+import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft } from "lucide-react";
+import { Link as RouterLink } from "wouter";
 
 const STEPS = [
   { id: 'name', title: 'Your Information', icon: '👤' },
@@ -172,6 +173,12 @@ export default function OnboardingForm() {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-2xl mx-auto px-6 py-12">
+        <div className="mb-4">
+          <RouterLink href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </RouterLink>
+        </div>
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2 text-center">Onboarding Session I</h1>
           <p className="text-muted-foreground text-center text-sm mb-6">

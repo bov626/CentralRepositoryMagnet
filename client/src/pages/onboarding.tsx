@@ -4,8 +4,9 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Phone, FileText, Linkedin, CheckCircle2, User } from "lucide-react";
+import { Phone, FileText, Linkedin, CheckCircle2, User, ExternalLink } from "lucide-react";
 import Layout from "@/components/layout";
+import { Link } from "wouter";
 
 const ONBOARDING_COLUMNS: { id: OnboardingStage; title: string; icon: React.ReactNode }[] = [
   { id: "call-1", title: "Call #1", icon: <Phone className="h-4 w-4" /> },
@@ -193,6 +194,13 @@ export default function OnboardingPage() {
             </div>
           </div>
         )}
+
+        <div className="mt-6 pt-4 border-t border-border">
+          <Link href="/onboarding-form" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+            <ExternalLink className="h-4 w-4" />
+            Open Client Onboarding Questionnaire
+          </Link>
+        </div>
       </div>
     </Layout>
   );
