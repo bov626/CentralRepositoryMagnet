@@ -1,9 +1,9 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Lead } from "@/lib/data";
+import { Lead, useStore } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, AlertCircle } from "lucide-react";
+import { Clock, AlertCircle, Mail } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 
 interface LeadCardProps {
@@ -13,6 +13,7 @@ interface LeadCardProps {
 }
 
 export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
+  const { setEmailingLead } = useStore();
   const {
     attributes,
     listeners,
@@ -29,6 +30,11 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
 
   const isOverdue = lead.nextFollowUp && isPast(new Date(lead.nextFollowUp)) && !isToday(new Date(lead.nextFollowUp));
   const isDueToday = lead.nextFollowUp && isToday(new Date(lead.nextFollowUp));
+
+  const handleEmailClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    setEmailingLead(lead);
+  };
 
   return (
     <div
@@ -53,9 +59,23 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
         )}
       </div>
 
-      {lead.company && (
-        <p className="text-xs text-muted-foreground mb-3 truncate">{lead.company}</p>
-      )}
+      <div className="flex items-center justify-between mb-3">
+        {lead.company ? (
+            <div className="flex items-center gap-2 overflow-hidden">
+                <p className="text-xs text-muted-foreground truncate">{lead.company}</p>
+                {/* Email Button Next to Company */}
+                <button 
+                    onClick={handleEmailClick}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded text-muted-foreground hover:text-primary"
+                    title={`Email ${lead.email || lead.name}`}
+                >
+                    <Mail className="h-3 w-3" />
+                </button>
+            </div>
+        ) : (
+            <div className="h-4" /> 
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-1 mb-3">
         {lead.tags.slice(0, 3).map((tag) => (

@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, CheckSquare, ShieldAlert, Plus, Search, Settings } from "lucide-react";
+import { ComposeEmailModal } from "@/components/compose-email-modal";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -75,6 +76,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      <ComposeEmailModal />
     </div>
   );
 }

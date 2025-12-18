@@ -26,6 +26,7 @@ export interface Lead {
   name: string;
   company?: string;
   linkedIn?: string;
+  email?: string;
   tags: string[];
   pipeline: PipelineType;
   stage: string;
@@ -58,6 +59,7 @@ const initialLeads: Lead[] = [
     name: "Sarah Miller",
     company: "TechFlow",
     linkedIn: "https://linkedin.com/in/sarahmiller-example",
+    email: "sarah@techflow.com",
     tags: ["price", "perfect-fit"],
     pipeline: "jumpseat",
     stage: "pitch-call",
@@ -75,6 +77,7 @@ const initialLeads: Lead[] = [
     name: "David Chen",
     company: "Acme Corp",
     linkedIn: "https://linkedin.com/in/davidchen-example",
+    email: "d.chen@acme.corp",
     tags: ["timing", "logistics"],
     pipeline: "jumpseat",
     stage: "backlog",
@@ -85,6 +88,7 @@ const initialLeads: Lead[] = [
     id: "3",
     name: "Emily Davis",
     company: "Design Studio",
+    email: "emily@designstudio.io",
     tags: ["confidence"],
     pipeline: "community",
     stage: "nurture",
@@ -126,6 +130,8 @@ const initialBlockers: Blocker[] = [
 interface StoreContextType {
   leads: Lead[];
   blockers: Blocker[];
+  emailingLead: Lead | null;
+  setEmailingLead: (lead: Lead | null) => void;
   addLead: (lead: Omit<Lead, "id" | "history">) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
   moveLead: (id: string, pipeline: PipelineType, stage: string) => void;
@@ -138,6 +144,7 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [blockers, setBlockers] = useState<Blocker[]>(initialBlockers);
+  const [emailingLead, setEmailingLead] = useState<Lead | null>(null);
 
   const addLead = (lead: Omit<Lead, "id" | "history">) => {
     setLeads((prev) => [
@@ -187,7 +194,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   return (
     <StoreContext.Provider
-      value={{ leads, blockers, addLead, updateLead, moveLead, addBlocker, incrementBlocker }}
+      value={{ 
+        leads, 
+        blockers, 
+        emailingLead,
+        setEmailingLead,
+        addLead, 
+        updateLead, 
+        moveLead, 
+        addBlocker, 
+        incrementBlocker 
+      }}
     >
       {children}
     </StoreContext.Provider>
