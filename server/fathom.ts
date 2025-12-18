@@ -172,26 +172,36 @@ export function extractLeadDataFromMeeting(meeting: FathomMeeting): {
     ? prospect.email_domain.split('.')[0].charAt(0).toUpperCase() + prospect.email_domain.split('.')[0].slice(1)
     : null;
   
-  // Extract only the high-level summary section, not the full markdown
+  // Extract only the high-level summary section, strip markdown formatting
   let summary = '';
   const rawSummary = meeting.default_summary?.markdown_formatted || '';
   
-  // Try to extract just the Summary section (between ## Summary and the next ## heading)
-  const summaryMatch = rawSummary.match(/##\s*Summary\s*\n([\s\S]*?)(?=\n##|$)/i);
-  if (summaryMatch) {
-    summary = summaryMatch[1]
-      .replace(/\n+/g, ' ')
-      .replace(/[-*]\s*/g, '')
-      .trim()
-      .slice(0, 500); // Limit length
+  // Helper function to clean markdown
+  const cleanMarkdown = (text: string) => {
+    return text
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove markdown links, keep text
+      .replace(/^#+\s*/gm, '')                  // Remove headers
+      .replace(/\*\*([^*]+)\*\*/g, '$1')        // Remove bold
+      .replace(/\*([^*]+)\*/g, '$1')            // Remove italic
+      .replace(/^\s*[-*]\s*/gm, '')             // Remove bullet points
+      .replace(/\n+/g, ' ')                     // Collapse newlines
+      .replace(/\s+/g, ' ')                     // Collapse whitespace
+      .trim();
+  };
+  
+  // Try to extract just Key Takeaways section (most useful for sales notes)
+  const takeawaysMatch = rawSummary.match(/##\s*Key Takeaways\s*\n([\s\S]*?)(?=\n##|$)/i);
+  if (takeawaysMatch) {
+    summary = cleanMarkdown(takeawaysMatch[1]).slice(0, 600);
   } else {
-    // Fallback: take first paragraph only
-    const firstParagraph = rawSummary.split(/\n\n/)[0] || '';
-    summary = firstParagraph
-      .replace(/^#+\s*/gm, '')
-      .replace(/\n/g, ' ')
-      .trim()
-      .slice(0, 500);
+    // Fallback to Summary section
+    const summaryMatch = rawSummary.match(/##\s*Summary\s*\n([\s\S]*?)(?=\n##|$)/i);
+    if (summaryMatch) {
+      summary = cleanMarkdown(summaryMatch[1]).slice(0, 600);
+    } else {
+      // Last resort: clean the whole thing but take first portion
+      summary = cleanMarkdown(rawSummary).slice(0, 400);
+    }
   }
   
   const keyTakeaways = meeting.action_items?.map(item => item.description) || [];
