@@ -65,6 +65,25 @@ export default function OnboardingForm() {
     }
   }, [currentStep, highestStep]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        const activeElement = document.activeElement;
+        if (activeElement?.tagName === 'TEXTAREA') return;
+        
+        e.preventDefault();
+        if (currentStep < STEPS.length - 1) {
+          handleNext();
+        } else if (!submitting) {
+          handleSubmit();
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentStep, submitting, name, resumeFile, linkedIn, noLinkedIn]);
+
   const canProceed = () => {
     if (currentStep === 0) return name.trim() !== "";
     if (currentStep === 1) return resumeFile !== null;
