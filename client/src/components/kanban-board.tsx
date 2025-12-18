@@ -150,17 +150,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
     }, 250);
   };
 
-  const dropAnimation: DropAnimation = {
-    duration: 250,
-    easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
-    sideEffects: defaultDropAnimationSideEffects({
-      styles: {
-        active: {
-          opacity: '0.4',
-        },
-      },
-    }),
-  };
+  const dropAnimation: DropAnimation | null = null;
 
   const activeLead = leads.find(l => l.id === activeId);
 
