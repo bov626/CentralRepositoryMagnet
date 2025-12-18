@@ -84,7 +84,12 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
             <div className="flex items-start justify-between mb-4">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight text-foreground">{lead.name}</h2>
-                    {lead.company && <p className="text-muted-foreground font-medium">{lead.company}</p>}
+                    {lead.email && (
+                      <a href={`mailto:${lead.email}`} className="text-muted-foreground hover:text-primary text-sm">
+                        {lead.email}
+                      </a>
+                    )}
+                    {lead.company && <p className="text-muted-foreground font-medium text-sm">{lead.company}</p>}
                 </div>
                 <div className="flex gap-2 items-center">
                     {lead.actionNeeded && (

@@ -53,7 +53,9 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           {(lead.recordingLink || lead.fathomRecordingId) && (
-            <Video className="h-3 w-3 text-primary shrink-0" title="Has Fathom recording" />
+            <span title="Has Fathom recording">
+              <Video className="h-3 w-3 text-primary shrink-0" />
+            </span>
           )}
           <h4 className="font-semibold text-sm leading-tight text-card-foreground truncate">
             {lead.name}

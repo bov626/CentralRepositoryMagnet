@@ -268,36 +268,40 @@ export async function registerRoutes(
         }
         
         // Create new lead from calendar event
-        // Priority: 1) displayName from Google, 2) event title if it looks like a name, 3) formatted email prefix
+        // Priority: 1) displayName from Google, 2) Parse name from event title (before "and"/"with"), 3) formatted email prefix
         let attendeeName = externalAttendee.displayName;
         
         if (!attendeeName) {
-          // Check if event title is a person's name (1-3 words, no special chars)
           const eventTitle = event.summary || '';
-          const looksLikeName = /^[A-Za-z]+(\s[A-Za-z]+){0,2}$/.test(eventTitle.trim());
-          if (looksLikeName && eventTitle.length < 40) {
-            attendeeName = eventTitle.trim();
+          // Parse name from event title: "Michael McClellan and Wilson Wye" -> "Michael McClellan"
+          // Common patterns: "Name and Name", "Name with Name", "Name - Name", "Name/Name"
+          const namePart = eventTitle.split(/\s+(and|with|&|-|\/)\s+/i)[0]?.trim();
+          
+          // Check if the extracted part looks like a name (2-4 words, letters only, reasonable length)
+          const looksLikeName = namePart && /^[A-Za-z]+(\s[A-Za-z]+){0,3}$/.test(namePart) && namePart.length < 40;
+          
+          if (looksLikeName) {
+            attendeeName = namePart;
           } else {
-            // Convert email prefix to proper name: "carl.j.noonan" -> "Carl J Noonan"
+            // Fallback: Convert email prefix to proper name: "carl.j.noonan" -> "Carl J Noonan"
             const emailPrefix = externalAttendee.email.split('@')[0];
             attendeeName = emailPrefix
               .replace(/[._-]/g, ' ')
               .replace(/\d+/g, '')
               .trim()
               .split(' ')
+              .filter(w => w.length > 0)
               .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
               .join(' ');
           }
         }
         
-        // Extract company from email domain
+        // Extract company from email domain (only for non-personal email domains)
         const emailDomain = externalAttendee.email.split('@')[1] || '';
-        const company = emailDomain
-          .replace(/\.(com|org|net|io|co|edu)$/i, '')
-          .replace(/\./g, ' ')
-          .split(' ')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ') || null;
+        const personalDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'protonmail.com', 'aol.com'];
+        const company = personalDomains.includes(emailDomain.toLowerCase()) 
+          ? null 
+          : emailDomain.replace(/\.(com|org|net|io|co|edu)$/i, '').split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
         
         const newLead = await storage.createLead({
           name: attendeeName || 'Unknown',
@@ -308,7 +312,7 @@ export async function registerRoutes(
           pipeline: "jumpseat",
           stage: "backlog",
           onboardingStage: null,
-          nextFollowUp: event.start?.dateTime ? new Date(event.start.dateTime) : null,
+          nextFollowUp: null, // Don't auto-set follow-up - only from Fathom or manual entry
           actionNeeded: true,
           summary: `Upcoming call: ${event.summary || 'Meeting'}`,
           keyTakeaways: [],
