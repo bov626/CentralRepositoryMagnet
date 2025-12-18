@@ -151,10 +151,12 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
   };
 
   const dropAnimation: DropAnimation = {
+    duration: 250,
+    easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
     sideEffects: defaultDropAnimationSideEffects({
       styles: {
         active: {
-          opacity: '0.5',
+          opacity: '0.4',
         },
       },
     }),
@@ -170,7 +172,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
       onDragEnd={handleDragEnd}
       measuring={{
         droppable: {
-            strategy: MeasuringStrategy.Always,
+            strategy: MeasuringStrategy.BeforeDragging,
         }
       }}
     >
@@ -247,7 +249,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
       {createPortal(
         <DragOverlay dropAnimation={dropAnimation}>
           {activeLead ? (
-             <div className="w-[280px] rotate-2 cursor-grabbing">
+             <div className="w-[280px] cursor-grabbing transform rotate-2 scale-105 shadow-2xl shadow-primary/20 transition-transform">
                <LeadCard lead={activeLead} onClick={() => {}} isOverlay />
              </div>
           ) : null}

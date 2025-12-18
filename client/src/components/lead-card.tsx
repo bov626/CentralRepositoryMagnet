@@ -1,10 +1,13 @@
-import { useSortable } from "@dnd-kit/sortable";
+import { useSortable, defaultAnimateLayoutChanges, AnimateLayoutChanges } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Lead, useStore } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Clock, AlertCircle, Mail, Video } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
+
+const animateLayoutChanges: AnimateLayoutChanges = (args) => 
+  defaultAnimateLayoutChanges({ ...args, wasDragging: true });
 
 interface LeadCardProps {
   lead: Lead;
@@ -21,11 +24,18 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: lead.id });
+  } = useSortable({ 
+    id: lead.id,
+    animateLayoutChanges,
+    transition: {
+      duration: 250,
+      easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+    },
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: transition || 'transform 250ms cubic-bezier(0.25, 1, 0.5, 1)',
   };
 
   const isOverdue = lead.nextFollowUp && isPast(new Date(lead.nextFollowUp)) && !isToday(new Date(lead.nextFollowUp));
