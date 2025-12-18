@@ -177,7 +177,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
       <div className="space-y-8 pb-12 h-full flex flex-col">
         {/* Jumpseat Pipeline */}
         <section className="flex-1 min-h-[650px] flex flex-col">
-          <div className="flex items-center justify-between mb-4 px-1 shrink-0">
+          <div className="flex items-center mb-4 px-1 shrink-0 gap-4">
             <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
               <span className="w-2 h-8 bg-primary rounded-sm block"></span>
               Jumpseat Pipeline
@@ -186,10 +186,10 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
               href="https://www.canva.com/design/DAG7gKJfndQ/JPBsVNk6ymFqfNCGN2nr_w/edit"
               target="_blank"
               rel="noreferrer"
-              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-md transition-colors flex items-center gap-2"
-              data-testid="link-pitch-deck"
+              className="px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-md transition-colors"
+              data-testid="link-pitch"
             >
-              Pitch Deck
+              Pitch
             </a>
           </div>
           <div className="flex-1 min-h-0 flex gap-4 overflow-x-auto pb-4">
