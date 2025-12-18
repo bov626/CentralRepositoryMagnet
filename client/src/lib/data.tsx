@@ -122,7 +122,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Update lead mutation
+  // Update lead mutation with optimistic updates
   const updateLeadMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Lead> }) => {
       const res = await fetch(`/api/leads/${id}`, {
@@ -133,7 +133,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!res.ok) throw new Error("Failed to update lead");
       return res.json();
     },
-    onSuccess: () => {
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: ["leads"] });
+      const previousLeads = queryClient.getQueryData<Lead[]>(["leads"]);
+      
+      queryClient.setQueryData<Lead[]>(["leads"], (old) => {
+        if (!old) return old;
+        return old.map((lead) => lead.id === id ? { ...lead, ...updates } : lead);
+      });
+      
+      return { previousLeads };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousLeads) {
+        queryClient.setQueryData(["leads"], context.previousLeads);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
     },
   });

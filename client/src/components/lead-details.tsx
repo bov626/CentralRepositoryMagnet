@@ -33,12 +33,15 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
   const [newTag, setNewTag] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [followUpDate, setFollowUpDate] = useState("");
+  const [editableName, setEditableName] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
 
   useEffect(() => {
     if (lead) {
       setNotes(lead.summary || "");
       setLinkedInUrl(lead.linkedIn || "");
       setFollowUpDate(lead.nextFollowUp ? new Date(lead.nextFollowUp).toISOString().split('T')[0] : "");
+      setEditableName(lead.name || "");
     }
   }, [lead]);
 
@@ -57,6 +60,13 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
   };
 
   if (!lead) return null;
+
+  const handleSaveName = () => {
+    if (editableName.trim() && editableName !== lead.name) {
+      updateLead(lead.id, { name: editableName.trim() });
+    }
+    setIsEditingName(false);
+  };
 
   const handleSaveNotes = () => {
     updateLead(lead.id, { summary: notes });
@@ -82,8 +92,27 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto bg-card border-l border-border p-0 gap-0">
         <div className="p-6 pb-4 border-b border-border bg-muted/20">
             <div className="flex items-start justify-between mb-4">
-                <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-foreground">{lead.name}</h2>
+                <div className="flex-1 min-w-0">
+                    {isEditingName ? (
+                      <input
+                        type="text"
+                        value={editableName}
+                        onChange={(e) => setEditableName(e.target.value)}
+                        onBlur={handleSaveName}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                        className="text-2xl font-bold tracking-tight text-foreground bg-transparent border-b-2 border-primary focus:outline-none w-full"
+                        autoFocus
+                        data-testid="input-lead-name"
+                      />
+                    ) : (
+                      <h2 
+                        className="text-2xl font-bold tracking-tight text-foreground cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => setIsEditingName(true)}
+                        title="Click to edit name"
+                      >
+                        {lead.name}
+                      </h2>
+                    )}
                     {lead.email && (
                       <a href={`mailto:${lead.email}`} className="text-muted-foreground hover:text-primary text-sm">
                         {lead.email}
