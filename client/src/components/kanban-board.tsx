@@ -1,5 +1,5 @@
 import { useStore, Lead, PipelineType, JumpseatStage, CommunityStage } from "@/lib/data";
-import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, defaultDropAnimationSideEffects, DropAnimation, MeasuringStrategy } from "@dnd-kit/core";
+import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, DragOverEvent, defaultDropAnimationSideEffects, DropAnimation, MeasuringStrategy } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { LeadCard } from "./lead-card";
@@ -33,6 +33,7 @@ interface UnifiedKanbanBoardProps {
 export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
   const { leads, moveLead } = useStore();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const [communityCollapsed, setCommunityCollapsed] = useState(false);
 
   const sensors = useSensors(
@@ -45,6 +46,30 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (!over) {
+      setOverColumnId(null);
+      return;
+    }
+
+    const overId = over.id as string;
+    
+    // Check if over a column
+    const jumpseatCol = JUMPSEAT_COLUMNS.find(c => c.id === overId);
+    const communityCol = COMMUNITY_COLUMNS.find(c => c.id === overId);
+    
+    if (jumpseatCol || communityCol) {
+      setOverColumnId(overId);
+    } else {
+      // Over a card - find its column
+      const overLead = leads.find(l => l.id === overId);
+      if (overLead) {
+        setOverColumnId(overLead.stage);
+      }
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -102,6 +127,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
     }
     
     setActiveId(null);
+    setOverColumnId(null);
   };
 
   const triggerFireworks = () => {
@@ -140,6 +166,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
     <DndContext 
       sensors={sensors} 
       onDragStart={handleDragStart} 
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       measuring={{
         droppable: {
@@ -164,6 +191,8 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
                    title={col.title} 
                    leads={leads.filter(l => l.pipeline === "jumpseat" && l.stage === col.id)}
                    onLeadClick={onLeadClick}
+                   showGhost={overColumnId === col.id && activeId !== null}
+                   ghostLead={activeLead}
                  />
              ))}
           </div>
@@ -197,6 +226,8 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
                      title={col.title} 
                      leads={leads.filter(l => l.pipeline === "community" && l.stage === col.id)}
                      onLeadClick={onLeadClick}
+                     showGhost={overColumnId === col.id && activeId !== null}
+                     ghostLead={activeLead}
                    />
                ))}
             </div>
@@ -218,8 +249,18 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
   );
 }
 
-function KanbanColumn({ id, title, leads, onLeadClick }: { id: string, title: string, leads: Lead[], onLeadClick: (id: string) => void }) {
+function KanbanColumn({ id, title, leads, onLeadClick, showGhost, ghostLead }: { 
+  id: string; 
+  title: string; 
+  leads: Lead[]; 
+  onLeadClick: (id: string) => void;
+  showGhost?: boolean;
+  ghostLead?: Lead | null;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id });
+  
+  // Only show ghost if dragging to a different column than where the lead currently is
+  const shouldShowGhost = showGhost && ghostLead && ghostLead.stage !== id;
 
   return (
     <div 
@@ -244,7 +285,31 @@ function KanbanColumn({ id, title, leads, onLeadClick }: { id: string, title: st
           ))}
         </SortableContext>
         
-        {leads.length === 0 && (
+        {/* Ghost placeholder when dragging */}
+        {shouldShowGhost && ghostLead && (
+          <div className="bg-primary/10 border-2 border-dashed border-primary/40 rounded-md p-3 animate-pulse">
+            <div className="flex justify-between items-start mb-2">
+              <h4 className="font-semibold text-sm leading-tight text-primary/70 line-clamp-2">
+                {ghostLead.name}
+              </h4>
+            </div>
+            {ghostLead.company && (
+              <p className="text-xs text-primary/50 mb-2">{ghostLead.company}</p>
+            )}
+            <div className="flex flex-wrap gap-1">
+              {ghostLead.tags.slice(0, 2).map((tag) => (
+                <span 
+                  key={tag} 
+                  className="text-[10px] px-1.5 py-0.5 rounded-sm bg-primary/10 text-primary/50 border border-primary/20"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {leads.length === 0 && !shouldShowGhost && (
           <div className={cn(
               "h-24 border-2 border-dashed rounded-md flex items-center justify-center transition-colors",
               isOver ? "border-primary/40 bg-primary/5" : "border-zinc-600/30"
