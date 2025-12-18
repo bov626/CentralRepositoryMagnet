@@ -28,10 +28,21 @@ const COMMUNITY_COLUMNS: { id: CommunityStage; title: string }[] = [
 
 interface UnifiedKanbanBoardProps {
   onLeadClick: (id: string) => void;
+  searchQuery?: string;
 }
 
-export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
+export function UnifiedKanbanBoard({ onLeadClick, searchQuery = "" }: UnifiedKanbanBoardProps) {
   const { leads, moveLead } = useStore();
+  
+  // Filter leads based on search query
+  const filteredLeads = leads.filter((lead) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      lead.name.toLowerCase().includes(query) ||
+      (lead.email && lead.email.toLowerCase().includes(query))
+    );
+  });
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const [communityCollapsed, setCommunityCollapsed] = useState(false);
@@ -207,7 +218,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
                    key={col.id} 
                    id={col.id} 
                    title={col.title} 
-                   leads={leads.filter(l => l.pipeline === "jumpseat" && l.stage === col.id)}
+                   leads={filteredLeads.filter(l => l.pipeline === "jumpseat" && l.stage === col.id)}
                    onLeadClick={onLeadClick}
                    showGhost={overColumnId === col.id && activeId !== null}
                    ghostLead={activeLead}
@@ -232,7 +243,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
               <span className="w-2 h-8 bg-secondary rounded-sm block"></span>
               Community Pipeline
               <span className="text-sm font-normal text-muted-foreground ml-2">
-                ({leads.filter(l => l.pipeline === "community").length})
+                ({filteredLeads.filter(l => l.pipeline === "community").length})
               </span>
             </h2>
           </button>
@@ -243,7 +254,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
                      key={col.id} 
                      id={col.id} 
                      title={col.title} 
-                     leads={leads.filter(l => l.pipeline === "community" && l.stage === col.id)}
+                     leads={filteredLeads.filter(l => l.pipeline === "community" && l.stage === col.id)}
                      onLeadClick={onLeadClick}
                      showGhost={overColumnId === col.id && activeId !== null}
                      ghostLead={activeLead}
