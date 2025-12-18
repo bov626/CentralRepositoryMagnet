@@ -193,9 +193,12 @@ export default function OnboardingForm() {
           <div className="inline-block mb-4">
             <span className="text-xs font-medium tracking-widest uppercase text-zinc-500">Onboarding</span>
           </div>
-          <h1 className="text-4xl font-light tracking-tight mb-3">Session I</h1>
-          <p className="text-zinc-500 text-sm">
-            This will take approximately 1 hour
+          <h1 className="text-4xl font-light tracking-tight mb-4">
+            <span className="bg-red-600 px-4 py-2 inline-block">Session I</span>
+          </h1>
+          <p className="text-zinc-400 text-sm leading-relaxed">
+            Complete this before our first call.<br />
+            This will take approx. 1 Hour.
           </p>
         </div>
 
