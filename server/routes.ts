@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeadSchema, insertBlockerSchema } from "@shared/schema";
 import { z } from "zod";
+import { getUpcomingEvents, createEvent } from "./google-calendar";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -108,6 +109,34 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating blocker:", error);
       res.status(500).json({ error: "Failed to update blocker" });
+    }
+  });
+
+  // Google Calendar routes - only sales meetings with attendees
+  app.get("/api/calendar/events", async (req, res) => {
+    try {
+      const events = await getUpcomingEvents(15);
+      res.json(events);
+    } catch (error: any) {
+      console.error("Error fetching calendar events:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch calendar events" });
+    }
+  });
+
+  app.post("/api/calendar/events", async (req, res) => {
+    try {
+      const { summary, description, startTime, endTime, attendeeEmail } = req.body;
+      const event = await createEvent(
+        summary,
+        description,
+        new Date(startTime),
+        new Date(endTime),
+        attendeeEmail
+      );
+      res.status(201).json(event);
+    } catch (error: any) {
+      console.error("Error creating calendar event:", error);
+      res.status(500).json({ error: error.message || "Failed to create calendar event" });
     }
   });
 

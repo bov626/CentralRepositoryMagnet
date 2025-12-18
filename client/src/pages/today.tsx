@@ -3,14 +3,40 @@ import { useStore, Lead } from "@/lib/data";
 import { LeadDetails } from "@/components/lead-details";
 import { useState } from "react";
 import { format, isToday, isPast, isTomorrow } from "date-fns";
-import { CheckSquare, Clock, AlertTriangle, ArrowRight } from "lucide-react";
+import { CheckSquare, Clock, AlertTriangle, ArrowRight, Calendar, Video, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+
+interface CalendarEvent {
+  id: string;
+  summary: string;
+  start: { dateTime?: string; date?: string };
+  end: { dateTime?: string; date?: string };
+  attendees?: { email: string; displayName?: string; self?: boolean }[];
+  htmlLink?: string;
+}
 
 export default function TodayPage() {
   const { leads } = useStore();
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
 
+  const { data: calendarEvents = [], isLoading: calendarLoading } = useQuery<CalendarEvent[]>({
+    queryKey: ["calendar-events"],
+    queryFn: async () => {
+      const res = await fetch("/api/calendar/events");
+      if (!res.ok) throw new Error("Failed to fetch calendar events");
+      return res.json();
+    },
+  });
+
   const today = new Date();
+  
+  // Filter calendar events for today
+  const todaysMeetings = calendarEvents.filter(event => {
+    const eventDate = event.start.dateTime || event.start.date;
+    if (!eventDate) return false;
+    return isToday(new Date(eventDate));
+  });
   
   const dueToday = leads.filter(l => l.nextFollowUp && isToday(new Date(l.nextFollowUp)));
   const overdue = leads.filter(l => l.nextFollowUp && isPast(new Date(l.nextFollowUp)) && !isToday(new Date(l.nextFollowUp)));
@@ -26,6 +52,23 @@ export default function TodayPage() {
             <h1 className="text-3xl font-bold tracking-tight mb-2">Today's Focus</h1>
             <p className="text-muted-foreground">{format(today, "EEEE, MMMM do, yyyy")}</p>
         </header>
+
+        {/* Sales Meetings from Calendar */}
+        <section>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-blue-500" />
+                Sales Meetings Today ({todaysMeetings.length})
+            </h2>
+            <div className="grid gap-3">
+                {calendarLoading ? (
+                    <div className="p-4 text-center text-muted-foreground">Loading calendar...</div>
+                ) : todaysMeetings.length > 0 ? todaysMeetings.map(event => (
+                    <MeetingCard key={event.id} event={event} />
+                )) : (
+                    <EmptyState message="No sales meetings scheduled for today." />
+                )}
+            </div>
+        </section>
 
         {/* Pitch Calls Section */}
         <section>
@@ -131,6 +174,54 @@ function TaskCard({ lead, type, onClick }: { lead: Lead, type: 'pitch' | 'overdu
             </div>
         </div>
     )
+}
+
+function MeetingCard({ event }: { event: CalendarEvent }) {
+    const startTime = event.start.dateTime ? new Date(event.start.dateTime) : null;
+    const endTime = event.end.dateTime ? new Date(event.end.dateTime) : null;
+    const attendees = event.attendees?.filter(a => !a.self) || [];
+    
+    return (
+        <a 
+            href={event.htmlLink || "#"}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-between p-4 rounded-lg border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 transition-all cursor-pointer group shadow-sm"
+        >
+            <div className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded-full flex items-center justify-center border bg-blue-500/10 border-blue-500/20 text-blue-500">
+                    <Video className="h-5 w-5" />
+                </div>
+                <div>
+                    <h3 className="font-semibold text-foreground">{event.summary}</h3>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {startTime && endTime && (
+                            <span>{format(startTime, "h:mm a")} - {format(endTime, "h:mm a")}</span>
+                        )}
+                        {attendees.length > 0 && (
+                            <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                    <Users className="h-3 w-3" />
+                                    {attendees.slice(0, 2).map(a => a.displayName || a.email.split('@')[0]).join(', ')}
+                                    {attendees.length > 2 && ` +${attendees.length - 2}`}
+                                </span>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+                {startTime && (
+                    <div className="text-xs font-mono px-2 py-1 rounded text-blue-400 bg-blue-500/10">
+                        {format(startTime, "h:mm a")}
+                    </div>
+                )}
+                <ArrowRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+            </div>
+        </a>
+    );
 }
 
 function EmptyState({ message }: { message: string }) {
