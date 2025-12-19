@@ -1146,7 +1146,7 @@ export default function OnboardingForm() {
                       </div>
                     )}
                     <label className="text-sm font-medium text-zinc-300">
-                      What everyday object was originally invented to stop horses from slipping?
+                      1. What everyday object was originally invented to stop horses from slipping?
                     </label>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -1191,7 +1191,7 @@ export default function OnboardingForm() {
                         </div>
                       )}
                       <label className="text-sm font-medium text-zinc-300">
-                        Who is the best YouTuber?
+                        2. Who is the best YouTuber?
                       </label>
                     </div>
                     {triviaQ2Message && (
@@ -1282,7 +1282,7 @@ export default function OnboardingForm() {
                         </div>
                       )}
                       <label className="text-sm font-medium text-zinc-300">
-                        The "Q" in Q-tips stands for what?
+                        3. The "Q" in Q-tips stands for what?
                       </label>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -1328,7 +1328,6 @@ export default function OnboardingForm() {
                         </div>
                       )}
                       <label className="text-sm font-medium text-zinc-300">
-                        What is 12÷(3+1)×2−2 = {' '}
                         <span 
                           onClick={() => {
                             if (!triviaQ4Correct && !triviaQ4HalfPoints) {
@@ -1343,7 +1342,7 @@ export default function OnboardingForm() {
                             }
                           }}
                           className="cursor-pointer hover:bg-zinc-700/50 hover:rounded-full hover:ring-2 hover:ring-zinc-500 px-1 transition-all"
-                        >4</span>?
+                        >4</span>. What is 12÷(3+1)×2−2?
                       </label>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -1389,7 +1388,7 @@ export default function OnboardingForm() {
                         </div>
                       )}
                       <label className="text-sm font-medium text-zinc-300">
-                        Bananas are classified as what?
+                        5. Bananas are classified as what?
                       </label>
                     </div>
                     {triviaQ5Message && (
