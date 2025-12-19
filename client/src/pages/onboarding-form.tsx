@@ -166,6 +166,11 @@ export default function OnboardingForm() {
   const [tipShown, setTipShown] = useState(false);
   const [continueCount, setContinueCount] = useState(0);
   const [cheerMessage, setCheerMessage] = useState<string | null>(null);
+  const [wowShown, setWowShown] = useState(false);
+  const [wowStep] = useState(() => {
+    const validSteps = [0, 1, 2, 3, 5, 6, 7, 8, 9, 10];
+    return validSteps[Math.floor(Math.random() * validSteps.length)];
+  });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [name, setName] = useState("");
@@ -385,10 +390,16 @@ export default function OnboardingForm() {
 
   const triggerCheer = () => {
     setContinueCount(prev => prev + 1);
-    if ((continueCount + 1) % 2 === 0 && Math.random() < 0.2) {
-      const cheers = ["Woah", "Nice", "Wow"];
-      const randomCheer = cheers[Math.floor(Math.random() * cheers.length)];
-      setCheerMessage(randomCheer);
+    
+    if (currentStep === 4) {
+      setCheerMessage("yeahhhhh");
+      setTimeout(() => setCheerMessage(null), 1000);
+      return;
+    }
+    
+    if (!wowShown && currentStep === wowStep) {
+      setWowShown(true);
+      setCheerMessage("Wow");
       setTimeout(() => setCheerMessage(null), 1000);
     }
   };
