@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft, Sparkles } from "lucide-react";
 import { Link as RouterLink } from "wouter";
-import { DndContext, useDraggable, useDroppable, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, useDraggable, useDroppable, DragEndEvent, DragMoveEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 
 const STEPS = [
   { id: 'name', title: 'Your Information' },
@@ -97,8 +97,8 @@ function DraggablePiece({ piece }: { piece: typeof PUZZLE_PIECES[0] }) {
   );
 }
 
-function GridCell({ id, pieceColor, isValidCell, onClick }: { id: string; pieceColor: string | null; isValidCell: boolean; onClick: () => void }) {
-  const { isOver, setNodeRef } = useDroppable({ id });
+function GridCell({ id, pieceColor, isValidCell, onClick, previewColor }: { id: string; pieceColor: string | null; isValidCell: boolean; onClick: () => void; previewColor?: string | null }) {
+  const { setNodeRef } = useDroppable({ id });
   
   if (!isValidCell) {
     return <div className="w-7 h-7" />;
@@ -108,8 +108,8 @@ function GridCell({ id, pieceColor, isValidCell, onClick }: { id: string; pieceC
     <div
       ref={setNodeRef}
       onClick={onClick}
-      className={`w-7 h-7 rounded-sm border transition-all duration-200 cursor-pointer ${
-        pieceColor ? `${pieceColor} border-transparent` : isOver ? 'bg-slate-600 border-slate-400' : 'bg-slate-700 border-slate-600 hover:bg-slate-600'
+      className={`w-7 h-7 rounded-sm border transition-all duration-100 cursor-pointer ${
+        pieceColor ? `${pieceColor} border-transparent` : previewColor ? `${previewColor} opacity-50 border-transparent` : 'bg-slate-700 border-slate-600 hover:bg-slate-600'
       }`}
     />
   );
@@ -133,6 +133,7 @@ export default function OnboardingForm() {
     Array(6).fill(null).map(() => Array(6).fill(null))
   );
   const [availablePieces, setAvailablePieces] = useState(PUZZLE_PIECES.map(p => p.id));
+  const [previewCells, setPreviewCells] = useState<{cells: string[], valid: boolean, color: string} | null>(null);
   
   const filledCells = puzzleGrid.flat().filter((c, i) => {
     const row = Math.floor(i / 6);
@@ -609,53 +610,97 @@ export default function OnboardingForm() {
               </div>
 
               {puzzleMode === 'blocks' ? (
-                <DndContext sensors={sensors} onDragEnd={(event: DragEndEvent) => {
-                  const { active, over } = event;
-                  if (!over) return;
-                  
-                  const pieceId = active.id as number;
-                  const piece = PUZZLE_PIECES.find(p => p.id === pieceId);
-                  if (!piece) return;
-                  
-                  const [row, col] = (over.id as string).split('-').map(Number);
-                  
-                  let canPlace = true;
-                  for (let h = 0; h < piece.shape.length; h++) {
-                    for (let w = 0; w < piece.shape[h].length; w++) {
-                      if (!piece.shape[h][w]) continue;
-                      if (row + h >= 6 || col + w >= 6 || !CROSS_GRID[row + h][col + w] || puzzleGrid[row + h][col + w] !== null) {
-                        canPlace = false;
-                        break;
-                      }
+                <DndContext 
+                  sensors={sensors} 
+                  onDragMove={(event: DragMoveEvent) => {
+                    const { active, over } = event;
+                    if (!over) {
+                      setPreviewCells(null);
+                      return;
                     }
-                    if (!canPlace) break;
-                  }
-                  
-                  if (canPlace) {
-                    const newGrid = puzzleGrid.map(r => [...r]);
+                    
+                    const pieceId = Number(active.id);
+                    const piece = PUZZLE_PIECES.find(p => p.id === pieceId);
+                    if (!piece) return;
+                    
+                    const [row, col] = (over.id as string).split('-').map(Number);
+                    if (isNaN(row) || isNaN(col)) {
+                      setPreviewCells(null);
+                      return;
+                    }
+                    
+                    const cells: string[] = [];
+                    let canPlace = true;
+                    
                     for (let h = 0; h < piece.shape.length; h++) {
                       for (let w = 0; w < piece.shape[h].length; w++) {
-                        if (piece.shape[h][w]) {
-                          newGrid[row + h][col + w] = pieceId;
+                        if (!piece.shape[h][w]) continue;
+                        const r = row + h;
+                        const c = col + w;
+                        cells.push(`${r}-${c}`);
+                        if (r >= 6 || c >= 6 || !CROSS_GRID[r]?.[c] || puzzleGrid[r]?.[c] !== null) {
+                          canPlace = false;
                         }
                       }
                     }
-                    setPuzzleGrid(newGrid);
-                    setAvailablePieces(prev => prev.filter(id => id !== pieceId));
-                  }
-                }}>
+                    
+                    setPreviewCells({ cells, valid: canPlace, color: piece.color });
+                  }}
+                  onDragEnd={(event: DragEndEvent) => {
+                    setPreviewCells(null);
+                    const { active, over } = event;
+                    if (!over) return;
+                    
+                    const pieceId = Number(active.id);
+                    const piece = PUZZLE_PIECES.find(p => p.id === pieceId);
+                    if (!piece) return;
+                    
+                    const [row, col] = (over.id as string).split('-').map(Number);
+                    if (isNaN(row) || isNaN(col)) return;
+                    
+                    let canPlace = true;
+                    for (let h = 0; h < piece.shape.length; h++) {
+                      for (let w = 0; w < piece.shape[h].length; w++) {
+                        if (!piece.shape[h][w]) continue;
+                        if (row + h >= 6 || col + w >= 6 || !CROSS_GRID[row + h][col + w] || puzzleGrid[row + h][col + w] !== null) {
+                          canPlace = false;
+                          break;
+                        }
+                      }
+                      if (!canPlace) break;
+                    }
+                    
+                    if (canPlace) {
+                      const newGrid = puzzleGrid.map(r => [...r]);
+                      for (let h = 0; h < piece.shape.length; h++) {
+                        for (let w = 0; w < piece.shape[h].length; w++) {
+                          if (piece.shape[h][w]) {
+                            newGrid[row + h][col + w] = pieceId;
+                          }
+                        }
+                      }
+                      setPuzzleGrid(newGrid);
+                      setAvailablePieces(prev => prev.filter(id => id !== pieceId));
+                    }
+                  }}
+                  onDragCancel={() => setPreviewCells(null)}
+                >
                   <div className="flex flex-col items-center gap-8">
                     <div className="grid grid-cols-6 gap-0.5 p-3 bg-zinc-900/30 rounded-xl">
                       {CROSS_GRID.map((row, rowIndex) => (
                         row.map((isValid, colIndex) => {
+                          const cellId = `${rowIndex}-${colIndex}`;
                           const cell = puzzleGrid[rowIndex][colIndex];
                           const piece = cell ? PUZZLE_PIECES.find(p => p.id === cell) : null;
+                          const isPreview = previewCells?.cells.includes(cellId);
+                          const previewColor = isPreview && previewCells?.valid ? previewCells.color : null;
                           return (
                             <GridCell
-                              key={`${rowIndex}-${colIndex}`}
-                              id={`${rowIndex}-${colIndex}`}
+                              key={cellId}
+                              id={cellId}
                               pieceColor={piece?.color || null}
                               isValidCell={isValid}
+                              previewColor={previewColor}
                               onClick={() => {
                                 if (cell) {
                                   const newGrid = puzzleGrid.map(r => r.map(c => c === cell ? null : c));
