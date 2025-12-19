@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { type User, type InsertUser, type Lead, type InsertLead, type Blocker, type InsertBlocker, users, leads, blockers } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { type User, type InsertUser, type Lead, type InsertLead, type Blocker, type InsertBlocker, type OnboardingSubmission, type InsertOnboardingSubmission, users, leads, blockers, onboardingSubmissions } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -23,6 +23,10 @@ export interface IStorage {
   createBlocker(blocker: InsertBlocker): Promise<Blocker>;
   updateBlocker(id: string, blocker: Partial<InsertBlocker>): Promise<Blocker | undefined>;
   deleteBlocker(id: string): Promise<boolean>;
+
+  // Onboarding submission methods
+  getAllOnboardingSubmissions(): Promise<OnboardingSubmission[]>;
+  createOnboardingSubmission(submission: InsertOnboardingSubmission): Promise<OnboardingSubmission>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -108,6 +112,16 @@ export class DatabaseStorage implements IStorage {
   async deleteBlocker(id: string): Promise<boolean> {
     const result = await db.delete(blockers).where(eq(blockers.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Onboarding submission methods
+  async getAllOnboardingSubmissions(): Promise<OnboardingSubmission[]> {
+    return await db.select().from(onboardingSubmissions).orderBy(desc(onboardingSubmissions.submittedAt));
+  }
+
+  async createOnboardingSubmission(insertSubmission: InsertOnboardingSubmission): Promise<OnboardingSubmission> {
+    const [submission] = await db.insert(onboardingSubmissions).values(insertSubmission).returning();
+    return submission;
   }
 }
 
