@@ -267,8 +267,9 @@ export default function OnboardingForm() {
   };
 
   const currentGroup = STEPS[Math.max(highestStep, currentStep)].group;
-  const currentGroupIndex = UNIQUE_GROUPS.indexOf(currentGroup);
-  const progress = ((currentGroupIndex + 1) / UNIQUE_GROUPS.length) * 100;
+  const rawGroupIndex = UNIQUE_GROUPS.indexOf(currentGroup);
+  const currentGroupIndex = rawGroupIndex === -1 ? UNIQUE_GROUPS.length - 1 : rawGroupIndex;
+  const progress = currentStep === 12 ? 100 : ((currentGroupIndex + 1) / UNIQUE_GROUPS.length) * 100;
 
   useEffect(() => {
     if (currentStep > highestStep) {
@@ -539,21 +540,23 @@ export default function OnboardingForm() {
           )}
         </div>
 
-        <div className="mb-12">
-          <div className="flex items-center justify-between text-sm mb-3">
-            <span className="text-zinc-400 font-medium">
-              Part {currentStep + 1} of {STEPS.length}
-            </span>
-            <span className="text-zinc-500">{Math.round(progress)}%</span>
-          </div>
-          <div className="h-1 bg-zinc-800 rounded-full overflow-hidden relative">
-            <div 
-              className="h-full bg-gradient-to-r from-red-500 to-red-400 transition-all duration-500 ease-out rounded-full relative"
-              style={{ width: `${progress}%` }}
-            >
+        {currentStep < 12 && (
+          <div className="mb-12">
+            <div className="flex items-center justify-between text-sm mb-3">
+              <span className="text-zinc-400 font-medium">
+                Part {currentGroupIndex + 1} of {UNIQUE_GROUPS.length}
+              </span>
+              <span className="text-zinc-500">{Math.round(progress)}%</span>
+            </div>
+            <div className="h-1 bg-zinc-800 rounded-full overflow-hidden relative">
+              <div 
+                className="h-full bg-gradient-to-r from-red-500 to-red-400 transition-all duration-500 ease-out rounded-full relative"
+                style={{ width: `${progress}%` }}
+              >
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="min-h-[400px]">
           {currentStep === 0 && (
