@@ -597,6 +597,17 @@ export default function OnboardingForm() {
               Book your first onboarding call
             </a>
           </div>
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500 mt-8">
+            <p className="text-zinc-500">
+              If you did. Then you are done for now.
+            </p>
+            <button
+              onClick={() => window.close()}
+              className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-medium rounded-xl transition-all duration-300"
+            >
+              Done
+            </button>
+          </div>
         </div>
       </div>
     );
