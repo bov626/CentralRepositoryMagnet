@@ -9,6 +9,34 @@ import { Link as RouterLink } from "wouter";
 import { DndContext, useDraggable, useDroppable, DragEndEvent, DragMoveEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import confetti from "canvas-confetti";
 
+async function uploadFileToStorage(file: File): Promise<string | null> {
+  try {
+    const res = await fetch("/api/uploads/request-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: file.name,
+        size: file.size,
+        contentType: file.type || "application/octet-stream",
+      }),
+    });
+    if (!res.ok) throw new Error("Failed to get upload URL");
+    const { uploadURL, objectPath } = await res.json();
+    
+    const uploadRes = await fetch(uploadURL, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+    });
+    if (!uploadRes.ok) throw new Error("Failed to upload file");
+    
+    return objectPath;
+  } catch (error) {
+    console.error("File upload error:", error);
+    return null;
+  }
+}
+
 const STEPS = [
   { id: 'name', title: 'Your Information', group: 'name' },
   { id: 'resume', title: 'Resume', group: 'resume' },
@@ -598,12 +626,32 @@ export default function OnboardingForm() {
                    totalPoints >= 2000 ? 'Gamer Status' :
                    totalPoints >= 1500 ? 'Operator Status' : 'NPC Status';
 
+      let resumePath: string | null = null;
+      let coverLetterPath: string | null = null;
+
+      if (resumeFile) {
+        resumePath = await uploadFileToStorage(resumeFile);
+        if (!resumePath) {
+          throw new Error("Failed to upload resume. Please try again.");
+        }
+      }
+      if (coverLetterFile) {
+        coverLetterPath = await uploadFileToStorage(coverLetterFile);
+        if (!coverLetterPath) {
+          throw new Error("Failed to upload cover letter. Please try again.");
+        }
+      }
+
       const formData = {
         name,
-        linkedIn: noLinkedIn ? "N/A" : linkedIn,
-        resumeFileName: resumeFile?.name || "",
-        coverLetterFileName: coverLetterFile?.name || "",
-        answers,
+        linkedIn: noLinkedIn ? null : linkedIn,
+        resumePath,
+        coverLetterPath,
+        answers: {
+          ...answers,
+          resumeFileName: resumeFile?.name || "",
+          coverLetterFileName: coverLetterFile?.name || "",
+        },
         totalPoints,
         tier,
       };

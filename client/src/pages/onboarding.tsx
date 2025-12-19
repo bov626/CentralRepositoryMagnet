@@ -4,11 +4,12 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Phone, FileText, Linkedin, CheckCircle2, User, ExternalLink, ChevronDown, ChevronUp, Trophy, Gamepad2, Wrench, Bot, Calendar } from "lucide-react";
+import { Phone, FileText, Linkedin, CheckCircle2, User, ExternalLink, ChevronDown, ChevronUp, Trophy, Gamepad2, Wrench, Bot, Calendar, Download } from "lucide-react";
 import Layout from "@/components/layout";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
 
 interface OnboardingSubmission {
   id: string;
@@ -16,6 +17,9 @@ interface OnboardingSubmission {
   tier: string;
   totalPoints: number;
   answers: Record<string, any>;
+  resumePath: string | null;
+  coverLetterPath: string | null;
+  linkedIn: string | null;
   submittedAt: string;
 }
 
@@ -99,40 +103,97 @@ function SubmissionCard({ submission }: { submission: OnboardingSubmission }) {
     nonObviousThing: 'Non-obvious thing',
     sabbatical: 'Sabbatical plans',
     noticeFirst: 'What you notice first',
-    linkedIn: 'LinkedIn',
-    resumeFileName: 'Resume',
-    coverLetterFileName: 'Cover Letter',
   };
+
+  const hasResume = !!submission.resumePath;
+  const hasCoverLetter = !!submission.coverLetterPath;
+  const hasLinkedIn = !!submission.linkedIn && submission.linkedIn !== "N/A";
 
   return (
     <div 
       className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden transition-all duration-300"
       data-testid={`submission-card-${submission.id}`}
     >
-      <div 
-        className="p-4 cursor-pointer hover:bg-zinc-800/50 transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            {getTierIcon(submission.tier)}
-            <span className={cn(
-              "font-bold text-transparent bg-clip-text bg-gradient-to-r",
-              getTierColor(submission.tier)
-            )}>
-              {submission.tier}
-            </span>
-          </div>
-          <div className="flex-1">
-            <span className="font-medium text-foreground">{submission.name}</span>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-amber-400 font-semibold">{submission.totalPoints.toLocaleString()} pts</span>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Calendar className="h-3.5 w-3.5" />
-              <span>{format(new Date(submission.submittedAt), 'MMM d, yyyy')}</span>
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "gap-1.5 text-xs",
+              hasResume ? "border-emerald-600 text-emerald-400 hover:bg-emerald-950" : "opacity-40 cursor-not-allowed"
+            )}
+            disabled={!hasResume}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (hasResume) window.open(submission.resumePath!, '_blank');
+            }}
+            data-testid={`btn-resume-${submission.id}`}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Resume
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "gap-1.5 text-xs",
+              hasCoverLetter ? "border-blue-600 text-blue-400 hover:bg-blue-950" : "opacity-40 cursor-not-allowed"
+            )}
+            disabled={!hasCoverLetter}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (hasCoverLetter) window.open(submission.coverLetterPath!, '_blank');
+            }}
+            data-testid={`btn-cover-letter-${submission.id}`}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Cover Letter
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "gap-1.5 text-xs",
+              hasLinkedIn ? "border-sky-600 text-sky-400 hover:bg-sky-950" : "opacity-40 cursor-not-allowed"
+            )}
+            disabled={!hasLinkedIn}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (hasLinkedIn) window.open(submission.linkedIn!, '_blank');
+            }}
+            data-testid={`btn-linkedin-${submission.id}`}
+          >
+            <Linkedin className="h-3.5 w-3.5" />
+            LinkedIn
+          </Button>
+        </div>
+
+        <div 
+          className="cursor-pointer hover:bg-zinc-800/50 -mx-4 -mb-4 p-4 pt-2 transition-colors"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {getTierIcon(submission.tier)}
+              <span className={cn(
+                "font-bold text-transparent bg-clip-text bg-gradient-to-r",
+                getTierColor(submission.tier)
+              )}>
+                {submission.tier}
+              </span>
             </div>
-            {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+            <div className="flex-1">
+              <span className="font-medium text-foreground">{submission.name}</span>
+            </div>
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-amber-400 font-semibold">{submission.totalPoints.toLocaleString()} pts</span>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>{format(new Date(submission.submittedAt), 'MMM d, yyyy')}</span>
+              </div>
+              {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+            </div>
           </div>
         </div>
       </div>
@@ -142,6 +203,7 @@ function SubmissionCard({ submission }: { submission: OnboardingSubmission }) {
           <div className="grid gap-4 md:grid-cols-2">
             {Object.entries(answers).map(([key, value]) => {
               if (!value || (typeof value === 'string' && !value.trim())) return null;
+              if (key === 'resumeFileName' || key === 'coverLetterFileName' || key === 'linkedIn') return null;
               const label = answerLabels[key] || key;
               return (
                 <div key={key} className="space-y-1" data-testid={`answer-${key}-${submission.id}`}>

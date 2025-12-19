@@ -50,6 +50,9 @@ export const onboardingSubmissions = pgTable("onboarding_submissions", {
   tier: text("tier").notNull(), // "God Tier Status" | "Gamer" | "Operator" | "NPC"
   totalPoints: integer("total_points").notNull(),
   answers: jsonb("answers").notNull(), // All form answers as JSON
+  resumePath: text("resume_path"), // Object storage path for resume file
+  coverLetterPath: text("cover_letter_path"), // Object storage path for cover letter file
+  linkedIn: text("linked_in"), // LinkedIn URL
   submittedAt: timestamp("submitted_at").notNull().defaultNow(),
 });
 

@@ -7,11 +7,15 @@ import { getUpcomingEvents, createEvent } from "./google-calendar";
 import { listMeetings, getMeeting, extractLeadDataFromMeeting, isFathomConfigured } from "./fathom";
 import { summarizeClientNeeds } from "./ai-summarize";
 import { sendEmail, isGmailConfigured } from "./gmail";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
+  // Register object storage routes for file uploads
+  registerObjectStorageRoutes(app);
   
   // Lead routes
   app.get("/api/leads", async (req, res) => {
@@ -398,23 +402,21 @@ export async function registerRoutes(
 
   app.post("/api/onboarding-form", async (req, res) => {
     try {
-      const { name, linkedIn, resumeFileName, coverLetterFileName, answers, totalPoints, tier } = req.body;
+      const { name, linkedIn, resumePath, coverLetterPath, answers, totalPoints, tier } = req.body;
       
       if (!name) {
         return res.status(400).json({ error: "Name is required" });
       }
 
-      // Save to database
+      // Save to database with file paths
       const submissionData = {
         name,
         tier: tier || "NPC",
         totalPoints: totalPoints || 0,
-        answers: {
-          linkedIn,
-          resumeFileName,
-          coverLetterFileName,
-          ...answers
-        }
+        answers: answers || {},
+        resumePath: resumePath || null,
+        coverLetterPath: coverLetterPath || null,
+        linkedIn: linkedIn || null,
       };
 
       const savedSubmission = await storage.createOnboardingSubmission(submissionData);
@@ -428,12 +430,15 @@ export async function registerRoutes(
         return content ? `=== ${title} ===\n\n${content}` : '';
       };
 
+      const resumeFileName = answers?.resumeFileName || 'Not provided';
+      const coverLetterFileName = answers?.coverLetterFileName || 'Not provided';
+      
       const infoSection = `=== 👤 YOUR INFORMATION ===
 
 Name: ${name}
 LinkedIn: ${linkedIn || 'N/A'}
-Resume: ${resumeFileName || 'Not provided'}
-Cover Letter: ${coverLetterFileName || 'Not provided'}
+Resume: ${resumeFileName}${resumePath ? ' (uploaded)' : ''}
+Cover Letter: ${coverLetterFileName}${coverLetterPath ? ' (uploaded)' : ''}
 Points: ${totalPoints || 0}
 Tier: ${tier || 'N/A'}`;
 
