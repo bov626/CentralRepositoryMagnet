@@ -4,8 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft, Sparkles, Trophy } from "lucide-react";
-import { Link as RouterLink } from "wouter";
+import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, Sparkles, Trophy } from "lucide-react";
 import { DndContext, useDraggable, useDroppable, DragEndEvent, DragMoveEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import confetti from "canvas-confetti";
 
@@ -759,16 +758,12 @@ export default function OnboardingForm() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-800/20 via-transparent to-transparent pointer-events-none" />
       
       <div className="relative max-w-2xl mx-auto px-6 py-12">
-        <div className={`flex items-center justify-between mb-8 transition-all duration-700 delay-100 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+        <div className={`flex items-center justify-center mb-8 transition-all duration-700 delay-100 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
           <img 
             src="/jumpseat-logo.png" 
             alt="Jumpseat" 
             className="h-8 w-auto"
           />
-          <RouterLink href="/" className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-white transition-colors duration-200">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </RouterLink>
         </div>
 
         <div className={`mb-12 text-center relative transition-all duration-700 delay-200 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
@@ -1963,25 +1958,16 @@ export default function OnboardingForm() {
 
         {currentStep < 12 && (
         <div className="flex justify-between pt-10 mt-10 border-t border-zinc-800/50">
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleBack}
-              disabled={currentStep === 0}
-              className="gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800/50 disabled:opacity-30"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Back
-            </Button>
-            <button
-              type="button"
-              onClick={() => setCurrentStep(prev => Math.min(prev + 1, STEPS.length - 1))}
-              className="text-xs text-zinc-600 hover:text-zinc-400 px-2 py-1 border border-zinc-800 rounded"
-            >
-              DEV: Skip
-            </button>
-          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={handleBack}
+            disabled={currentStep === 0}
+            className="gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800/50 disabled:opacity-30"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </Button>
 
           {currentStep < STEPS.length - 1 ? (
             <div className="flex items-center gap-3">
