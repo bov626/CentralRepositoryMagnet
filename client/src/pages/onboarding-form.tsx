@@ -499,8 +499,17 @@ export default function OnboardingForm() {
                       }
                     }}
                     className={`cursor-pointer transition-colors ${easterEggClaimed ? 'text-emerald-400' : 'text-zinc-300 hover:text-zinc-100'}`}
+                    style={{
+                      animation: easterEggClaimed ? 'none' : 'subtle-sparkle 2s ease-in-out infinite',
+                    }}
                   >point</span>.
                 </h2>
+                <style>{`
+                  @keyframes subtle-sparkle {
+                    0%, 100% { text-shadow: 0 0 0 transparent; }
+                    50% { text-shadow: 0 0 4px rgba(255, 255, 255, 0.3); }
+                  }
+                `}</style>
               </div>
               
               <div className="space-y-6">
