@@ -305,6 +305,8 @@ export default function OnboardingForm() {
   const [triviaQ5Correct, setTriviaQ5Correct] = useState(false);
   const [triviaPointsAwarded, setTriviaPointsAwarded] = useState<Set<number>>(new Set());
   const [triviaPointsAnimation, setTriviaPointsAnimation] = useState<{question: number, points: number} | null>(null);
+  const [triviaSkipped, setTriviaSkipped] = useState(false);
+  const [puzzleSkippedMessage, setPuzzleSkippedMessage] = useState<string | null>(null);
   const [displayedPoints, setDisplayedPoints] = useState(0);
   const [resultsShown, setResultsShown] = useState(false);
   const [showAward, setShowAward] = useState(false);
@@ -571,6 +573,11 @@ export default function OnboardingForm() {
       return;
     }
     
+    if (currentStep === 6 && !puzzleSolved && !awardedSteps.has(6)) {
+      setPuzzleSkippedMessage("All gas no breaks");
+      setTimeout(() => setPuzzleSkippedMessage(null), 2000);
+    }
+    
     if (!awardedSteps.has(currentStep)) {
       const stepPoints = calculateStepPoints();
       if (stepPoints > 0) {
@@ -626,9 +633,9 @@ export default function OnboardingForm() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const tier = totalPoints >= 2500 ? 'God Tier Status' :
-                   totalPoints >= 2000 ? 'Gamer Status' :
-                   totalPoints >= 1500 ? 'Operator Status' : 'NPC Status';
+      const tier = totalPoints >= 2500 ? 'Perfectionist' :
+                   totalPoints >= 2400 ? 'Main Character' :
+                   totalPoints > 1000 ? 'Operator Status' : 'NPC Status';
 
       let resumePath: string | null = null;
       let coverLetterPath: string | null = null;
@@ -1151,6 +1158,10 @@ export default function OnboardingForm() {
                   <span className="text-emerald-400 font-medium animate-in fade-in duration-300">
                     Correct, it is impossible
                   </span>
+                ) : puzzleSkippedMessage ? (
+                  <span className="text-amber-400 font-medium animate-in fade-in duration-300">
+                    {puzzleSkippedMessage}
+                  </span>
                 ) : (
                   <span className="text-xs text-zinc-500">
                     optional
@@ -1487,6 +1498,20 @@ export default function OnboardingForm() {
               <div className="mb-8 text-center">
                 <h2 className="text-3xl font-light tracking-tight mb-2">Trivia</h2>
                 <p className="text-zinc-500 text-sm">A little brain break</p>
+                {triviaSkipped ? (
+                  <p className="text-amber-400 font-medium mt-4 animate-in fade-in duration-300">Time Saver</p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTriviaSkipped(true);
+                      setTimeout(() => handleNext(), 1500);
+                    }}
+                    className="mt-6 px-8 py-4 text-xl font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-xl transition-all duration-200 border border-zinc-700 hover:border-zinc-500"
+                  >
+                    Skip Trivia
+                  </button>
+                )}
               </div>
 
               <div className="space-y-8">
@@ -1894,22 +1919,22 @@ export default function OnboardingForm() {
                         Good work, you reached{' '}
                         <span className={
                           totalPoints >= 2500 ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-400' :
-                          totalPoints >= 2000 ? 'text-purple-400' :
-                          totalPoints >= 1500 ? 'text-blue-400' :
+                          totalPoints >= 2400 ? 'text-purple-400' :
+                          totalPoints > 1000 ? 'text-blue-400' :
                           'text-zinc-400'
                         }>
-                          {totalPoints >= 2500 ? 'God Tier Status' :
-                           totalPoints >= 2000 ? 'Gamer Status' :
-                           totalPoints >= 1500 ? 'Operator Status' :
+                          {totalPoints >= 2500 ? 'Perfectionist' :
+                           totalPoints >= 2400 ? 'Main Character' :
+                           totalPoints > 1000 ? 'Operator Status' :
                            'NPC Status'}
                         </span>
                       </h3>
                       <div className="text-sm text-zinc-400 max-w-md mx-auto">
                         {totalPoints >= 2500 ? (
                           <p className="text-yellow-400 font-medium">Perfect score! You found every point possible.</p>
-                        ) : totalPoints >= 2000 ? (
+                        ) : totalPoints >= 2400 ? (
                           <p>Nice! The highest possible was 2,500.</p>
-                        ) : totalPoints >= 1500 ? (
+                        ) : totalPoints > 1000 ? (
                           <p>Appreciate you not going above and beyond. You are ready for Overemployment.</p>
                         ) : (
                           <p>Did you even try? Just playing, we'll go over these on call.</p>
