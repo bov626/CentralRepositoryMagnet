@@ -4,9 +4,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft, Sparkles } from "lucide-react";
+import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft, Sparkles, Trophy } from "lucide-react";
 import { Link as RouterLink } from "wouter";
 import { DndContext, useDraggable, useDroppable, DragEndEvent, DragMoveEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import confetti from "canvas-confetti";
 
 const STEPS = [
   { id: 'name', title: 'Your Information', group: 'name' },
@@ -21,6 +22,7 @@ const STEPS = [
   { id: 'trivia', title: 'Trivia', group: 'trivia' },
   { id: 'perspective', title: 'Perspective', group: 'perspective' },
   { id: 'perspective2', title: 'Perspective Part 2', group: 'perspective' },
+  { id: 'results', title: 'Results', group: 'results' },
 ];
 
 const UNIQUE_GROUPS = Array.from(new Set(STEPS.map(s => s.group)));
@@ -230,6 +232,9 @@ export default function OnboardingForm() {
   const [triviaQ5Correct, setTriviaQ5Correct] = useState(false);
   const [triviaPointsAwarded, setTriviaPointsAwarded] = useState<Set<number>>(new Set());
   const [triviaPointsAnimation, setTriviaPointsAnimation] = useState<{question: number, points: number} | null>(null);
+  const [displayedPoints, setDisplayedPoints] = useState(0);
+  const [resultsShown, setResultsShown] = useState(false);
+  const [showAward, setShowAward] = useState(false);
   
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const coverLetterInputRef = useRef<HTMLInputElement>(null);
@@ -270,6 +275,52 @@ export default function OnboardingForm() {
       setHighestStep(currentStep);
     }
   }, [currentStep, highestStep]);
+
+  useEffect(() => {
+    if (currentStep === 12 && !resultsShown) {
+      let current = 0;
+      const target = totalPoints;
+      const duration = 2000;
+      const steps = 60;
+      const increment = target / steps;
+      const stepTime = duration / steps;
+      
+      const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+          setDisplayedPoints(target);
+          clearInterval(timer);
+          setResultsShown(true);
+          
+          if (totalPoints >= 2500) {
+            confetti({
+              particleCount: 200,
+              spread: 100,
+              origin: { y: 0.6 }
+            });
+            setTimeout(() => {
+              confetti({
+                particleCount: 150,
+                spread: 120,
+                origin: { y: 0.5 }
+              });
+            }, 500);
+            setTimeout(() => setShowAward(true), 1000);
+          } else if (totalPoints >= 2000) {
+            confetti({
+              particleCount: 50,
+              spread: 60,
+              origin: { y: 0.6 }
+            });
+          }
+        } else {
+          setDisplayedPoints(Math.floor(current));
+        }
+      }, stepTime);
+      
+      return () => clearInterval(timer);
+    }
+  }, [currentStep, totalPoints, resultsShown]);
 
   const triggerCheer = () => {
     setContinueCount(prev => prev + 1);
@@ -1524,8 +1575,68 @@ export default function OnboardingForm() {
               </div>
             </div>
           )}
+
+          {currentStep === 12 && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="text-center space-y-8">
+                <div className="space-y-4">
+                  <h2 className="text-4xl font-light tracking-tight">Your Score</h2>
+                  <div className="text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-500">
+                    {displayedPoints.toLocaleString()}
+                  </div>
+                </div>
+
+                {resultsShown && (
+                  <div className="animate-in fade-in zoom-in duration-500 space-y-6">
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-medium text-white">
+                        Good work, you reached{' '}
+                        <span className={
+                          totalPoints >= 2500 ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-400' :
+                          totalPoints >= 2000 ? 'text-purple-400' :
+                          totalPoints >= 1500 ? 'text-blue-400' :
+                          'text-zinc-400'
+                        }>
+                          {totalPoints >= 2500 ? 'God Tier' :
+                           totalPoints >= 2000 ? 'Gamer' :
+                           totalPoints >= 1500 ? 'Operator' :
+                           'NPC'}
+                        </span>
+                      </h3>
+                      <p className="text-zinc-500">Too bad these points are useless.</p>
+                    </div>
+
+                    <div className="text-sm text-zinc-400 max-w-md mx-auto">
+                      {totalPoints >= 2500 ? (
+                        <p className="text-yellow-400 font-medium">Perfect score! You found every point possible.</p>
+                      ) : totalPoints >= 2000 ? (
+                        <p>Nice! The highest possible was 2,500.</p>
+                      ) : totalPoints >= 1500 ? (
+                        <p>Appreciate you not going above and beyond. You are ready for Overemployment.</p>
+                      ) : (
+                        <p>Did you even try? Just playing, we'll go over these on call.</p>
+                      )}
+                    </div>
+
+                    {showAward && totalPoints >= 2500 && (
+                      <div className="animate-in zoom-in duration-700 flex flex-col items-center gap-4 p-8">
+                        <div className="relative">
+                          <Trophy className="h-24 w-24 text-yellow-400" />
+                          <div className="absolute inset-0 animate-pulse">
+                            <Trophy className="h-24 w-24 text-yellow-400 opacity-50" />
+                          </div>
+                        </div>
+                        <span className="text-lg font-medium text-yellow-400">Perfection Achieved</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
+        {currentStep < 12 && (
         <div className="flex justify-between pt-10 mt-10 border-t border-zinc-800/50">
           <div className="flex items-center gap-2">
             <Button
@@ -1601,7 +1712,7 @@ export default function OnboardingForm() {
               )}
             </Button>
           )}
-        </div>
+        </div>)}
       </div>
     </div>
   );
