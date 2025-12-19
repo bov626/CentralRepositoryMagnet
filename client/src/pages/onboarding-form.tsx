@@ -97,7 +97,47 @@ function DraggablePiece({ piece }: { piece: typeof PUZZLE_PIECES[0] }) {
   );
 }
 
-function GridCell({ id, pieceColor, isValidCell, onClick, previewColor }: { id: string; pieceColor: string | null; isValidCell: boolean; onClick: () => void; previewColor?: string | null }) {
+function PlacedPiece({ piece, onRemove }: { piece: typeof PUZZLE_PIECES[0]; onRemove: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `placed-${piece.id}`,
+    data: { pieceId: piece.id, source: 'board' },
+  });
+  
+  const cols = Math.max(...piece.shape.map(r => r.length));
+  
+  const style: React.CSSProperties = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    touchAction: 'none',
+  };
+
+  if (isDragging) {
+    return null;
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      onDoubleClick={onRemove}
+      className="cursor-grab active:cursor-grabbing select-none hover:opacity-80"
+    >
+      <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${cols}, 28px)` }}>
+        {piece.shape.map((row, ri) => 
+          row.map((cell, ci) => (
+            <div
+              key={`${ri}-${ci}`}
+              className={`w-7 h-7 rounded-sm ${cell ? piece.color : 'bg-transparent'}`}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GridCell({ id, isValidCell, previewColor }: { id: string; isValidCell: boolean; previewColor?: string | null }) {
   const { setNodeRef } = useDroppable({ id });
   
   if (!isValidCell) {
@@ -107,14 +147,8 @@ function GridCell({ id, pieceColor, isValidCell, onClick, previewColor }: { id: 
   return (
     <div
       ref={setNodeRef}
-      onPointerUp={(e) => {
-        if (pieceColor) {
-          e.stopPropagation();
-          onClick();
-        }
-      }}
       className={`w-7 h-7 rounded-sm border transition-all duration-100 ${
-        pieceColor ? `${pieceColor} border-transparent cursor-pointer hover:opacity-80` : previewColor ? `${previewColor} opacity-50 border-transparent` : 'bg-slate-700 border-slate-600'
+        previewColor ? `${previewColor} opacity-50 border-transparent` : 'bg-slate-700 border-slate-600'
       }`}
     />
   );
@@ -134,17 +168,33 @@ export default function OnboardingForm() {
   const [noLinkedIn, setNoLinkedIn] = useState(false);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
-  const [puzzleGrid, setPuzzleGrid] = useState<(number | null)[][]>(
-    Array(6).fill(null).map(() => Array(6).fill(null))
-  );
+  const [placements, setPlacements] = useState<Map<number, {row: number, col: number}>>(new Map());
   const [availablePieces, setAvailablePieces] = useState(PUZZLE_PIECES.map(p => p.id));
   const [previewCells, setPreviewCells] = useState<{cells: string[], valid: boolean, color: string} | null>(null);
+  const [draggingPieceId, setDraggingPieceId] = useState<number | null>(null);
   
-  const filledCells = puzzleGrid.flat().filter((c, i) => {
-    const row = Math.floor(i / 6);
-    const col = i % 6;
-    return CROSS_GRID[row][col] && c !== null;
-  }).length;
+  const getOccupiedCells = (excludePieceId?: number) => {
+    const occupied = new Set<string>();
+    placements.forEach((pos, pieceId) => {
+      if (pieceId === excludePieceId) return;
+      const piece = PUZZLE_PIECES.find(p => p.id === pieceId);
+      if (!piece) return;
+      for (let h = 0; h < piece.shape.length; h++) {
+        for (let w = 0; w < piece.shape[h].length; w++) {
+          if (piece.shape[h][w]) {
+            occupied.add(`${pos.row + h}-${pos.col + w}`);
+          }
+        }
+      }
+    });
+    return occupied;
+  };
+  
+  const filledCells = Array.from(placements.entries()).reduce((count, [pieceId]) => {
+    const piece = PUZZLE_PIECES.find(p => p.id === pieceId);
+    if (!piece) return count;
+    return count + piece.shape.flat().filter(Boolean).length;
+  }, 0);
   const totalCells = CROSS_GRID.flat().filter(Boolean).length;
   const puzzleComplete = filledCells === totalCells;
   const [puzzleMode, setPuzzleMode] = useState<'blocks' | 'sudoku'>('blocks');
@@ -616,7 +666,14 @@ export default function OnboardingForm() {
 
               {puzzleMode === 'blocks' ? (
                 <DndContext 
-                  sensors={sensors} 
+                  sensors={sensors}
+                  onDragStart={(event) => {
+                    const activeId = String(event.active.id);
+                    const pieceId = activeId.startsWith('placed-') 
+                      ? Number(activeId.replace('placed-', '')) 
+                      : Number(activeId);
+                    setDraggingPieceId(pieceId);
+                  }}
                   onDragMove={(event: DragMoveEvent) => {
                     const { active, over } = event;
                     if (!over) {
@@ -624,7 +681,10 @@ export default function OnboardingForm() {
                       return;
                     }
                     
-                    const pieceId = Number(active.id);
+                    const activeId = String(active.id);
+                    const pieceId = activeId.startsWith('placed-') 
+                      ? Number(activeId.replace('placed-', '')) 
+                      : Number(activeId);
                     const piece = PUZZLE_PIECES.find(p => p.id === pieceId);
                     if (!piece) return;
                     
@@ -634,6 +694,7 @@ export default function OnboardingForm() {
                       return;
                     }
                     
+                    const occupied = getOccupiedCells(pieceId);
                     const cells: string[] = [];
                     let canPlace = true;
                     
@@ -642,8 +703,9 @@ export default function OnboardingForm() {
                         if (!piece.shape[h][w]) continue;
                         const r = row + h;
                         const c = col + w;
-                        cells.push(`${r}-${c}`);
-                        if (r >= 6 || c >= 6 || !CROSS_GRID[r]?.[c] || puzzleGrid[r]?.[c] !== null) {
+                        const cellKey = `${r}-${c}`;
+                        cells.push(cellKey);
+                        if (r >= 6 || c >= 6 || !CROSS_GRID[r]?.[c] || occupied.has(cellKey)) {
                           canPlace = false;
                         }
                       }
@@ -653,21 +715,49 @@ export default function OnboardingForm() {
                   }}
                   onDragEnd={(event: DragEndEvent) => {
                     setPreviewCells(null);
+                    setDraggingPieceId(null);
                     const { active, over } = event;
-                    if (!over) return;
                     
-                    const pieceId = Number(active.id);
+                    const activeId = String(active.id);
+                    const isFromBoard = activeId.startsWith('placed-');
+                    const pieceId = isFromBoard 
+                      ? Number(activeId.replace('placed-', '')) 
+                      : Number(activeId);
                     const piece = PUZZLE_PIECES.find(p => p.id === pieceId);
                     if (!piece) return;
                     
-                    const [row, col] = (over.id as string).split('-').map(Number);
-                    if (isNaN(row) || isNaN(col)) return;
+                    if (!over) {
+                      if (isFromBoard) {
+                        setPlacements(prev => {
+                          const next = new Map(prev);
+                          next.delete(pieceId);
+                          return next;
+                        });
+                        setAvailablePieces(prev => [...prev, pieceId]);
+                      }
+                      return;
+                    }
                     
+                    const [row, col] = (over.id as string).split('-').map(Number);
+                    if (isNaN(row) || isNaN(col)) {
+                      if (isFromBoard) {
+                        setPlacements(prev => {
+                          const next = new Map(prev);
+                          next.delete(pieceId);
+                          return next;
+                        });
+                        setAvailablePieces(prev => [...prev, pieceId]);
+                      }
+                      return;
+                    }
+                    
+                    const occupied = getOccupiedCells(pieceId);
                     let canPlace = true;
                     for (let h = 0; h < piece.shape.length; h++) {
                       for (let w = 0; w < piece.shape[h].length; w++) {
                         if (!piece.shape[h][w]) continue;
-                        if (row + h >= 6 || col + w >= 6 || !CROSS_GRID[row + h][col + w] || puzzleGrid[row + h][col + w] !== null) {
+                        const cellKey = `${row + h}-${col + w}`;
+                        if (row + h >= 6 || col + w >= 6 || !CROSS_GRID[row + h][col + w] || occupied.has(cellKey)) {
                           canPlace = false;
                           break;
                         }
@@ -676,47 +766,76 @@ export default function OnboardingForm() {
                     }
                     
                     if (canPlace) {
-                      const newGrid = puzzleGrid.map(r => [...r]);
-                      for (let h = 0; h < piece.shape.length; h++) {
-                        for (let w = 0; w < piece.shape[h].length; w++) {
-                          if (piece.shape[h][w]) {
-                            newGrid[row + h][col + w] = pieceId;
-                          }
-                        }
+                      setPlacements(prev => {
+                        const next = new Map(prev);
+                        next.set(pieceId, { row, col });
+                        return next;
+                      });
+                      if (!isFromBoard) {
+                        setAvailablePieces(prev => prev.filter(id => id !== pieceId));
                       }
-                      setPuzzleGrid(newGrid);
-                      setAvailablePieces(prev => prev.filter(id => id !== pieceId));
+                    } else if (isFromBoard) {
+                      setPlacements(prev => {
+                        const next = new Map(prev);
+                        next.delete(pieceId);
+                        return next;
+                      });
+                      setAvailablePieces(prev => [...prev, pieceId]);
                     }
                   }}
-                  onDragCancel={() => setPreviewCells(null)}
+                  onDragCancel={() => {
+                    setPreviewCells(null);
+                    setDraggingPieceId(null);
+                  }}
                 >
                   <div className="flex flex-col items-center gap-8">
-                    <div className="grid grid-cols-6 gap-0.5 p-3 bg-zinc-900/30 rounded-xl">
-                      {CROSS_GRID.map((row, rowIndex) => (
-                        row.map((isValid, colIndex) => {
-                          const cellId = `${rowIndex}-${colIndex}`;
-                          const cell = puzzleGrid[rowIndex][colIndex];
-                          const piece = cell ? PUZZLE_PIECES.find(p => p.id === cell) : null;
-                          const isPreview = previewCells?.cells.includes(cellId);
-                          const previewColor = isPreview && previewCells?.valid ? previewCells.color : null;
-                          return (
-                            <GridCell
-                              key={cellId}
-                              id={cellId}
-                              pieceColor={piece?.color || null}
-                              isValidCell={isValid}
-                              previewColor={previewColor}
-                              onClick={() => {
-                                if (cell) {
-                                  const newGrid = puzzleGrid.map(r => r.map(c => c === cell ? null : c));
-                                  setPuzzleGrid(newGrid);
-                                  setAvailablePieces(prev => [...prev, cell]);
-                                }
+                    <div className="relative">
+                      <div className="grid grid-cols-6 gap-0.5 p-3 bg-zinc-900/30 rounded-xl">
+                        {CROSS_GRID.map((row, rowIndex) => (
+                          row.map((isValid, colIndex) => {
+                            const cellId = `${rowIndex}-${colIndex}`;
+                            const isPreview = previewCells?.cells.includes(cellId);
+                            const previewColor = isPreview && previewCells?.valid ? previewCells.color : null;
+                            return (
+                              <GridCell
+                                key={cellId}
+                                id={cellId}
+                                isValidCell={isValid}
+                                previewColor={previewColor}
+                              />
+                            );
+                          })
+                        ))}
+                      </div>
+                      
+                      {Array.from(placements.entries()).map(([pieceId, pos]) => {
+                        if (pieceId === draggingPieceId) return null;
+                        const piece = PUZZLE_PIECES.find(p => p.id === pieceId);
+                        if (!piece) return null;
+                        const cols = Math.max(...piece.shape.map(r => r.length));
+                        return (
+                          <div
+                            key={pieceId}
+                            className="absolute"
+                            style={{
+                              top: `${12 + pos.row * 30}px`,
+                              left: `${12 + pos.col * 30}px`,
+                            }}
+                          >
+                            <PlacedPiece 
+                              piece={piece} 
+                              onRemove={() => {
+                                setPlacements(prev => {
+                                  const next = new Map(prev);
+                                  next.delete(pieceId);
+                                  return next;
+                                });
+                                setAvailablePieces(prev => [...prev, pieceId]);
                               }}
                             />
-                          );
-                        })
-                      ))}
+                          </div>
+                        );
+                      })}
                     </div>
 
                     <div className="flex flex-wrap justify-center gap-4 max-w-xs">
