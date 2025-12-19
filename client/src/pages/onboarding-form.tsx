@@ -166,6 +166,7 @@ export default function OnboardingForm() {
   const [totalPoints, setTotalPoints] = useState(0);
   const [pointsAnimation, setPointsAnimation] = useState<number | null>(null);
   const [awardedSteps, setAwardedSteps] = useState<Set<number>>(new Set());
+  const [easterEggClaimed, setEasterEggClaimed] = useState(false);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const [placements, setPlacements] = useState<Map<number, {row: number, col: number}>>(new Map());
@@ -486,7 +487,20 @@ export default function OnboardingForm() {
           {currentStep === 1 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8 text-center">
-                <h2 className="text-2xl font-light tracking-tight">Now, let's determine a starting point.</h2>
+                <h2 className="text-2xl font-light tracking-tight">
+                  Now, let's determine a starting{' '}
+                  <span 
+                    onClick={() => {
+                      if (!easterEggClaimed) {
+                        setEasterEggClaimed(true);
+                        setTotalPoints(prev => prev + 50);
+                        setPointsAnimation(50);
+                        setTimeout(() => setPointsAnimation(null), 1500);
+                      }
+                    }}
+                    className={`cursor-pointer transition-colors ${easterEggClaimed ? 'text-emerald-400' : 'text-zinc-300 hover:text-zinc-100'}`}
+                  >point</span>.
+                </h2>
               </div>
               
               <div className="space-y-6">
