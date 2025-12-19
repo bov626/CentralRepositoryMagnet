@@ -163,6 +163,9 @@ export default function OnboardingForm() {
   const [name, setName] = useState("");
   const [linkedIn, setLinkedIn] = useState("");
   const [noLinkedIn, setNoLinkedIn] = useState(false);
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [pointsAnimation, setPointsAnimation] = useState<number | null>(null);
+  const [awardedSteps, setAwardedSteps] = useState<Set<number>>(new Set());
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const [placements, setPlacements] = useState<Map<number, {row: number, col: number}>>(new Map());
@@ -277,6 +280,43 @@ export default function OnboardingForm() {
     return true;
   };
 
+  const calculateStepPoints = () => {
+    let points = 0;
+    
+    if (currentStep === 0) {
+      if (name.trim().length > 4) points += 100;
+    } else if (currentStep === 1) {
+      if (resumeFile) points += 100;
+    } else if (currentStep === 2) {
+      if (linkedIn.trim().length > 4 || noLinkedIn) points += 100;
+    } else if (currentStep === 3) {
+      if (coverLetterFile) points += 100;
+    } else if (currentStep === 4) {
+      if (answers.careerHistory.length > 4) points += 100;
+      if (answers.whyLoveJob.length > 4) points += 100;
+      if (answers.dinnerPartyExplanation.length > 4) points += 100;
+      if (answers.bestJob.length > 4) points += 100;
+      if (answers.unusuallyGoodAt.length > 4) points += 100;
+    } else if (currentStep === 5) {
+      if (puzzleSolved) points += 250;
+      const sudokuComplete = sudokuGrid.every((row, ri) => row.every((cell, ci) => cell === SUDOKU_SOLUTION[ri][ci]));
+      if (sudokuComplete && puzzleMode === 'sudoku') points += 250;
+    } else if (currentStep === 6) {
+      if (answers.principlesQuotes.length > 4) points += 100;
+      if (answers.bookOrMovie.length > 4) points += 100;
+      if (answers.optimizeFor.length > 4) points += 100;
+      if (answers.whenBreaks.length > 4) points += 100;
+    } else if (currentStep === 7) {
+      if (answers.misconception.length > 4) points += 100;
+      if (answers.betterThanResume.length > 4) points += 100;
+      if (answers.nonObviousThing.length > 4) points += 100;
+      if (answers.sabbatical.length > 4) points += 100;
+      if (answers.noticeFirst.length > 4) points += 100;
+    }
+    
+    return points;
+  };
+
   const handleNext = () => {
     if (currentStep === 0 && !name.trim()) {
       toast({ title: "Required Field", description: "Please enter your name to continue", variant: "destructive" });
@@ -290,6 +330,17 @@ export default function OnboardingForm() {
       toast({ title: "LinkedIn Required", description: "Please enter your LinkedIn URL or check N/A", variant: "destructive" });
       return;
     }
+    
+    if (!awardedSteps.has(currentStep)) {
+      const stepPoints = calculateStepPoints();
+      if (stepPoints > 0) {
+        setPointsAnimation(stepPoints);
+        setTotalPoints(prev => prev + stepPoints);
+        setTimeout(() => setPointsAnimation(null), 1500);
+      }
+      setAwardedSteps(prev => new Set([...prev, currentStep]));
+    }
+    
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(prev => prev + 1);
     }
@@ -377,13 +428,23 @@ export default function OnboardingForm() {
           </RouterLink>
         </div>
 
-        <div className="mb-12 text-center">
+        <div className="mb-12 text-center relative">
+          {pointsAnimation !== null && (
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <span className="text-2xl font-bold text-emerald-400">+{pointsAnimation}</span>
+            </div>
+          )}
           <div className="inline-block mb-4">
             <span className="text-xs font-medium tracking-widest uppercase text-zinc-500">Onboarding</span>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight mb-4">
+          <h1 className="text-4xl font-bold tracking-tight mb-2">
             <span className="bg-red-600 px-5 py-2 inline-block">Session I</span>
           </h1>
+          {currentStep > 0 && (
+            <div className="mb-2">
+              <span className="text-lg font-semibold text-amber-400">{totalPoints} pts</span>
+            </div>
+          )}
           {currentStep === 0 && (
             <p className="text-zinc-400 text-sm">
               Complete this before our first call.
@@ -1111,6 +1172,9 @@ export default function OnboardingForm() {
                   className="gap-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white border-0 shadow-lg shadow-red-500/20 disabled:opacity-30 disabled:shadow-none px-8"
                 >
                   Continue
+                  {!awardedSteps.has(currentStep) && calculateStepPoints() > 0 && (
+                    <span className="ml-1 text-emerald-300 font-semibold">+{calculateStepPoints()}</span>
+                  )}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
