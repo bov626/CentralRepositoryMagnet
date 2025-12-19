@@ -76,4 +76,6 @@ function App() {
   );
 }
 
+console.log("App.tsx loaded successfully");
+
 export default App;
