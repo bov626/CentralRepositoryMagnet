@@ -758,7 +758,7 @@ export default function OnboardingForm() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-800/20 via-transparent to-transparent pointer-events-none" />
       
       <div className="relative max-w-2xl mx-auto px-6 py-12">
-        <div className={`flex items-center justify-center mb-8 transition-all duration-700 delay-100 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+        <div className={`flex items-center justify-start mb-8 transition-all duration-700 delay-100 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
           <img 
             src="/jumpseat-logo.png" 
             alt="Jumpseat" 
