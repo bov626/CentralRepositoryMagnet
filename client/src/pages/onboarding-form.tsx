@@ -34,9 +34,8 @@ const PUZZLE_PIECES = [
   { id: 3, shape: [[1,1]], color: 'bg-emerald-400' },
   { id: 4, shape: [[1,1],[1,1]], color: 'bg-amber-400' },
   { id: 5, shape: [[1,0],[1,1]], color: 'bg-cyan-400' },
-  { id: 6, shape: [[1],[1]], color: 'bg-violet-400' },
+  { id: 6, shape: [[1,1]], color: 'bg-violet-400' },
   { id: 7, shape: [[1,1,1]], color: 'bg-pink-400' },
-  { id: 8, shape: [[1]], color: 'bg-orange-400' },
 ];
 
 const SUDOKU_PUZZLE = [
