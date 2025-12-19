@@ -28,6 +28,8 @@ export const leads = pgTable("leads", {
   recordingLink: text("recording_link"),
   calendarEventId: text("calendar_event_id"), // Google Calendar event ID for deduplication
   fathomRecordingId: integer("fathom_recording_id"), // Fathom recording ID for tracking enrichment
+  coverLetterIdeas: text("cover_letter_ideas"), // Cover letter ideas/notes for this lead
+  onboardingNotes: text("onboarding_notes"), // General notes for onboarding
   archived: boolean("archived").notNull().default(false), // Hide from Kanban without deleting
   history: jsonb("history").notNull().default(sql`'[]'::jsonb`), // Array of {date: string, action: string}
   createdAt: timestamp("created_at").notNull().defaultNow(),
