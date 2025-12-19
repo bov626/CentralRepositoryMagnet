@@ -5,6 +5,33 @@ import { Lock } from "lucide-react";
 
 const AUTH_KEY = "jumpseat_auth";
 
+function LoadingScreen({ progress }: { progress: number }) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white flex flex-col items-center justify-center p-6">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center">
+          <img 
+            src="/jumpseat-logo.png" 
+            alt="Jumpseat" 
+            className="h-10 w-auto mx-auto mb-8 opacity-80"
+          />
+        </div>
+        <div className="space-y-3">
+          <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-red-600 to-red-500 rounded-full transition-all duration-75 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-center text-zinc-500 text-sm">
+            Loading dashboard...
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface AuthContextType {
   isAuthenticated: boolean;
   login: (password: string) => Promise<boolean>;
