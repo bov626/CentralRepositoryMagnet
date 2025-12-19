@@ -515,7 +515,7 @@ export default function OnboardingPage() {
         )}
 
         <div className="mt-6 pt-4 border-t border-border">
-          <Link href="/onboarding-form" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+          <Link href="/questions1" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
             <ExternalLink className="h-4 w-4" />
             Open Client Onboarding Questionnaire
           </Link>
