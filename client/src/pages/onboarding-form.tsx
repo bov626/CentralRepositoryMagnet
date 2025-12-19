@@ -289,7 +289,7 @@ export default function OnboardingForm() {
     } else if (currentStep === 1) {
       if (resumeFile) points += 100;
     } else if (currentStep === 2) {
-      if (linkedIn.trim().length > 4 || noLinkedIn) points += 100;
+      if (linkedIn.trim().length > 4 && !noLinkedIn) points += 100;
     } else if (currentStep === 3) {
       if (coverLetterFile) points += 100;
     } else if (currentStep === 4) {
