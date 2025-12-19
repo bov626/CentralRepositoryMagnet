@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (checking) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-zinc-500 text-sm">Loading...</div>
+        <div className="text-white text-lg font-medium">Loading...</div>
       </div>
     );
   }
