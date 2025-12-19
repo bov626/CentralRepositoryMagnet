@@ -337,8 +337,8 @@ export default function OnboardingForm() {
         setPointsAnimation(stepPoints);
         setTotalPoints(prev => prev + stepPoints);
         setTimeout(() => setPointsAnimation(null), 1500);
+        setAwardedSteps(prev => new Set([...prev, currentStep]));
       }
-      setAwardedSteps(prev => new Set([...prev, currentStep]));
     }
     
     if (currentStep < STEPS.length - 1) {
