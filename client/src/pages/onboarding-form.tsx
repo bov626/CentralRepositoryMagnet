@@ -743,7 +743,28 @@ export default function OnboardingForm() {
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8 text-center">
                 <h2 className="text-3xl font-light tracking-tight mb-2">
-                  {puzzleMode === 'blocks' ? 'Can you make the blocks fit?' : 'Complete the sudoku'}
+                  {puzzleMode === 'blocks' ? (
+                    <>
+                      Can you make the blocks fit?
+                      {placements.size >= 3 && !puzzleSolved && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPuzzleSolved(true);
+                            if (!awardedSteps.has(6)) {
+                              setTotalPoints(prev => prev + 250);
+                              setPointsAnimation(250);
+                              setTimeout(() => setPointsAnimation(null), 1500);
+                              setAwardedSteps(prev => new Set(Array.from(prev).concat(6)));
+                            }
+                          }}
+                          className="ml-3 px-4 py-1 text-lg font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors animate-in fade-in duration-300"
+                        >
+                          No
+                        </button>
+                      )}
+                    </>
+                  ) : 'Complete the sudoku'}
                 </h2>
                 {puzzleSolved && puzzleMode === 'blocks' ? (
                   <span className="text-emerald-400 font-medium animate-in fade-in duration-300">
@@ -947,25 +968,7 @@ export default function OnboardingForm() {
                       </div>
                     )}
 
-                    {placements.size >= 3 && !puzzleSolved && (
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          setPuzzleSolved(true);
-                          if (!awardedSteps.has(6)) {
-                            setTotalPoints(prev => prev + 250);
-                            setPointsAnimation(250);
-                            setTimeout(() => setPointsAnimation(null), 1500);
-                            setAwardedSteps(prev => new Set(Array.from(prev).concat(6)));
-                          }
-                        }}
-                        variant="outline"
-                        className="border-zinc-600 text-zinc-300 hover:bg-zinc-800 hover:text-white animate-in fade-in duration-300"
-                      >
-                        No
-                      </Button>
-                    )}
-                  </div>
+                    </div>
                 </DndContext>
               ) : (
                 <div className="flex flex-col items-center gap-6">
