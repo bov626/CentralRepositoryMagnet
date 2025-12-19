@@ -51,14 +51,13 @@ function ProtectedDashboard() {
 }
 
 function Router() {
-  return (
-    <Switch>
-      <Route path="/questions1" component={OnboardingFormPage} />
-      <Route>
-        <ProtectedDashboard />
-      </Route>
-    </Switch>
-  );
+  const [location] = window.location.pathname === '/questions1' ? ['/questions1'] : [window.location.pathname];
+  
+  if (location === '/questions1') {
+    return <OnboardingFormPage />;
+  }
+  
+  return <ProtectedDashboard />;
 }
 
 function App() {
