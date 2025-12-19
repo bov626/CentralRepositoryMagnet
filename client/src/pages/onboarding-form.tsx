@@ -19,15 +19,24 @@ const STEPS = [
   { id: 'perspective', title: 'Perspective' },
 ];
 
+const CROSS_GRID = [
+  [false, false, true, true, false, false],
+  [false, false, true, true, false, false],
+  [true, true, true, true, true, true],
+  [true, true, true, true, true, true],
+  [false, false, true, true, false, false],
+  [false, false, true, true, false, false],
+];
+
 const PUZZLE_PIECES = [
-  { id: 1, width: 2, height: 1, color: 'bg-red-500' },
-  { id: 2, width: 1, height: 2, color: 'bg-blue-500' },
-  { id: 3, width: 2, height: 1, color: 'bg-green-500' },
-  { id: 4, width: 1, height: 1, color: 'bg-yellow-500' },
-  { id: 5, width: 1, height: 1, color: 'bg-purple-500' },
-  { id: 6, width: 2, height: 2, color: 'bg-orange-500' },
-  { id: 7, width: 1, height: 2, color: 'bg-pink-500' },
-  { id: 8, width: 1, height: 1, color: 'bg-cyan-500' },
+  { id: 1, shape: [[1,1],[1,0]], color: 'bg-rose-400' },
+  { id: 2, shape: [[1],[1],[1]], color: 'bg-sky-400' },
+  { id: 3, shape: [[1,1]], color: 'bg-emerald-400' },
+  { id: 4, shape: [[1,1],[1,1]], color: 'bg-amber-400' },
+  { id: 5, shape: [[1,0],[1,1]], color: 'bg-cyan-400' },
+  { id: 6, shape: [[1],[1]], color: 'bg-violet-400' },
+  { id: 7, shape: [[1,1,1]], color: 'bg-pink-400' },
+  { id: 8, shape: [[1]], color: 'bg-orange-400' },
 ];
 
 const SUDOKU_PUZZLE = [
@@ -59,14 +68,12 @@ function DraggablePiece({ piece }: { piece: typeof PUZZLE_PIECES[0] }) {
     id: piece.id,
   });
   
+  const rows = piece.shape.length;
+  const cols = Math.max(...piece.shape.map(r => r.length));
+  
   const style = transform ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-    width: `${piece.width * 48 + (piece.width - 1) * 4}px`,
-    height: `${piece.height * 48 + (piece.height - 1) * 4}px`,
-  } : {
-    width: `${piece.width * 48 + (piece.width - 1) * 4}px`,
-    height: `${piece.height * 48 + (piece.height - 1) * 4}px`,
-  };
+  } : {};
 
   return (
     <div
@@ -74,20 +81,35 @@ function DraggablePiece({ piece }: { piece: typeof PUZZLE_PIECES[0] }) {
       style={style}
       {...listeners}
       {...attributes}
-      className={`${piece.color} rounded cursor-grab active:cursor-grabbing shadow-lg transition-transform ${isDragging ? 'opacity-50 scale-105 z-50' : 'hover:scale-105'}`}
-    />
+      className={`cursor-grab active:cursor-grabbing transition-transform ${isDragging ? 'opacity-50 scale-105 z-50' : 'hover:scale-105'}`}
+    >
+      <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${cols}, 28px)` }}>
+        {piece.shape.map((row, ri) => 
+          row.map((cell, ci) => (
+            <div
+              key={`${ri}-${ci}`}
+              className={`w-7 h-7 rounded-sm ${cell ? piece.color : 'bg-transparent'}`}
+            />
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 
-function GridCell({ id, piece, onClick }: { id: string; piece: typeof PUZZLE_PIECES[0] | null | undefined; onClick: () => void }) {
+function GridCell({ id, pieceColor, isValidCell, onClick }: { id: string; pieceColor: string | null; isValidCell: boolean; onClick: () => void }) {
   const { isOver, setNodeRef } = useDroppable({ id });
+  
+  if (!isValidCell) {
+    return <div className="w-7 h-7" />;
+  }
   
   return (
     <div
       ref={setNodeRef}
       onClick={onClick}
-      className={`w-12 h-12 rounded border transition-all duration-200 cursor-pointer ${
-        piece ? `${piece.color} border-transparent` : isOver ? 'bg-zinc-700 border-zinc-500' : 'bg-zinc-800/50 border-zinc-700 hover:bg-zinc-700/50'
+      className={`w-7 h-7 rounded-sm border transition-all duration-200 cursor-pointer ${
+        pieceColor ? `${pieceColor} border-transparent` : isOver ? 'bg-slate-600 border-slate-400' : 'bg-slate-700 border-slate-600 hover:bg-slate-600'
       }`}
     />
   );
@@ -108,9 +130,17 @@ export default function OnboardingForm() {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const [puzzleGrid, setPuzzleGrid] = useState<(number | null)[][]>(
-    Array(4).fill(null).map(() => Array(4).fill(null))
+    Array(6).fill(null).map(() => Array(6).fill(null))
   );
   const [availablePieces, setAvailablePieces] = useState(PUZZLE_PIECES.map(p => p.id));
+  
+  const filledCells = puzzleGrid.flat().filter((c, i) => {
+    const row = Math.floor(i / 6);
+    const col = i % 6;
+    return CROSS_GRID[row][col] && c !== null;
+  }).length;
+  const totalCells = CROSS_GRID.flat().filter(Boolean).length;
+  const puzzleComplete = filledCells === totalCells;
   const [puzzleMode, setPuzzleMode] = useState<'blocks' | 'sudoku'>('blocks');
   const [sudokuGrid, setSudokuGrid] = useState<number[][]>(
     SUDOKU_PUZZLE.map(row => [...row])
@@ -562,22 +592,12 @@ export default function OnboardingForm() {
           {currentStep === 5 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8 text-center">
-                <h2 className="text-3xl font-light tracking-tight mb-2">Palate Cleanser</h2>
-                <p className="text-zinc-500 text-sm">
-                  {puzzleMode === 'blocks' ? 'Take a quick break. Drag the pieces into the grid.' : 'Take a quick break. Complete the sudoku.'}
-                </p>
-                <div className="flex items-center justify-center gap-3 mt-3">
-                  <span className="px-3 py-1 text-xs text-zinc-500 border border-zinc-700 rounded-full">
-                    optional
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setPuzzleMode(puzzleMode === 'blocks' ? 'sudoku' : 'blocks')}
-                    className="px-3 py-1 text-xs text-zinc-400 border border-zinc-700 rounded-full hover:bg-zinc-800 hover:text-white transition-colors"
-                  >
-                    {puzzleMode === 'blocks' ? 'I prefer sudoku' : 'I prefer blocks'}
-                  </button>
-                </div>
+                <h2 className="text-3xl font-light tracking-tight mb-2">
+                  {puzzleMode === 'blocks' ? 'Can you make the blocks fit?' : 'Complete the sudoku'}
+                </h2>
+                <span className="inline-block px-3 py-1 text-xs text-zinc-500 border border-zinc-700 rounded-full">
+                  optional
+                </span>
               </div>
 
               {puzzleMode === 'blocks' ? (
@@ -592,9 +612,10 @@ export default function OnboardingForm() {
                   const [row, col] = (over.id as string).split('-').map(Number);
                   
                   let canPlace = true;
-                  for (let h = 0; h < piece.height; h++) {
-                    for (let w = 0; w < piece.width; w++) {
-                      if (row + h >= 4 || col + w >= 4 || puzzleGrid[row + h][col + w] !== null) {
+                  for (let h = 0; h < piece.shape.length; h++) {
+                    for (let w = 0; w < piece.shape[h].length; w++) {
+                      if (!piece.shape[h][w]) continue;
+                      if (row + h >= 6 || col + w >= 6 || !CROSS_GRID[row + h][col + w] || puzzleGrid[row + h][col + w] !== null) {
                         canPlace = false;
                         break;
                       }
@@ -604,9 +625,11 @@ export default function OnboardingForm() {
                   
                   if (canPlace) {
                     const newGrid = puzzleGrid.map(r => [...r]);
-                    for (let h = 0; h < piece.height; h++) {
-                      for (let w = 0; w < piece.width; w++) {
-                        newGrid[row + h][col + w] = pieceId;
+                    for (let h = 0; h < piece.shape.length; h++) {
+                      for (let w = 0; w < piece.shape[h].length; w++) {
+                        if (piece.shape[h][w]) {
+                          newGrid[row + h][col + w] = pieceId;
+                        }
                       }
                     }
                     setPuzzleGrid(newGrid);
@@ -614,15 +637,17 @@ export default function OnboardingForm() {
                   }
                 }}>
                   <div className="flex flex-col items-center gap-8">
-                    <div className="grid grid-cols-4 gap-1 p-4 bg-zinc-900/50 rounded-xl border border-zinc-800">
-                      {puzzleGrid.map((row, rowIndex) => (
-                        row.map((cell, colIndex) => {
+                    <div className="grid grid-cols-6 gap-0.5 p-3 bg-zinc-900/30 rounded-xl">
+                      {CROSS_GRID.map((row, rowIndex) => (
+                        row.map((isValid, colIndex) => {
+                          const cell = puzzleGrid[rowIndex][colIndex];
                           const piece = cell ? PUZZLE_PIECES.find(p => p.id === cell) : null;
                           return (
                             <GridCell
                               key={`${rowIndex}-${colIndex}`}
                               id={`${rowIndex}-${colIndex}`}
-                              piece={piece}
+                              pieceColor={piece?.color || null}
+                              isValidCell={isValid}
                               onClick={() => {
                                 if (cell) {
                                   const newGrid = puzzleGrid.map(r => r.map(c => c === cell ? null : c));
@@ -636,7 +661,7 @@ export default function OnboardingForm() {
                       ))}
                     </div>
 
-                    <div className="flex flex-wrap justify-center gap-3 max-w-sm">
+                    <div className="flex flex-wrap justify-center gap-4 max-w-xs">
                       {availablePieces.map(pieceId => {
                         const piece = PUZZLE_PIECES.find(p => p.id === pieceId)!;
                         return (
@@ -645,7 +670,7 @@ export default function OnboardingForm() {
                       })}
                     </div>
 
-                    {availablePieces.length === 0 && (
+                    {puzzleComplete && (
                       <div className="flex items-center gap-2 text-emerald-400 animate-in fade-in duration-500">
                         <Sparkles className="h-5 w-5" />
                         <span className="font-medium">Puzzle Complete!</span>
@@ -698,6 +723,16 @@ export default function OnboardingForm() {
                   )}
                 </div>
               )}
+
+              <div className="mt-8 text-center">
+                <button
+                  type="button"
+                  onClick={() => setPuzzleMode(puzzleMode === 'blocks' ? 'sudoku' : 'blocks')}
+                  className="px-4 py-2 text-sm text-zinc-400 border border-zinc-700 rounded-full hover:bg-zinc-800 hover:text-white transition-colors"
+                >
+                  {puzzleMode === 'blocks' ? 'I prefer sudoku' : 'I prefer blocks'}
+                </button>
+              </div>
             </div>
           )}
 
