@@ -659,7 +659,7 @@ export default function OnboardingForm() {
                 <h2 className="text-3xl font-light tracking-tight mb-2">
                   {puzzleMode === 'blocks' ? 'Can you make the blocks fit?' : 'Complete the sudoku'}
                 </h2>
-                <span className="inline-block px-3 py-1 text-xs text-zinc-500 border border-zinc-700 rounded-full">
+                <span className="text-xs text-zinc-500">
                   optional
                 </span>
               </div>
