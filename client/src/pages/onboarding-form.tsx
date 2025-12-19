@@ -18,6 +18,7 @@ const STEPS = [
   { id: 'puzzle', title: 'Palate Cleanser' },
   { id: 'thinking', title: 'How You Think' },
   { id: 'thinking2', title: 'How You Think Part 2' },
+  { id: 'trivia', title: 'Trivia' },
   { id: 'perspective', title: 'Perspective' },
 ];
 
@@ -206,6 +207,25 @@ export default function OnboardingForm() {
     SUDOKU_PUZZLE.map(row => [...row])
   );
   
+  const [triviaQ1, setTriviaQ1] = useState<string | null>(null);
+  const [triviaQ1Correct, setTriviaQ1Correct] = useState(false);
+  const [triviaQ2, setTriviaQ2] = useState<string | null>(null);
+  const [triviaQ2Message, setTriviaQ2Message] = useState<string | null>(null);
+  const [triviaQ2WilsonCount, setTriviaQ2WilsonCount] = useState(0);
+  const [triviaQ2MrBeastCount, setTriviaQ2MrBeastCount] = useState(0);
+  const [triviaQ2Correct, setTriviaQ2Correct] = useState(false);
+  const [triviaQ2CustomAnswer, setTriviaQ2CustomAnswer] = useState("");
+  const [triviaQ3, setTriviaQ3] = useState<string | null>(null);
+  const [triviaQ3Correct, setTriviaQ3Correct] = useState(false);
+  const [triviaQ4, setTriviaQ4] = useState<string | null>(null);
+  const [triviaQ4Correct, setTriviaQ4Correct] = useState(false);
+  const [triviaQ4HalfPoints, setTriviaQ4HalfPoints] = useState(false);
+  const [triviaQ5Selections, setTriviaQ5Selections] = useState<Set<string>>(new Set());
+  const [triviaQ5Message, setTriviaQ5Message] = useState<string | null>(null);
+  const [triviaQ5Correct, setTriviaQ5Correct] = useState(false);
+  const [triviaPointsAwarded, setTriviaPointsAwarded] = useState<Set<number>>(new Set());
+  const [triviaPointsAnimation, setTriviaPointsAnimation] = useState<{question: number, points: number} | null>(null);
+  
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const coverLetterInputRef = useRef<HTMLInputElement>(null);
   
@@ -320,6 +340,8 @@ export default function OnboardingForm() {
       if (answers.optimizeFor.length > 4) points += 100;
       if (answers.whenBreaks.length > 4) points += 100;
     } else if (currentStep === 9) {
+      // Trivia points are awarded immediately per question
+    } else if (currentStep === 10) {
       if (answers.misconception.length > 4) points += 100;
       if (answers.betterThanResume.length > 4) points += 100;
       if (answers.nonObviousThing.length > 4) points += 100;
@@ -1103,6 +1125,316 @@ export default function OnboardingForm() {
           )}
 
           {currentStep === 9 && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="mb-8 text-center">
+                <h2 className="text-3xl font-light tracking-tight mb-2">Trivia</h2>
+                <p className="text-zinc-500 text-sm">A little brain break</p>
+              </div>
+
+              <div className="space-y-8">
+                {/* Question 1 */}
+                <div className={`space-y-3 p-4 rounded-xl transition-all ${triviaQ1Correct ? 'bg-zinc-900/30 opacity-60' : ''}`}>
+                  <div className="relative">
+                    {triviaPointsAnimation?.question === 1 && (
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <span className="text-sm font-bold text-yellow-400">+{triviaPointsAnimation.points}</span>
+                      </div>
+                    )}
+                    <label className="text-sm font-medium text-zinc-300">
+                      What everyday object was originally invented to stop horses from slipping?
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['Rubber tires', 'Concrete', 'Asphalt', 'Sandpaper'].map(option => (
+                      <button
+                        key={option}
+                        type="button"
+                        disabled={triviaQ1Correct}
+                        onClick={() => {
+                          setTriviaQ1(option);
+                          if (option === 'Sandpaper') {
+                            setTriviaQ1Correct(true);
+                            if (!triviaPointsAwarded.has(1)) {
+                              setTotalPoints(prev => prev + 100);
+                              setTriviaPointsAnimation({question: 1, points: 100});
+                              setTimeout(() => setTriviaPointsAnimation(null), 1500);
+                              setTriviaPointsAwarded(prev => new Set(Array.from(prev).concat(1)));
+                            }
+                          }
+                        }}
+                        className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                          triviaQ1 === option 
+                            ? option === 'Sandpaper' 
+                              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' 
+                              : 'bg-red-500/20 border-red-500 text-red-400'
+                            : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Question 2 - after Q1 correct */}
+                {triviaQ1Correct && (
+                  <div className={`space-y-3 p-4 rounded-xl transition-all animate-in fade-in duration-500 ${triviaQ2Correct ? 'bg-zinc-900/30 opacity-60' : ''}`}>
+                    <div className="relative">
+                      {triviaPointsAnimation?.question === 2 && (
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <span className="text-sm font-bold text-yellow-400">+{triviaPointsAnimation.points}</span>
+                        </div>
+                      )}
+                      <label className="text-sm font-medium text-zinc-300">
+                        Who is the best YouTuber?
+                      </label>
+                    </div>
+                    {triviaQ2Message && (
+                      <p className="text-sm text-amber-400 animate-in fade-in duration-300">{triviaQ2Message}</p>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Wilson Wye', 'PewDiePie', 'Ali Abdaal', 'Mr. Beast'].map(option => (
+                        <button
+                          key={option}
+                          type="button"
+                          disabled={triviaQ2Correct}
+                          onClick={() => {
+                            setTriviaQ2(option);
+                            if (option === 'Wilson Wye') {
+                              const count = triviaQ2WilsonCount + 1;
+                              setTriviaQ2WilsonCount(count);
+                              if (count === 1) setTriviaQ2Message("Do you think I am that vain?");
+                              else if (count === 2) setTriviaQ2Message("No really, I am not.");
+                              else {
+                                setTriviaQ2Message("Alright, flattery goes a long way.");
+                                setTriviaQ2Correct(true);
+                                if (!triviaPointsAwarded.has(2)) {
+                                  setTotalPoints(prev => prev + 200);
+                                  setTriviaPointsAnimation({question: 2, points: 200});
+                                  setTimeout(() => setTriviaPointsAnimation(null), 1500);
+                                  setTriviaPointsAwarded(prev => new Set(Array.from(prev).concat(2)));
+                                }
+                              }
+                            } else if (option === 'Mr. Beast') {
+                              const count = triviaQ2MrBeastCount + 1;
+                              setTriviaQ2MrBeastCount(count);
+                              if (count === 1) setTriviaQ2Message("Aren't you too old for him?");
+                              else setTriviaQ2Message("He really isn't.");
+                            } else {
+                              setTriviaQ2Correct(true);
+                              setTriviaQ2Message(null);
+                              if (!triviaPointsAwarded.has(2)) {
+                                setTotalPoints(prev => prev + 100);
+                                setTriviaPointsAnimation({question: 2, points: 100});
+                                setTimeout(() => setTriviaPointsAnimation(null), 1500);
+                                setTriviaPointsAwarded(prev => new Set(Array.from(prev).concat(2)));
+                              }
+                            }
+                          }}
+                          className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                            triviaQ2 === option && triviaQ2Correct
+                              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                              : triviaQ2 === option && option === 'Mr. Beast'
+                              ? 'bg-red-500/20 border-red-500 text-red-400'
+                              : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                      <div className="col-span-2">
+                        <Input
+                          placeholder="Other (type your own)"
+                          value={triviaQ2CustomAnswer}
+                          onChange={(e) => setTriviaQ2CustomAnswer(e.target.value)}
+                          disabled={triviaQ2Correct}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && triviaQ2CustomAnswer.trim().length > 0) {
+                              setTriviaQ2(triviaQ2CustomAnswer);
+                              setTriviaQ2Correct(true);
+                              if (!triviaPointsAwarded.has(2)) {
+                                setTotalPoints(prev => prev + 100);
+                                setTriviaPointsAnimation({question: 2, points: 100});
+                                setTimeout(() => setTriviaPointsAnimation(null), 1500);
+                                setTriviaPointsAwarded(prev => new Set(Array.from(prev).concat(2)));
+                              }
+                            }
+                          }}
+                          className="bg-zinc-900/50 border-zinc-700 text-white placeholder:text-zinc-600"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Question 3 - after Q2 correct */}
+                {triviaQ2Correct && (
+                  <div className={`space-y-3 p-4 rounded-xl transition-all animate-in fade-in duration-500 ${triviaQ3Correct ? 'bg-zinc-900/30 opacity-60' : ''}`}>
+                    <div className="relative">
+                      {triviaPointsAnimation?.question === 3 && (
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <span className="text-sm font-bold text-yellow-400">+{triviaPointsAnimation.points}</span>
+                        </div>
+                      )}
+                      <label className="text-sm font-medium text-zinc-300">
+                        The "Q" in Q-tips stands for what?
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Quality', 'Quick', 'Question', 'Quarter'].map(option => (
+                        <button
+                          key={option}
+                          type="button"
+                          disabled={triviaQ3Correct}
+                          onClick={() => {
+                            setTriviaQ3(option);
+                            if (option === 'Quality') {
+                              setTriviaQ3Correct(true);
+                              if (!triviaPointsAwarded.has(3)) {
+                                setTotalPoints(prev => prev + 100);
+                                setTriviaPointsAnimation({question: 3, points: 100});
+                                setTimeout(() => setTriviaPointsAnimation(null), 1500);
+                                setTriviaPointsAwarded(prev => new Set(Array.from(prev).concat(3)));
+                              }
+                            }
+                          }}
+                          className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                            triviaQ3 === option 
+                              ? option === 'Quality' 
+                                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' 
+                                : 'bg-red-500/20 border-red-500 text-red-400'
+                              : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Question 4 - after Q3 correct */}
+                {triviaQ3Correct && (
+                  <div className={`space-y-3 p-4 rounded-xl transition-all animate-in fade-in duration-500 ${triviaQ4Correct || triviaQ4HalfPoints ? 'bg-zinc-900/30 opacity-60' : ''}`}>
+                    <div className="relative">
+                      {triviaPointsAnimation?.question === 4 && (
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <span className="text-sm font-bold text-yellow-400">+{triviaPointsAnimation.points}</span>
+                        </div>
+                      )}
+                      <label className="text-sm font-medium text-zinc-300">
+                        What is 12÷(3+1)×2−2 = {' '}
+                        <span 
+                          onClick={() => {
+                            if (!triviaQ4Correct && !triviaQ4HalfPoints) {
+                              setTriviaQ4('hidden');
+                              setTriviaQ4Correct(true);
+                              if (!triviaPointsAwarded.has(4)) {
+                                setTotalPoints(prev => prev + 100);
+                                setTriviaPointsAnimation({question: 4, points: 100});
+                                setTimeout(() => setTriviaPointsAnimation(null), 1500);
+                                setTriviaPointsAwarded(prev => new Set(Array.from(prev).concat(4)));
+                              }
+                            }
+                          }}
+                          className="cursor-pointer hover:bg-zinc-700/50 hover:rounded-full hover:ring-2 hover:ring-zinc-500 px-1 transition-all"
+                        >4</span>?
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['1', '8', '10', 'I hate math'].map(option => (
+                        <button
+                          key={option}
+                          type="button"
+                          disabled={triviaQ4Correct || triviaQ4HalfPoints}
+                          onClick={() => {
+                            setTriviaQ4(option);
+                            if (option === 'I hate math') {
+                              setTriviaQ4HalfPoints(true);
+                              if (!triviaPointsAwarded.has(4)) {
+                                setTotalPoints(prev => prev + 50);
+                                setTriviaPointsAnimation({question: 4, points: 50});
+                                setTimeout(() => setTriviaPointsAnimation(null), 1500);
+                                setTriviaPointsAwarded(prev => new Set(Array.from(prev).concat(4)));
+                              }
+                            }
+                          }}
+                          className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                            triviaQ4 === option 
+                              ? triviaQ4Correct || option === 'I hate math'
+                                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' 
+                                : 'bg-red-500/20 border-red-500 text-red-400'
+                              : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Question 5 - after Q4 correct or half points */}
+                {(triviaQ4Correct || triviaQ4HalfPoints) && (
+                  <div className={`space-y-3 p-4 rounded-xl transition-all animate-in fade-in duration-500 ${triviaQ5Correct ? 'bg-zinc-900/30 opacity-60' : ''}`}>
+                    <div className="relative">
+                      {triviaPointsAnimation?.question === 5 && (
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <span className="text-sm font-bold text-yellow-400">+{triviaPointsAnimation.points}</span>
+                        </div>
+                      )}
+                      <label className="text-sm font-medium text-zinc-300">
+                        Bananas are classified as what?
+                      </label>
+                    </div>
+                    {triviaQ5Message && (
+                      <p className="text-sm text-amber-400 animate-in fade-in duration-300">{triviaQ5Message}</p>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Fruits', 'Berries', 'Herbs', 'Drupes'].map(option => (
+                        <button
+                          key={option}
+                          type="button"
+                          disabled={triviaQ5Correct}
+                          onClick={() => {
+                            if (option === 'Drupes') {
+                              setTriviaQ5Message("What even is a drupe??");
+                              return;
+                            }
+                            if (option === 'Herbs') {
+                              setTriviaQ5Message("Nope, that's not right.");
+                              return;
+                            }
+                            const newSelections = new Set(Array.from(triviaQ5Selections).concat(option));
+                            setTriviaQ5Selections(newSelections);
+                            setTriviaQ5Message(null);
+                            if (newSelections.has('Fruits') && newSelections.has('Berries')) {
+                              setTriviaQ5Correct(true);
+                              if (!triviaPointsAwarded.has(5)) {
+                                setTotalPoints(prev => prev + 100);
+                                setTriviaPointsAnimation({question: 5, points: 100});
+                                setTimeout(() => setTriviaPointsAnimation(null), 1500);
+                                setTriviaPointsAwarded(prev => new Set(Array.from(prev).concat(5)));
+                              }
+                            }
+                          }}
+                          className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                            triviaQ5Selections.has(option)
+                              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                              : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {currentStep === 10 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">Perspective & Differentiation</h2>
