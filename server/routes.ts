@@ -8,6 +8,9 @@ import { listMeetings, getMeeting, extractLeadDataFromMeeting, isFathomConfigure
 import { summarizeClientNeeds } from "./ai-summarize";
 import { sendEmail, isGmailConfigured } from "./gmail";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import crypto from "crypto";
+
+const activeSessions = new Map<string, number>();
 
 export async function registerRoutes(
   httpServer: Server,
@@ -16,6 +19,46 @@ export async function registerRoutes(
   
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
+
+  // Auth routes for internal dashboard protection
+  app.post("/api/auth/login", (req, res) => {
+    const { password } = req.body;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    
+    if (!adminPassword) {
+      console.error("ADMIN_PASSWORD environment variable not set");
+      return res.status(500).json({ error: "Authentication not configured" });
+    }
+    
+    if (password === adminPassword) {
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+      activeSessions.set(token, expiresAt);
+      return res.json({ success: true, token });
+    }
+    
+    return res.status(401).json({ success: false, error: "Invalid password" });
+  });
+
+  app.post("/api/auth/verify", (req, res) => {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.json({ valid: false });
+    }
+    
+    const expiresAt = activeSessions.get(token);
+    if (!expiresAt) {
+      return res.json({ valid: false });
+    }
+    
+    if (Date.now() > expiresAt) {
+      activeSessions.delete(token);
+      return res.json({ valid: false });
+    }
+    
+    return res.json({ valid: true });
+  });
   
   // Lead routes
   app.get("/api/leads", async (req, res) => {

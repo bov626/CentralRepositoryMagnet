@@ -12,6 +12,7 @@ import SettingsPage from "@/pages/settings";
 import FathomPage from "@/pages/fathom";
 import { StoreProvider } from "@/lib/data";
 import { useEffect } from "react";
+import { AuthProvider, ProtectedRoute } from "@/hooks/use-auth";
 
 function CalendarAutoSync() {
   const qc = useQueryClient();
@@ -33,16 +34,29 @@ function CalendarAutoSync() {
   return null;
 }
 
+function ProtectedDashboard() {
+  return (
+    <ProtectedRoute>
+      <CalendarAutoSync />
+      <Switch>
+        <Route path="/" component={PipelinePage} />
+        <Route path="/onboarding" component={OnboardingPage} />
+        <Route path="/today" component={TodayPage} />
+        <Route path="/settings" component={SettingsPage} />
+        <Route path="/fathom" component={FathomPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </ProtectedRoute>
+  );
+}
+
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={PipelinePage} />
-      <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/onboarding-form" component={OnboardingFormPage} />
-      <Route path="/today" component={TodayPage} />
-      <Route path="/settings" component={SettingsPage} />
-      <Route path="/fathom" component={FathomPage} />
-      <Route component={NotFound} />
+      <Route path="/:rest*">
+        <ProtectedDashboard />
+      </Route>
     </Switch>
   );
 }
@@ -51,11 +65,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <StoreProvider>
-          <CalendarAutoSync />
-          <Toaster />
-          <Router />
-        </StoreProvider>
+        <AuthProvider>
+          <StoreProvider>
+            <Toaster />
+            <Router />
+          </StoreProvider>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
