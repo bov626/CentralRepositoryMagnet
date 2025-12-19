@@ -9,18 +9,21 @@ import { Link as RouterLink } from "wouter";
 import { DndContext, useDraggable, useDroppable, DragEndEvent, DragMoveEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 
 const STEPS = [
-  { id: 'name', title: 'Your Information' },
-  { id: 'resume', title: 'Resume' },
-  { id: 'linkedin', title: 'LinkedIn' },
-  { id: 'coverletter', title: 'Cover Letter' },
-  { id: 'career', title: 'Career Narrative' },
-  { id: 'career2', title: 'Career Narrative Part 2' },
-  { id: 'puzzle', title: 'Palate Cleanser' },
-  { id: 'thinking', title: 'How You Think' },
-  { id: 'thinking2', title: 'How You Think Part 2' },
-  { id: 'trivia', title: 'Trivia' },
-  { id: 'perspective', title: 'Perspective' },
+  { id: 'name', title: 'Your Information', group: 'name' },
+  { id: 'resume', title: 'Resume', group: 'resume' },
+  { id: 'linkedin', title: 'LinkedIn', group: 'linkedin' },
+  { id: 'coverletter', title: 'Cover Letter', group: 'coverletter' },
+  { id: 'career', title: 'Career Narrative', group: 'career' },
+  { id: 'career2', title: 'Career Narrative Part 2', group: 'career' },
+  { id: 'puzzle', title: 'Palate Cleanser', group: 'puzzle' },
+  { id: 'thinking', title: 'How You Think', group: 'thinking' },
+  { id: 'thinking2', title: 'How You Think Part 2', group: 'thinking' },
+  { id: 'trivia', title: 'Trivia', group: 'trivia' },
+  { id: 'perspective', title: 'Perspective', group: 'perspective' },
+  { id: 'perspective2', title: 'Perspective Part 2', group: 'perspective' },
 ];
+
+const UNIQUE_GROUPS = [...new Set(STEPS.map(s => s.group))];
 
 const CROSS_GRID = [
   [false, false, true, true, false, false],
@@ -248,7 +251,6 @@ export default function OnboardingForm() {
     optimizeFor: "",
     whenBreaks: "",
     misconception: "",
-    betterThanResume: "",
     nonObviousThing: "",
     sabbatical: "",
     noticeFirst: "",
@@ -258,7 +260,9 @@ export default function OnboardingForm() {
     setAnswers(prev => ({ ...prev, [key]: value }));
   };
 
-  const progress = (Math.max(highestStep, currentStep) / STEPS.length) * 100;
+  const currentGroup = STEPS[Math.max(highestStep, currentStep)].group;
+  const currentGroupIndex = UNIQUE_GROUPS.indexOf(currentGroup);
+  const progress = ((currentGroupIndex + 1) / UNIQUE_GROUPS.length) * 100;
 
   useEffect(() => {
     if (currentStep > highestStep) {
@@ -344,8 +348,8 @@ export default function OnboardingForm() {
       // Trivia points are awarded immediately per question
     } else if (currentStep === 10) {
       if (answers.misconception.length > 4) points += 100;
-      if (answers.betterThanResume.length > 4) points += 100;
       if (answers.nonObviousThing.length > 4) points += 100;
+    } else if (currentStep === 11) {
       if (answers.sabbatical.length > 4) points += 100;
       if (answers.noticeFirst.length > 4) points += 100;
     }
@@ -1461,18 +1465,6 @@ export default function OnboardingForm() {
 
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
-                    What's something you're better at than your resume currently shows?
-                  </label>
-                  <Textarea
-                    value={answers.betterThanResume}
-                    onChange={(e) => updateAnswer('betterThanResume', e.target.value)}
-                    placeholder="Hidden strengths not on your resume..."
-                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
                     What's one interesting or non-obvious thing about you that doesn't usually come up professionally?
                   </label>
                   <Textarea
@@ -1482,7 +1474,18 @@ export default function OnboardingForm() {
                     className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
+              </div>
+            </div>
+          )}
 
+          {currentStep === 11 && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="mb-8">
+                <h2 className="text-2xl font-light tracking-tight mb-2">Perspective & Differentiation Part 2</h2>
+                <p className="text-zinc-500 text-sm">Motivation and observation</p>
+              </div>
+
+              <div className="space-y-8">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
                     If your company gave you a one-year paid sabbatical, how would you spend it?
