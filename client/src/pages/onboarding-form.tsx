@@ -178,6 +178,8 @@ export default function OnboardingForm() {
   const [awardedSteps, setAwardedSteps] = useState<Set<number>>(new Set());
   const [easterEggClaimed, setEasterEggClaimed] = useState(false);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeScanning, setResumeScanning] = useState(false);
+  const [resumeScanMessage, setResumeScanMessage] = useState<string | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const [placements, setPlacements] = useState<Map<number, {row: number, col: number}>>(new Map());
   const [availablePieces, setAvailablePieces] = useState(PUZZLE_PIECES.map(p => p.id));
@@ -461,7 +463,21 @@ export default function OnboardingForm() {
 
   const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setResumeFile(file);
+    if (file) {
+      setResumeFile(file);
+      setResumeScanning(true);
+      setResumeScanMessage("Scanning resume...");
+      setTimeout(() => {
+        setResumeScanMessage("Wow this is really bad.");
+      }, 1500);
+      setTimeout(() => {
+        setResumeScanMessage("Just kidding, you can continue now.");
+        setResumeScanning(false);
+      }, 2500);
+      setTimeout(() => {
+        setResumeScanMessage(null);
+      }, 4500);
+    }
   };
 
   const handleCoverLetterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -638,26 +654,45 @@ export default function OnboardingForm() {
                     className="hidden"
                   />
                   <div
-                    onClick={() => resumeInputRef.current?.click()}
-                    className={`group relative border rounded-xl p-10 text-center cursor-pointer transition-all duration-300 ${
-                      resumeFile 
-                        ? 'border-emerald-500/50 bg-emerald-500/5' 
-                        : 'border-zinc-800 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900/50'
+                    onClick={() => !resumeScanning && resumeInputRef.current?.click()}
+                    className={`group relative border rounded-xl p-10 text-center transition-all duration-300 overflow-hidden ${
+                      resumeScanning
+                        ? 'border-red-500/50 bg-zinc-900/50 cursor-wait'
+                        : resumeFile 
+                          ? 'border-emerald-500/50 bg-emerald-500/5 cursor-pointer' 
+                          : 'border-zinc-800 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900/50 cursor-pointer'
                     }`}
                   >
+                    {resumeScanning && (
+                      <div 
+                        className="absolute top-0 left-0 h-1 bg-red-500"
+                        style={{
+                          animation: 'scanLine 1.5s ease-in-out infinite'
+                        }}
+                      />
+                    )}
+                    <style>{`
+                      @keyframes scanLine {
+                        0% { width: 0%; left: 0; }
+                        50% { width: 100%; left: 0; }
+                        100% { width: 0%; left: 100%; }
+                      }
+                    `}</style>
                     {resumeFile ? (
                       <div className="flex items-center justify-center gap-3">
-                        <div className="w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                          <FileText className="h-6 w-6 text-emerald-400" />
+                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${resumeScanning ? 'bg-red-500/20' : 'bg-emerald-500/20'}`}>
+                          <FileText className={`h-6 w-6 ${resumeScanning ? 'text-red-400' : 'text-emerald-400'}`} />
                         </div>
-                        <span className="text-emerald-400 font-medium">{resumeFile.name}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setResumeFile(null); }}
-                          className="ml-2 p-1 text-zinc-500 hover:text-white transition-colors"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
+                        <span className={`font-medium ${resumeScanning ? 'text-red-400' : 'text-emerald-400'}`}>{resumeFile.name}</span>
+                        {!resumeScanning && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setResumeFile(null); setResumeScanMessage(null); }}
+                            className="ml-2 p-1 text-zinc-500 hover:text-white transition-colors"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -671,6 +706,15 @@ export default function OnboardingForm() {
                       </div>
                     )}
                   </div>
+                  {resumeScanMessage && (
+                    <p className={`text-sm mt-3 text-center animate-in fade-in duration-300 ${
+                      resumeScanMessage.includes('bad') ? 'text-red-400' : 
+                      resumeScanMessage.includes('kidding') ? 'text-emerald-400' : 
+                      'text-zinc-400'
+                    }`}>
+                      {resumeScanMessage}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
