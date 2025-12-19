@@ -30,6 +30,30 @@ const PUZZLE_PIECES = [
   { id: 8, width: 1, height: 1, color: 'bg-cyan-500' },
 ];
 
+const SUDOKU_PUZZLE = [
+  [5, 3, 0, 0, 7, 0, 0, 0, 0],
+  [6, 0, 0, 1, 9, 5, 0, 0, 0],
+  [0, 9, 8, 0, 0, 0, 0, 6, 0],
+  [8, 0, 0, 0, 6, 0, 0, 0, 3],
+  [4, 0, 0, 8, 0, 3, 0, 0, 1],
+  [7, 0, 0, 0, 2, 0, 0, 0, 6],
+  [0, 6, 0, 0, 0, 0, 2, 8, 0],
+  [0, 0, 0, 4, 1, 9, 0, 0, 5],
+  [0, 0, 0, 0, 8, 0, 0, 7, 9],
+];
+
+const SUDOKU_SOLUTION = [
+  [5, 3, 4, 6, 7, 8, 9, 1, 2],
+  [6, 7, 2, 1, 9, 5, 3, 4, 8],
+  [1, 9, 8, 3, 4, 2, 5, 6, 7],
+  [8, 5, 9, 7, 6, 1, 4, 2, 3],
+  [4, 2, 6, 8, 5, 3, 7, 9, 1],
+  [7, 1, 3, 9, 2, 4, 8, 5, 6],
+  [9, 6, 1, 5, 3, 7, 2, 8, 4],
+  [2, 8, 7, 4, 1, 9, 6, 3, 5],
+  [3, 4, 5, 2, 8, 6, 1, 7, 9],
+];
+
 function DraggablePiece({ piece }: { piece: typeof PUZZLE_PIECES[0] }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: piece.id,
@@ -87,6 +111,10 @@ export default function OnboardingForm() {
     Array(4).fill(null).map(() => Array(4).fill(null))
   );
   const [availablePieces, setAvailablePieces] = useState(PUZZLE_PIECES.map(p => p.id));
+  const [puzzleMode, setPuzzleMode] = useState<'blocks' | 'sudoku'>('blocks');
+  const [sudokuGrid, setSudokuGrid] = useState<number[][]>(
+    SUDOKU_PUZZLE.map(row => [...row])
+  );
   
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const coverLetterInputRef = useRef<HTMLInputElement>(null);
@@ -535,85 +563,141 @@ export default function OnboardingForm() {
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8 text-center">
                 <h2 className="text-3xl font-light tracking-tight mb-2">Palate Cleanser</h2>
-                <p className="text-zinc-500 text-sm">Take a quick break. Drag the pieces into the grid.</p>
-                <span className="inline-block mt-2 px-3 py-1 text-xs text-zinc-500 border border-zinc-700 rounded-full">
-                  optional
-                </span>
+                <p className="text-zinc-500 text-sm">
+                  {puzzleMode === 'blocks' ? 'Take a quick break. Drag the pieces into the grid.' : 'Take a quick break. Complete the sudoku.'}
+                </p>
+                <div className="flex items-center justify-center gap-3 mt-3">
+                  <span className="px-3 py-1 text-xs text-zinc-500 border border-zinc-700 rounded-full">
+                    optional
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPuzzleMode(puzzleMode === 'blocks' ? 'sudoku' : 'blocks')}
+                    className="px-3 py-1 text-xs text-zinc-400 border border-zinc-700 rounded-full hover:bg-zinc-800 hover:text-white transition-colors"
+                  >
+                    {puzzleMode === 'blocks' ? 'I prefer sudoku' : 'I prefer blocks'}
+                  </button>
+                </div>
               </div>
 
-              <DndContext onDragEnd={(event: DragEndEvent) => {
-                const { active, over } = event;
-                if (!over) return;
-                
-                const pieceId = active.id as number;
-                const piece = PUZZLE_PIECES.find(p => p.id === pieceId);
-                if (!piece) return;
-                
-                const [row, col] = (over.id as string).split('-').map(Number);
-                
-                let canPlace = true;
-                for (let h = 0; h < piece.height; h++) {
-                  for (let w = 0; w < piece.width; w++) {
-                    if (row + h >= 4 || col + w >= 4 || puzzleGrid[row + h][col + w] !== null) {
-                      canPlace = false;
-                      break;
-                    }
-                  }
-                  if (!canPlace) break;
-                }
-                
-                if (canPlace) {
-                  const newGrid = puzzleGrid.map(r => [...r]);
+              {puzzleMode === 'blocks' ? (
+                <DndContext onDragEnd={(event: DragEndEvent) => {
+                  const { active, over } = event;
+                  if (!over) return;
+                  
+                  const pieceId = active.id as number;
+                  const piece = PUZZLE_PIECES.find(p => p.id === pieceId);
+                  if (!piece) return;
+                  
+                  const [row, col] = (over.id as string).split('-').map(Number);
+                  
+                  let canPlace = true;
                   for (let h = 0; h < piece.height; h++) {
                     for (let w = 0; w < piece.width; w++) {
-                      newGrid[row + h][col + w] = pieceId;
+                      if (row + h >= 4 || col + w >= 4 || puzzleGrid[row + h][col + w] !== null) {
+                        canPlace = false;
+                        break;
+                      }
                     }
+                    if (!canPlace) break;
                   }
-                  setPuzzleGrid(newGrid);
-                  setAvailablePieces(prev => prev.filter(id => id !== pieceId));
-                }
-              }}>
-                <div className="flex flex-col items-center gap-8">
-                  <div className="grid grid-cols-4 gap-1 p-4 bg-zinc-900/50 rounded-xl border border-zinc-800">
-                    {puzzleGrid.map((row, rowIndex) => (
-                      row.map((cell, colIndex) => {
-                        const piece = cell ? PUZZLE_PIECES.find(p => p.id === cell) : null;
+                  
+                  if (canPlace) {
+                    const newGrid = puzzleGrid.map(r => [...r]);
+                    for (let h = 0; h < piece.height; h++) {
+                      for (let w = 0; w < piece.width; w++) {
+                        newGrid[row + h][col + w] = pieceId;
+                      }
+                    }
+                    setPuzzleGrid(newGrid);
+                    setAvailablePieces(prev => prev.filter(id => id !== pieceId));
+                  }
+                }}>
+                  <div className="flex flex-col items-center gap-8">
+                    <div className="grid grid-cols-4 gap-1 p-4 bg-zinc-900/50 rounded-xl border border-zinc-800">
+                      {puzzleGrid.map((row, rowIndex) => (
+                        row.map((cell, colIndex) => {
+                          const piece = cell ? PUZZLE_PIECES.find(p => p.id === cell) : null;
+                          return (
+                            <GridCell
+                              key={`${rowIndex}-${colIndex}`}
+                              id={`${rowIndex}-${colIndex}`}
+                              piece={piece}
+                              onClick={() => {
+                                if (cell) {
+                                  const newGrid = puzzleGrid.map(r => r.map(c => c === cell ? null : c));
+                                  setPuzzleGrid(newGrid);
+                                  setAvailablePieces(prev => [...prev, cell]);
+                                }
+                              }}
+                            />
+                          );
+                        })
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap justify-center gap-3 max-w-sm">
+                      {availablePieces.map(pieceId => {
+                        const piece = PUZZLE_PIECES.find(p => p.id === pieceId)!;
                         return (
-                          <GridCell
+                          <DraggablePiece key={pieceId} piece={piece} />
+                        );
+                      })}
+                    </div>
+
+                    {availablePieces.length === 0 && (
+                      <div className="flex items-center gap-2 text-emerald-400 animate-in fade-in duration-500">
+                        <Sparkles className="h-5 w-5" />
+                        <span className="font-medium">Puzzle Complete!</span>
+                        <Sparkles className="h-5 w-5" />
+                      </div>
+                    )}
+                  </div>
+                </DndContext>
+              ) : (
+                <div className="flex flex-col items-center gap-6">
+                  <div className="grid grid-cols-9 gap-0 bg-zinc-900/50 rounded-xl border border-zinc-800 p-2 overflow-hidden">
+                    {sudokuGrid.map((row, rowIndex) => (
+                      row.map((cell, colIndex) => {
+                        const isOriginal = SUDOKU_PUZZLE[rowIndex][colIndex] !== 0;
+                        const isCorrect = cell === SUDOKU_SOLUTION[rowIndex][colIndex];
+                        const borderRight = colIndex === 2 || colIndex === 5;
+                        const borderBottom = rowIndex === 2 || rowIndex === 5;
+                        
+                        return (
+                          <input
                             key={`${rowIndex}-${colIndex}`}
-                            id={`${rowIndex}-${colIndex}`}
-                            piece={piece}
-                            onClick={() => {
-                              if (cell) {
-                                const newGrid = puzzleGrid.map(r => r.map(c => c === cell ? null : c));
-                                setPuzzleGrid(newGrid);
-                                setAvailablePieces(prev => [...prev, cell]);
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={cell === 0 ? '' : cell}
+                            disabled={isOriginal}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || (val >= '1' && val <= '9')) {
+                                const newGrid = sudokuGrid.map(r => [...r]);
+                                newGrid[rowIndex][colIndex] = val === '' ? 0 : parseInt(val);
+                                setSudokuGrid(newGrid);
                               }
                             }}
+                            className={`w-9 h-9 text-center text-lg font-medium bg-transparent border border-zinc-700 focus:outline-none focus:border-red-500 transition-colors ${
+                              isOriginal ? 'text-white' : cell !== 0 ? (isCorrect ? 'text-emerald-400' : 'text-red-400') : 'text-zinc-400'
+                            } ${borderRight ? 'border-r-2 border-r-zinc-500' : ''} ${borderBottom ? 'border-b-2 border-b-zinc-500' : ''}`}
                           />
                         );
                       })
                     ))}
                   </div>
 
-                  <div className="flex flex-wrap justify-center gap-3 max-w-sm">
-                    {availablePieces.map(pieceId => {
-                      const piece = PUZZLE_PIECES.find(p => p.id === pieceId)!;
-                      return (
-                        <DraggablePiece key={pieceId} piece={piece} />
-                      );
-                    })}
-                  </div>
-
-                  {availablePieces.length === 0 && (
+                  {sudokuGrid.every((row, ri) => row.every((cell, ci) => cell === SUDOKU_SOLUTION[ri][ci])) && (
                     <div className="flex items-center gap-2 text-emerald-400 animate-in fade-in duration-500">
                       <Sparkles className="h-5 w-5" />
-                      <span className="font-medium">Puzzle Complete!</span>
+                      <span className="font-medium">Sudoku Complete!</span>
                       <Sparkles className="h-5 w-5" />
                     </div>
                   )}
                 </div>
-              </DndContext>
+              )}
             </div>
           )}
 
