@@ -183,6 +183,7 @@ export default function OnboardingForm() {
   const [resumeScanning, setResumeScanning] = useState(false);
   const [resumeScanMessage, setResumeScanMessage] = useState<string | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
+  const [coverLetterMessage, setCoverLetterMessage] = useState<string | null>(null);
   const [placements, setPlacements] = useState<Map<number, {row: number, col: number}>>(new Map());
   const [availablePieces, setAvailablePieces] = useState(PUZZLE_PIECES.map(p => p.id));
   const [previewCells, setPreviewCells] = useState<{cells: string[], valid: boolean, color: string} | null>(null);
@@ -528,7 +529,11 @@ export default function OnboardingForm() {
 
   const handleCoverLetterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setCoverLetterFile(file);
+    if (file) {
+      setCoverLetterFile(file);
+      setCoverLetterMessage("Wow that's rare, someone that actually uses cover letters");
+      setTimeout(() => setCoverLetterMessage(null), 4000);
+    }
   };
 
   const handleSubmit = async () => {
@@ -891,9 +896,16 @@ export default function OnboardingForm() {
                       </div>
                     )}
                   </div>
-                  <p className="text-center text-sm text-zinc-600 mt-4">
-                    No cover letter? No problem - just click Continue.
-                  </p>
+                  {coverLetterMessage && (
+                    <p className="text-sm mt-3 text-center text-amber-400 animate-in fade-in duration-300">
+                      {coverLetterMessage}
+                    </p>
+                  )}
+                  {!coverLetterMessage && (
+                    <p className="text-center text-sm text-zinc-600 mt-4">
+                      No cover letter? No problem - just click Continue.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
