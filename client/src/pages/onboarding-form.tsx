@@ -506,8 +506,8 @@ export default function OnboardingForm() {
                 </h2>
                 <style>{`
                   @keyframes subtle-sparkle {
-                    0%, 100% { text-shadow: 0 0 0 transparent; }
-                    50% { text-shadow: 0 0 4px rgba(255, 255, 255, 0.3); }
+                    0%, 100% { text-shadow: 0 0 2px rgba(255, 255, 255, 0.4), 0 0 6px rgba(255, 215, 0, 0.3); }
+                    50% { text-shadow: 0 0 6px rgba(255, 255, 255, 0.7), 0 0 12px rgba(255, 215, 0, 0.5); }
                   }
                 `}</style>
               </div>
