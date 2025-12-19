@@ -23,7 +23,7 @@ const STEPS = [
   { id: 'perspective2', title: 'Perspective Part 2', group: 'perspective' },
 ];
 
-const UNIQUE_GROUPS = [...new Set(STEPS.map(s => s.group))];
+const UNIQUE_GROUPS = Array.from(new Set(STEPS.map(s => s.group)));
 
 const CROSS_GRID = [
   [false, false, true, true, false, false],
@@ -223,6 +223,7 @@ export default function OnboardingForm() {
   const [triviaQ4, setTriviaQ4] = useState<string | null>(null);
   const [triviaQ4Correct, setTriviaQ4Correct] = useState(false);
   const [triviaQ4HalfPoints, setTriviaQ4HalfPoints] = useState(false);
+  const [triviaQ4Message, setTriviaQ4Message] = useState<string | null>(null);
   const [triviaQ5Selections, setTriviaQ5Selections] = useState<Set<string>>(new Set());
   const [triviaQ5Wrong, setTriviaQ5Wrong] = useState<Set<string>>(new Set());
   const [triviaQ5Message, setTriviaQ5Message] = useState<string | null>(null);
@@ -1333,6 +1334,7 @@ export default function OnboardingForm() {
                             if (!triviaQ4Correct && !triviaQ4HalfPoints) {
                               setTriviaQ4('hidden');
                               setTriviaQ4Correct(true);
+                              setTriviaQ4Message("Smart.");
                               if (!triviaPointsAwarded.has(4)) {
                                 setTotalPoints(prev => prev + 100);
                                 setTriviaPointsAnimation({question: 4, points: 100});
@@ -1345,6 +1347,9 @@ export default function OnboardingForm() {
                         >4</span>. What is 12÷(3+1)×2−2?
                       </label>
                     </div>
+                    {triviaQ4Message && (
+                      <p className="text-sm text-amber-400 animate-in fade-in duration-300">{triviaQ4Message}</p>
+                    )}
                     <div className="grid grid-cols-2 gap-2">
                       {['1', '8', '10', 'I hate math'].map(option => (
                         <button
@@ -1352,22 +1357,26 @@ export default function OnboardingForm() {
                           type="button"
                           disabled={triviaQ4Correct || triviaQ4HalfPoints}
                           onClick={() => {
-                            setTriviaQ4(option);
                             if (option === 'I hate math') {
+                              setTriviaQ4(option);
                               setTriviaQ4HalfPoints(true);
+                              setTriviaQ4Message(null);
                               if (!triviaPointsAwarded.has(4)) {
                                 setTotalPoints(prev => prev + 50);
                                 setTriviaPointsAnimation({question: 4, points: 50});
                                 setTimeout(() => setTriviaPointsAnimation(null), 1500);
                                 setTriviaPointsAwarded(prev => new Set(Array.from(prev).concat(4)));
                               }
+                            } else {
+                              setTriviaQ4Message("P.E.M.D.A.S.");
+                              setTriviaQ4(null);
                             }
                           }}
                           className={`p-3 rounded-lg border text-sm font-medium transition-all ${
                             triviaQ4 === option 
                               ? triviaQ4Correct || option === 'I hate math'
                                 ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' 
-                                : 'bg-red-500/20 border-red-500 text-red-400'
+                                : 'border-zinc-700 text-zinc-300'
                               : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
                           }`}
                         >
@@ -1403,7 +1412,6 @@ export default function OnboardingForm() {
                           onClick={() => {
                             if (option === 'Drupes') {
                               setTriviaQ5Message("What even is a drupe??");
-                              setTriviaQ5Wrong(prev => new Set(Array.from(prev).concat(option)));
                               return;
                             }
                             if (option === 'Herbs') {
@@ -1413,15 +1421,17 @@ export default function OnboardingForm() {
                             }
                             const newSelections = new Set(Array.from(triviaQ5Selections).concat(option));
                             setTriviaQ5Selections(newSelections);
-                            setTriviaQ5Message(null);
                             if (newSelections.has('Fruits') && newSelections.has('Berries')) {
                               setTriviaQ5Correct(true);
+                              setTriviaQ5Message(null);
                               if (!triviaPointsAwarded.has(5)) {
                                 setTotalPoints(prev => prev + 100);
                                 setTriviaPointsAnimation({question: 5, points: 100});
                                 setTimeout(() => setTriviaPointsAnimation(null), 1500);
                                 setTriviaPointsAwarded(prev => new Set(Array.from(prev).concat(5)));
                               }
+                            } else {
+                              setTriviaQ5Message("and?");
                             }
                           }}
                           className={`p-3 rounded-lg border text-sm font-medium transition-all ${
