@@ -25,7 +25,7 @@ const STEPS = [
   { id: 'results', title: 'Results', group: 'results' },
 ];
 
-const UNIQUE_GROUPS = Array.from(new Set(STEPS.map(s => s.group)));
+const UNIQUE_GROUPS = Array.from(new Set(STEPS.filter(s => s.group !== 'results').map(s => s.group)));
 
 const CROSS_GRID = [
   [false, false, true, true, false, false],
@@ -1631,6 +1631,36 @@ export default function OnboardingForm() {
                     )}
                   </div>
                 )}
+
+                <div className="flex justify-between pt-10 mt-10 border-t border-zinc-800/50">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={handleBack}
+                    className="gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="gap-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white border-0 shadow-lg shadow-red-500/20 disabled:opacity-50 px-8"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        Submit
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
