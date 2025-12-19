@@ -221,6 +221,7 @@ export default function OnboardingForm() {
   const [triviaQ4Correct, setTriviaQ4Correct] = useState(false);
   const [triviaQ4HalfPoints, setTriviaQ4HalfPoints] = useState(false);
   const [triviaQ5Selections, setTriviaQ5Selections] = useState<Set<string>>(new Set());
+  const [triviaQ5Wrong, setTriviaQ5Wrong] = useState<Set<string>>(new Set());
   const [triviaQ5Message, setTriviaQ5Message] = useState<string | null>(null);
   const [triviaQ5Correct, setTriviaQ5Correct] = useState(false);
   const [triviaPointsAwarded, setTriviaPointsAwarded] = useState<Set<number>>(new Set());
@@ -1399,10 +1400,12 @@ export default function OnboardingForm() {
                           onClick={() => {
                             if (option === 'Drupes') {
                               setTriviaQ5Message("What even is a drupe??");
+                              setTriviaQ5Wrong(prev => new Set(Array.from(prev).concat(option)));
                               return;
                             }
                             if (option === 'Herbs') {
                               setTriviaQ5Message("Nope, that's not right.");
+                              setTriviaQ5Wrong(prev => new Set(Array.from(prev).concat(option)));
                               return;
                             }
                             const newSelections = new Set(Array.from(triviaQ5Selections).concat(option));
@@ -1421,6 +1424,8 @@ export default function OnboardingForm() {
                           className={`p-3 rounded-lg border text-sm font-medium transition-all ${
                             triviaQ5Selections.has(option)
                               ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                              : triviaQ5Wrong.has(option)
+                              ? 'bg-red-500/20 border-red-500 text-red-400'
                               : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
                           }`}
                         >
