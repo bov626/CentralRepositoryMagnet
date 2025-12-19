@@ -433,7 +433,7 @@ export default function OnboardingForm() {
     let points = 0;
     
     if (currentStep === 0) {
-      if (name.trim().length > 4) points += 100;
+      if (name.trim().length > 0) points += 100;
     } else if (currentStep === 1) {
       if (resumeFile) points += 100;
     } else if (currentStep === 2) {
