@@ -429,11 +429,6 @@ export default function OnboardingForm() {
         </div>
 
         <div className="mb-12 text-center relative">
-          {pointsAnimation !== null && (
-            <div className="absolute -top-2 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <span className="text-2xl font-bold text-emerald-400">+{pointsAnimation}</span>
-            </div>
-          )}
           <div className="inline-block mb-4">
             <span className="text-xs font-medium tracking-widest uppercase text-zinc-500">Onboarding</span>
           </div>
@@ -1188,6 +1183,11 @@ export default function OnboardingForm() {
                     <Sparkles className="h-4 w-4 text-yellow-400" />
                   </div>
                 )}
+                {pointsAnimation !== null && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <span className="text-xl font-bold text-emerald-400">+{pointsAnimation}</span>
+                  </div>
+                )}
                 <Button
                   type="button"
                   onClick={() => { setClickedContinue(true); triggerCheer(); handleNext(); }}
@@ -1195,9 +1195,6 @@ export default function OnboardingForm() {
                   className="gap-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white border-0 shadow-lg shadow-red-500/20 disabled:opacity-30 disabled:shadow-none px-8"
                 >
                   Continue
-                  {!awardedSteps.has(currentStep) && calculateStepPoints() > 0 && (
-                    <span className="ml-1 text-emerald-300 font-semibold">+{calculateStepPoints()}</span>
-                  )}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
