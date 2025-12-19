@@ -514,18 +514,43 @@ export default function OnboardingForm() {
     }
   };
 
+  useEffect(() => {
+    if (submitted) {
+      confetti({
+        particleCount: 150,
+        spread: 100,
+        origin: { y: 0.6 }
+      });
+      setTimeout(() => {
+        confetti({
+          particleCount: 100,
+          spread: 120,
+          origin: { y: 0.5 }
+        });
+      }, 300);
+    }
+  }, [submitted]);
+
   if (submitted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white flex items-center justify-center p-6">
-        <div className="max-w-md text-center space-y-6">
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-            <CheckCircle2 className="h-10 w-10 text-white" />
+        <div className="max-w-md text-center space-y-8">
+          <h1 className="text-6xl font-bold tracking-tight animate-in zoom-in duration-500">
+            Hell Yeah
+          </h1>
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+            <p className="text-zinc-400 text-lg">
+              If you haven't already.
+            </p>
+            <a 
+              href="https://calendly.com/wyedoyoudothis/onboarding-call"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-8 py-4 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-medium rounded-xl shadow-lg shadow-red-500/20 transition-all duration-300 hover:scale-105"
+            >
+              Book your first onboarding call
+            </a>
           </div>
-          <h1 className="text-4xl font-light tracking-tight">Thank You</h1>
-          <p className="text-zinc-400 leading-relaxed">
-            Your onboarding questionnaire has been submitted successfully. 
-            We'll review your responses and be in touch soon.
-          </p>
         </div>
       </div>
     );
