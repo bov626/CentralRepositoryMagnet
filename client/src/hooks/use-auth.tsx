@@ -122,19 +122,53 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [showDashboard, setShowDashboard] = useState(false);
+
+  useEffect(() => {
+    if (justLoggedIn) {
+      const duration = 1800;
+      const interval = 20;
+      const steps = duration / interval;
+      let step = 0;
+      
+      const timer = setInterval(() => {
+        step++;
+        const easeOut = 1 - Math.pow(1 - step / steps, 3);
+        setLoadingProgress(Math.min(easeOut * 100, 100));
+        
+        if (step >= steps) {
+          clearInterval(timer);
+          setTimeout(() => {
+            setJustLoggedIn(false);
+            setShowDashboard(true);
+          }, 200);
+        }
+      }, interval);
+      
+      return () => clearInterval(timer);
+    }
+  }, [justLoggedIn]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const success = await login(password);
     setLoading(false);
-    if (!success) {
+    if (success) {
+      setJustLoggedIn(true);
+    } else {
       setError(true);
       setPassword("");
     }
   };
 
-  if (isAuthenticated) {
+  if (justLoggedIn) {
+    return <LoadingScreen progress={loadingProgress} />;
+  }
+
+  if (isAuthenticated || showDashboard) {
     return <>{children}</>;
   }
 
