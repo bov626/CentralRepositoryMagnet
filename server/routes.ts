@@ -208,6 +208,14 @@ export async function registerRoutes(
         const existingHistory = Array.isArray(existingLead.history) ? existingLead.history : [];
         const existingActionItems = Array.isArray(existingLead.actionItems) ? existingLead.actionItems : [];
         
+        // Check if lead is in onboarding (closed in Jumpseat pipeline with onboardingStage explicitly set)
+        // This means the lead has graduated from active sales and is now being onboarded
+        // Subsequent Fathom imports should only append to summary for the onboarding panel view
+        const isInOnboarding = existingLead.pipeline === 'jumpseat' && 
+                               existingLead.stage === 'closed' && 
+                               existingLead.onboardingStage !== null && 
+                               existingLead.onboardingStage !== undefined;
+        
         // Append summary: keep existing notes, add new Fathom summary below
         let combinedSummary = existingLead.summary || '';
         if (clientSummary) {
@@ -216,27 +224,41 @@ export async function registerRoutes(
           combinedSummary = combinedSummary + separator + clientSummary;
         }
         
-        // Merge action items: existing + new (avoid duplicates)
-        const newActionItems = leadData.actionItems || [];
-        const mergedActionItems = [...existingActionItems];
-        for (const item of newActionItems) {
-          if (!mergedActionItems.includes(item)) {
-            mergedActionItems.push(item);
+        if (isInOnboarding) {
+          // For onboarding leads: ONLY append to summary and update history
+          // Do NOT update pipeline-facing fields (actionItems, recordingLink, nextFollowUp, etc.)
+          const updatedLead = await storage.updateLead(existingLead.id, {
+            summary: combinedSummary,
+            history: [...existingHistory, {
+              date: new Date().toISOString(),
+              action: `Onboarding call added: ${meeting.title}`
+            }],
+          });
+          res.status(200).json(updatedLead);
+        } else {
+          // For pipeline leads: update all fields as before
+          // Merge action items: existing + new (avoid duplicates)
+          const newActionItems = leadData.actionItems || [];
+          const mergedActionItems = [...existingActionItems];
+          for (const item of newActionItems) {
+            if (!mergedActionItems.includes(item)) {
+              mergedActionItems.push(item);
+            }
           }
+          
+          const updatedLead = await storage.updateLead(existingLead.id, {
+            summary: combinedSummary,
+            actionItems: mergedActionItems,
+            recordingLink: leadData.recordingLink,
+            fathomRecordingId: recordingId,
+            nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : existingLead.nextFollowUp,
+            history: [...existingHistory, {
+              date: new Date().toISOString(),
+              action: `Enhanced with Fathom call: ${meeting.title}`
+            }],
+          });
+          res.status(200).json(updatedLead);
         }
-        
-        const updatedLead = await storage.updateLead(existingLead.id, {
-          summary: combinedSummary,
-          actionItems: mergedActionItems,
-          recordingLink: leadData.recordingLink,
-          fathomRecordingId: recordingId,
-          nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : existingLead.nextFollowUp,
-          history: [...existingHistory, {
-            date: new Date().toISOString(),
-            action: `Enhanced with Fathom call: ${meeting.title}`
-          }],
-        });
-        res.status(200).json(updatedLead);
       } else {
         // Create new lead
         const newLead = await storage.createLead({
