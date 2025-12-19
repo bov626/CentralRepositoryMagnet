@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft, Sparkles } from "lucide-react";
 import { Link as RouterLink } from "wouter";
-import { DndContext, useDraggable, useDroppable, DragEndEvent } from "@dnd-kit/core";
+import { DndContext, useDraggable, useDroppable, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 
 const STEPS = [
   { id: 'name', title: 'Your Information' },
@@ -68,12 +68,12 @@ function DraggablePiece({ piece }: { piece: typeof PUZZLE_PIECES[0] }) {
     id: piece.id,
   });
   
-  const rows = piece.shape.length;
   const cols = Math.max(...piece.shape.map(r => r.length));
   
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-  } : {};
+  const style: React.CSSProperties = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    touchAction: 'none',
+  };
 
   return (
     <div
@@ -81,7 +81,7 @@ function DraggablePiece({ piece }: { piece: typeof PUZZLE_PIECES[0] }) {
       style={style}
       {...listeners}
       {...attributes}
-      className={`cursor-grab active:cursor-grabbing transition-transform ${isDragging ? 'opacity-50 scale-105 z-50' : 'hover:scale-105'}`}
+      className={`cursor-grab active:cursor-grabbing select-none ${isDragging ? 'opacity-70 z-50' : 'hover:scale-105 transition-transform'}`}
     >
       <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${cols}, 28px)` }}>
         {piece.shape.map((row, ri) => 
@@ -148,6 +148,14 @@ export default function OnboardingForm() {
   
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const coverLetterInputRef = useRef<HTMLInputElement>(null);
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 3,
+      },
+    })
+  );
 
   const [answers, setAnswers] = useState({
     careerHistory: "",
@@ -601,7 +609,7 @@ export default function OnboardingForm() {
               </div>
 
               {puzzleMode === 'blocks' ? (
-                <DndContext onDragEnd={(event: DragEndEvent) => {
+                <DndContext sensors={sensors} onDragEnd={(event: DragEndEvent) => {
                   const { active, over } = event;
                   if (!over) return;
                   
