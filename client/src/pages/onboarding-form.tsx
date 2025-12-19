@@ -226,6 +226,11 @@ export default function OnboardingForm() {
     
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    document.title = "Questions";
+  }, []);
+
   const [name, setName] = useState("");
   const [linkedIn, setLinkedIn] = useState("");
   const [noLinkedIn, setNoLinkedIn] = useState(false);
