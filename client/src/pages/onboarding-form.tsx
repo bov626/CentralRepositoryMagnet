@@ -21,6 +21,7 @@ export default function OnboardingForm() {
   const [currentStep, setCurrentStep] = useState(0);
   const [highestStep, setHighestStep] = useState(0);
   const [clickedContinue, setClickedContinue] = useState(false);
+  const [tipShown, setTipShown] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [name, setName] = useState("");
@@ -621,8 +622,11 @@ export default function OnboardingForm() {
 
           {currentStep < STEPS.length - 1 ? (
             <div className="flex items-center gap-3">
-              {clickedContinue && currentStep === 1 && (
-                <span className="text-xs text-zinc-500 animate-in fade-in duration-500">
+              {clickedContinue && currentStep === 1 && !tipShown && (
+                <span 
+                  className="text-xs text-zinc-500 animate-in fade-in duration-500"
+                  ref={(el) => { if (el && !tipShown) setTipShown(true); }}
+                >
                   Tip: Press Enter to continue faster
                 </span>
               )}
