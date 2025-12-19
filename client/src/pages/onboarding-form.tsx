@@ -107,9 +107,14 @@ function GridCell({ id, pieceColor, isValidCell, onClick, previewColor }: { id: 
   return (
     <div
       ref={setNodeRef}
-      onClick={onClick}
-      className={`w-7 h-7 rounded-sm border transition-all duration-100 cursor-pointer ${
-        pieceColor ? `${pieceColor} border-transparent` : previewColor ? `${previewColor} opacity-50 border-transparent` : 'bg-slate-700 border-slate-600 hover:bg-slate-600'
+      onPointerUp={(e) => {
+        if (pieceColor) {
+          e.stopPropagation();
+          onClick();
+        }
+      }}
+      className={`w-7 h-7 rounded-sm border transition-all duration-100 ${
+        pieceColor ? `${pieceColor} border-transparent cursor-pointer hover:opacity-80` : previewColor ? `${previewColor} opacity-50 border-transparent` : 'bg-slate-700 border-slate-600'
       }`}
     />
   );
