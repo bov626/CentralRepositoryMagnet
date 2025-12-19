@@ -654,17 +654,15 @@ export default function OnboardingForm() {
             <span className="bg-red-600 px-5 py-2 inline-block">Session I</span>
           </h1>
           {currentStep > 0 && (
-            <div className="mb-2 flex flex-col items-center">
+            <div className="mb-2 flex flex-col items-center h-12">
               <span className={`text-lg font-semibold text-amber-400 transition-transform duration-100 ${isCountingUp ? 'scale-110' : 'scale-100'}`}>
                 {displayedTopPoints} pts
               </span>
-              {topPointsAnimation !== null && (
-                <span 
-                  className="text-sm font-bold text-green-400 animate-in fade-in slide-in-from-bottom-2 duration-300"
-                >
-                  +{topPointsAnimation}
-                </span>
-              )}
+              <span 
+                className={`text-sm font-bold text-green-400 transition-opacity duration-300 ${topPointsAnimation !== null ? 'opacity-100' : 'opacity-0'}`}
+              >
+                +{topPointsAnimation ?? 0}
+              </span>
             </div>
           )}
           {currentStep === 0 && (
