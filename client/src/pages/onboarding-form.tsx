@@ -1198,8 +1198,8 @@ export default function OnboardingForm() {
                   </div>
                 )}
                 {pointsAnimation !== null && (
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <span className="text-xl font-bold text-emerald-400">+{pointsAnimation}</span>
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <span className="text-sm font-bold text-yellow-400">+{pointsAnimation}</span>
                   </div>
                 )}
                 <Button
