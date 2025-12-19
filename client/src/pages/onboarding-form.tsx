@@ -273,7 +273,27 @@ export default function OnboardingForm() {
   const currentGroup = STEPS[Math.max(highestStep, currentStep)].group;
   const rawGroupIndex = UNIQUE_GROUPS.indexOf(currentGroup);
   const currentGroupIndex = rawGroupIndex === -1 ? UNIQUE_GROUPS.length - 1 : rawGroupIndex;
-  const progress = currentStep === 12 ? 100 : ((currentGroupIndex + 1) / UNIQUE_GROUPS.length) * 100;
+  
+  const calculateProgress = () => {
+    if (currentStep === 12) return 100;
+    const stepId = STEPS[currentStep].id;
+    const group = STEPS[currentStep].group;
+    const multiPartGroups = ['career', 'thinking', 'perspective'];
+    
+    let completedGroups = currentGroupIndex;
+    let subProgress = 0;
+    
+    if (multiPartGroups.includes(group)) {
+      const isSecondPart = stepId.endsWith('2');
+      subProgress = isSecondPart ? 1 : 0.5;
+    } else {
+      subProgress = 1;
+    }
+    
+    return ((completedGroups + subProgress) / UNIQUE_GROUPS.length) * 100;
+  };
+  
+  const progress = calculateProgress();
 
   useEffect(() => {
     if (currentStep > highestStep) {
