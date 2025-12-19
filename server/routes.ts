@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertLeadSchema, insertBlockerSchema } from "@shared/schema";
+import { insertLeadSchema, insertBlockerSchema, insertOnboardingSubmissionSchema } from "@shared/schema";
 import { z } from "zod";
 import { getUpcomingEvents, createEvent } from "./google-calendar";
 import { listMeetings, getMeeting, extractLeadDataFromMeeting, isFathomConfigured } from "./fathom";
@@ -385,14 +385,39 @@ export async function registerRoutes(
     }
   });
 
-  // Onboarding form submission
+  // Onboarding form submissions
+  app.get("/api/onboarding-submissions", async (req, res) => {
+    try {
+      const submissions = await storage.getAllOnboardingSubmissions();
+      res.json(submissions);
+    } catch (error: any) {
+      console.error("Error fetching onboarding submissions:", error);
+      res.status(500).json({ error: "Failed to fetch submissions" });
+    }
+  });
+
   app.post("/api/onboarding-form", async (req, res) => {
     try {
-      const { name, linkedIn, resumeFileName, coverLetterFileName, answers } = req.body;
+      const { name, linkedIn, resumeFileName, coverLetterFileName, answers, totalPoints, tier } = req.body;
       
       if (!name) {
         return res.status(400).json({ error: "Name is required" });
       }
+
+      // Save to database
+      const submissionData = {
+        name,
+        tier: tier || "NPC",
+        totalPoints: totalPoints || 0,
+        answers: {
+          linkedIn,
+          resumeFileName,
+          coverLetterFileName,
+          ...answers
+        }
+      };
+
+      const savedSubmission = await storage.createOnboardingSubmission(submissionData);
 
       // Format the answers into a readable email
       const formatSection = (title: string, items: {label: string, value: string}[]) => {
@@ -408,7 +433,9 @@ export async function registerRoutes(
 Name: ${name}
 LinkedIn: ${linkedIn || 'N/A'}
 Resume: ${resumeFileName || 'Not provided'}
-Cover Letter: ${coverLetterFileName || 'Not provided'}`;
+Cover Letter: ${coverLetterFileName || 'Not provided'}
+Points: ${totalPoints || 0}
+Tier: ${tier || 'N/A'}`;
 
       const careerSection = formatSection('📖 CAREER NARRATIVE', [
         { label: 'Full career history:', value: answers.careerHistory },
@@ -445,7 +472,7 @@ ${[infoSection, careerSection, thinkingSection, perspectiveSection].filter(Boole
         emailBody
       );
 
-      res.json({ success: true, message: "Form submitted successfully" });
+      res.json({ success: true, message: "Form submitted successfully", submission: savedSubmission });
     } catch (error: any) {
       console.error("Error submitting onboarding form:", error);
       res.status(500).json({ error: error.message || "Failed to submit form" });
