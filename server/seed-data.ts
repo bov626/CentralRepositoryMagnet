@@ -475,20 +475,69 @@ const seedBlockers = [
 export async function seedProductionDatabase() {
   try {
     const existingLeads = await storage.getAllLeads();
-    const existingEmails = new Set(existingLeads.map(l => l.email?.toLowerCase()));
+    const existingById = new Map(existingLeads.map(l => [l.id, l]));
+    const existingByEmail = new Map(existingLeads.filter(l => l.email).map(l => [l.email!.toLowerCase(), l]));
     
-    console.log(`Found ${existingLeads.length} existing leads. Checking for missing leads to seed...`);
+    console.log(`Found ${existingLeads.length} existing leads. Upserting all 31 seed leads...`);
     
-    let seededCount = 0;
-    for (const lead of seedLeads) {
-      if (!lead.email || !existingEmails.has(lead.email.toLowerCase())) {
-        try {
-          await storage.createLead(lead as any);
-          console.log(`Seeded lead: ${lead.name}`);
-          seededCount++;
-        } catch (err) {
-          console.log(`Lead ${lead.name} may already exist or failed, skipping...`);
+    let insertedCount = 0;
+    let updatedCount = 0;
+    
+    for (const seedLead of seedLeads) {
+      try {
+        const existingLead = existingById.get(seedLead.id) || 
+          (seedLead.email ? existingByEmail.get(seedLead.email.toLowerCase()) : null);
+        
+        if (existingLead) {
+          await storage.updateLead(existingLead.id, {
+            name: seedLead.name,
+            company: seedLead.company || null,
+            linkedIn: seedLead.linkedIn || null,
+            email: seedLead.email,
+            tags: seedLead.tags || [],
+            pipeline: seedLead.pipeline as any,
+            stage: seedLead.stage,
+            onboardingStage: seedLead.onboardingStage || null,
+            nextFollowUp: seedLead.nextFollowUp ? new Date(seedLead.nextFollowUp) : null,
+            summary: seedLead.summary || null,
+            keyTakeaways: seedLead.keyTakeaways || [],
+            pitchAmount: seedLead.pitchAmount || null,
+            actionItems: seedLead.actionItems || [],
+            recordingLink: seedLead.recordingLink || null,
+            calendarEventId: seedLead.calendarEventId || null,
+            fathomRecordingId: seedLead.fathomRecordingId || null,
+            history: seedLead.history || [],
+            archived: seedLead.archived || false,
+          });
+          console.log(`Updated existing lead: ${seedLead.name}`);
+          updatedCount++;
+        } else {
+          await storage.createLead({
+            id: seedLead.id,
+            name: seedLead.name,
+            company: seedLead.company || null,
+            linkedIn: seedLead.linkedIn || null,
+            email: seedLead.email,
+            tags: seedLead.tags || [],
+            pipeline: seedLead.pipeline as any,
+            stage: seedLead.stage,
+            onboardingStage: seedLead.onboardingStage || null,
+            nextFollowUp: seedLead.nextFollowUp ? new Date(seedLead.nextFollowUp) : null,
+            summary: seedLead.summary || null,
+            keyTakeaways: seedLead.keyTakeaways || [],
+            pitchAmount: seedLead.pitchAmount || null,
+            actionItems: seedLead.actionItems || [],
+            recordingLink: seedLead.recordingLink || null,
+            calendarEventId: seedLead.calendarEventId || null,
+            fathomRecordingId: seedLead.fathomRecordingId || null,
+            history: seedLead.history || [],
+            archived: seedLead.archived || false,
+          } as any);
+          console.log(`Inserted new lead: ${seedLead.name}`);
+          insertedCount++;
         }
+      } catch (err) {
+        console.error(`Failed to upsert lead ${seedLead.name}:`, err);
       }
     }
     
@@ -504,7 +553,7 @@ export async function seedProductionDatabase() {
       }
     }
     
-    console.log(`Database seeding complete! Added ${seededCount} new leads.`);
+    console.log(`Database seeding complete! Inserted ${insertedCount}, updated ${updatedCount} leads.`);
   } catch (error) {
     console.error("Error seeding database:", error);
   }
