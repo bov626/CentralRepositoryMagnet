@@ -172,6 +172,8 @@ export default function OnboardingForm() {
   const [linkedIn, setLinkedIn] = useState("");
   const [noLinkedIn, setNoLinkedIn] = useState(false);
   const [totalPoints, setTotalPoints] = useState(0);
+  const [prevTotalPoints, setPrevTotalPoints] = useState(0);
+  const [topPointsAnimation, setTopPointsAnimation] = useState<number | null>(null);
   const [pointsAnimation, setPointsAnimation] = useState<number | null>(null);
   const [awardedSteps, setAwardedSteps] = useState<Set<number>>(new Set());
   const [easterEggClaimed, setEasterEggClaimed] = useState(false);
@@ -276,6 +278,15 @@ export default function OnboardingForm() {
       setHighestStep(currentStep);
     }
   }, [currentStep, highestStep]);
+
+  useEffect(() => {
+    if (totalPoints > prevTotalPoints && prevTotalPoints > 0) {
+      const diff = totalPoints - prevTotalPoints;
+      setTopPointsAnimation(diff);
+      setTimeout(() => setTopPointsAnimation(null), 1500);
+    }
+    setPrevTotalPoints(totalPoints);
+  }, [totalPoints]);
 
   useEffect(() => {
     if (currentStep === 12 && !resultsShown) {
@@ -529,8 +540,18 @@ export default function OnboardingForm() {
             <span className="bg-red-600 px-5 py-2 inline-block">Session I</span>
           </h1>
           {currentStep > 0 && (
-            <div className="mb-2">
+            <div className="mb-2 relative inline-block">
               <span className="text-lg font-semibold text-amber-400">{totalPoints} pts</span>
+              {topPointsAnimation !== null && (
+                <span 
+                  className="absolute -top-6 left-1/2 -translate-x-1/2 text-sm font-bold text-green-400 animate-bounce-up whitespace-nowrap"
+                  style={{
+                    animation: 'floatUp 1.5s ease-out forwards'
+                  }}
+                >
+                  +{topPointsAnimation}
+                </span>
+              )}
             </div>
           )}
           {currentStep === 0 && (
