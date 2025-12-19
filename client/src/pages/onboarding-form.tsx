@@ -220,6 +220,9 @@ export default function OnboardingForm() {
   const [previewCells, setPreviewCells] = useState<{cells: string[], valid: boolean, color: string} | null>(null);
   const [draggingPieceId, setDraggingPieceId] = useState<number | null>(null);
   const [puzzleSolved, setPuzzleSolved] = useState(false);
+  const [puzzlePickups, setPuzzlePickups] = useState(0);
+  const [puzzleTimeSpent, setPuzzleTimeSpent] = useState(0);
+  const [puzzleShowNo, setPuzzleShowNo] = useState(false);
   
   const getOccupiedCells = (excludePieceId?: number) => {
     const occupied = new Set<string>();
@@ -459,6 +462,21 @@ export default function OnboardingForm() {
       setAwardedSteps(prev => new Set(Array.from(prev).concat(6)));
     }
   }, [sudokuGrid, puzzleMode, awardedSteps]);
+
+  useEffect(() => {
+    if (currentStep === 6 && !puzzleSolved) {
+      const timer = setInterval(() => {
+        setPuzzleTimeSpent(prev => prev + 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [currentStep, puzzleSolved]);
+
+  useEffect(() => {
+    if ((puzzlePickups >= 4 || puzzleTimeSpent >= 60) && !puzzleShowNo) {
+      setPuzzleShowNo(true);
+    }
+  }, [puzzlePickups, puzzleTimeSpent, puzzleShowNo]);
 
   const canProceed = () => {
     if (currentStep === 0) return name.trim() !== "";
@@ -1056,7 +1074,7 @@ export default function OnboardingForm() {
                   {puzzleMode === 'blocks' ? (
                     <>
                       Can you make the blocks fit?
-                      {placements.size >= 3 && !puzzleSolved && (
+                      {puzzleShowNo && !puzzleSolved && (
                         <button
                           type="button"
                           onClick={() => {
@@ -1096,6 +1114,7 @@ export default function OnboardingForm() {
                       ? Number(activeId.replace('placed-', '')) 
                       : Number(activeId);
                     setDraggingPieceId(pieceId);
+                    setPuzzlePickups(prev => prev + 1);
                   }}
                   onDragMove={(event: DragMoveEvent) => {
                     const { active, over } = event;
