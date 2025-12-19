@@ -1600,25 +1600,24 @@ export default function OnboardingForm() {
                           totalPoints >= 1500 ? 'text-blue-400' :
                           'text-zinc-400'
                         }>
-                          {totalPoints >= 2500 ? 'God Tier' :
-                           totalPoints >= 2000 ? 'Gamer' :
-                           totalPoints >= 1500 ? 'Operator' :
-                           'NPC'}
+                          {totalPoints >= 2500 ? 'God Tier Status' :
+                           totalPoints >= 2000 ? 'Gamer Status' :
+                           totalPoints >= 1500 ? 'Operator Status' :
+                           'NPC Status'}
                         </span>
                       </h3>
+                      <div className="text-sm text-zinc-400 max-w-md mx-auto">
+                        {totalPoints >= 2500 ? (
+                          <p className="text-yellow-400 font-medium">Perfect score! You found every point possible.</p>
+                        ) : totalPoints >= 2000 ? (
+                          <p>Nice! The highest possible was 2,500.</p>
+                        ) : totalPoints >= 1500 ? (
+                          <p>Appreciate you not going above and beyond. You are ready for Overemployment.</p>
+                        ) : (
+                          <p>Did you even try? Just playing, we'll go over these on call.</p>
+                        )}
+                      </div>
                       <p className="text-zinc-500">Too bad these points are useless.</p>
-                    </div>
-
-                    <div className="text-sm text-zinc-400 max-w-md mx-auto">
-                      {totalPoints >= 2500 ? (
-                        <p className="text-yellow-400 font-medium">Perfect score! You found every point possible.</p>
-                      ) : totalPoints >= 2000 ? (
-                        <p>Nice! The highest possible was 2,500.</p>
-                      ) : totalPoints >= 1500 ? (
-                        <p>Appreciate you not going above and beyond. You are ready for Overemployment.</p>
-                      ) : (
-                        <p>Did you even try? Just playing, we'll go over these on call.</p>
-                      )}
                     </div>
 
                     {showAward && totalPoints >= 2500 && (
