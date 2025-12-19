@@ -169,6 +169,7 @@ export default function OnboardingForm() {
   const [availablePieces, setAvailablePieces] = useState(PUZZLE_PIECES.map(p => p.id));
   const [previewCells, setPreviewCells] = useState<{cells: string[], valid: boolean, color: string} | null>(null);
   const [draggingPieceId, setDraggingPieceId] = useState<number | null>(null);
+  const [puzzleSolved, setPuzzleSolved] = useState(false);
   
   const getOccupiedCells = (excludePieceId?: number) => {
     const occupied = new Set<string>();
@@ -656,9 +657,15 @@ export default function OnboardingForm() {
                 <h2 className="text-3xl font-light tracking-tight mb-2">
                   {puzzleMode === 'blocks' ? 'Can you make the blocks fit?' : 'Complete the sudoku'}
                 </h2>
-                <span className="text-xs text-zinc-500">
-                  optional
-                </span>
+                {puzzleSolved ? (
+                  <span className="text-emerald-400 font-medium animate-in fade-in duration-300">
+                    Correct, it is impossible
+                  </span>
+                ) : (
+                  <span className="text-xs text-zinc-500">
+                    optional
+                  </span>
+                )}
               </div>
 
               {puzzleMode === 'blocks' ? (
@@ -786,7 +793,7 @@ export default function OnboardingForm() {
                   }}
                 >
                   <div className="flex flex-col items-center gap-8">
-                    <div className="relative">
+                    <div className={`relative ${puzzleSolved ? 'opacity-40 pointer-events-none' : ''}`}>
                       <div className="grid grid-cols-6 gap-0.5 p-3 bg-zinc-900/30 rounded-xl">
                         {CROSS_GRID.map((row, rowIndex) => (
                           row.map((isValid, colIndex) => {
@@ -833,23 +840,34 @@ export default function OnboardingForm() {
                           </div>
                         );
                       })}
+                      
+                      {puzzleSolved && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <CheckCircle2 className="h-24 w-24 text-emerald-500 animate-in zoom-in duration-300" />
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex flex-wrap justify-center gap-4 max-w-xs">
-                      {availablePieces.map(pieceId => {
-                        const piece = PUZZLE_PIECES.find(p => p.id === pieceId)!;
-                        return (
-                          <DraggablePiece key={pieceId} piece={piece} />
-                        );
-                      })}
-                    </div>
-
-                    {puzzleComplete && (
-                      <div className="flex items-center gap-2 text-emerald-400 animate-in fade-in duration-500">
-                        <Sparkles className="h-5 w-5" />
-                        <span className="font-medium">Puzzle Complete!</span>
-                        <Sparkles className="h-5 w-5" />
+                    {!puzzleSolved && (
+                      <div className="flex flex-wrap justify-center gap-4 max-w-xs">
+                        {availablePieces.map(pieceId => {
+                          const piece = PUZZLE_PIECES.find(p => p.id === pieceId)!;
+                          return (
+                            <DraggablePiece key={pieceId} piece={piece} />
+                          );
+                        })}
                       </div>
+                    )}
+
+                    {placements.size >= 3 && !puzzleSolved && (
+                      <Button
+                        type="button"
+                        onClick={() => setPuzzleSolved(true)}
+                        variant="outline"
+                        className="border-zinc-600 text-zinc-300 hover:bg-zinc-800 hover:text-white animate-in fade-in duration-300"
+                      >
+                        No
+                      </Button>
                     )}
                   </div>
                 </DndContext>
