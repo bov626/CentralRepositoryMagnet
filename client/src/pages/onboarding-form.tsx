@@ -17,6 +17,7 @@ const STEPS = [
   { id: 'career2', title: 'Career Narrative Part 2' },
   { id: 'puzzle', title: 'Palate Cleanser' },
   { id: 'thinking', title: 'How You Think' },
+  { id: 'thinking2', title: 'How You Think Part 2' },
   { id: 'perspective', title: 'Perspective' },
 ];
 
@@ -315,9 +316,10 @@ export default function OnboardingForm() {
     } else if (currentStep === 7) {
       if (answers.principlesQuotes.length > 4) points += 100;
       if (answers.bookOrMovie.length > 4) points += 100;
+    } else if (currentStep === 8) {
       if (answers.optimizeFor.length > 4) points += 100;
       if (answers.whenBreaks.length > 4) points += 100;
-    } else if (currentStep === 8) {
+    } else if (currentStep === 9) {
       if (answers.misconception.length > 4) points += 100;
       if (answers.betterThanResume.length > 4) points += 100;
       if (answers.nonObviousThing.length > 4) points += 100;
@@ -1061,7 +1063,18 @@ export default function OnboardingForm() {
                     className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
+              </div>
+            </div>
+          )}
 
+          {currentStep === 8 && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="mb-8">
+                <h2 className="text-2xl font-light tracking-tight mb-2">How You Think Part 2</h2>
+                <p className="text-zinc-500 text-sm">Your instincts and problem-solving</p>
+              </div>
+
+              <div className="space-y-8">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
                     What do you tend to optimize for instinctively?
@@ -1089,7 +1102,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 8 && (
+          {currentStep === 9 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">Perspective & Differentiation</h2>
