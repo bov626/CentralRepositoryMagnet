@@ -742,7 +742,12 @@ export default function OnboardingForm() {
               If you did. Then you are done for now.
             </p>
             <button
-              onClick={() => window.close()}
+              onClick={() => {
+                window.close();
+                setTimeout(() => {
+                  window.location.href = 'about:blank';
+                }, 100);
+              }}
               className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-medium rounded-xl transition-all duration-300"
             >
               Done
