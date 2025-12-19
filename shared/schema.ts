@@ -44,6 +44,15 @@ export const blockers = pgTable("blockers", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const onboardingSubmissions = pgTable("onboarding_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  tier: text("tier").notNull(), // "God Tier Status" | "Gamer" | "Operator" | "NPC"
+  totalPoints: integer("total_points").notNull(),
+  answers: jsonb("answers").notNull(), // All form answers as JSON
+  submittedAt: timestamp("submitted_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -60,9 +69,16 @@ export const insertBlockerSchema = createInsertSchema(blockers).omit({
   createdAt: true,
 });
 
+export const insertOnboardingSubmissionSchema = createInsertSchema(onboardingSubmissions).omit({
+  id: true,
+  submittedAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type Blocker = typeof blockers.$inferSelect;
 export type InsertBlocker = z.infer<typeof insertBlockerSchema>;
+export type OnboardingSubmission = typeof onboardingSubmissions.$inferSelect;
+export type InsertOnboardingSubmission = z.infer<typeof insertOnboardingSubmissionSchema>;
