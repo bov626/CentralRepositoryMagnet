@@ -53,7 +53,7 @@ function ProtectedDashboard() {
 function Router() {
   return (
     <Switch>
-      <Route path="/onboarding-form" component={OnboardingFormPage} />
+      <Route path="/questions1" component={OnboardingFormPage} />
       <Route>
         <ProtectedDashboard />
       </Route>
