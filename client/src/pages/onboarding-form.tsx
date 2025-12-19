@@ -710,7 +710,7 @@ export default function OnboardingForm() {
               />
             </div>
             <p className="text-center text-zinc-500 text-sm">
-              {loadingProgress < 100 ? 'Preparing your session...' : 'Ready'}
+              Preparing your session...
             </p>
           </div>
         </div>
