@@ -47,6 +47,8 @@ export interface Lead {
   recordingLink?: string | null;
   calendarEventId?: string | null;
   fathomRecordingId?: number | null;
+  coverLetterIdeas?: string | null;
+  onboardingNotes?: string | null;
   archived?: boolean;
   history: any; // JSONB field
   createdAt: Date;

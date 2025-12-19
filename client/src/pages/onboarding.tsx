@@ -2,14 +2,17 @@ import { useStore, OnboardingStage, Lead } from "@/lib/data";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, useDroppable } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Phone, FileText, Linkedin, CheckCircle2, User, ExternalLink, ChevronDown, ChevronUp, Trophy, Gamepad2, Wrench, Bot, Calendar, Download } from "lucide-react";
+import { Phone, FileText, Linkedin, CheckCircle2, User, ExternalLink, ChevronDown, ChevronUp, Trophy, Gamepad2, Wrench, Bot, Calendar, Download, MessageSquare, Lightbulb, StickyNote } from "lucide-react";
 import Layout from "@/components/layout";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 interface OnboardingSubmission {
   id: string;
@@ -32,7 +35,7 @@ const ONBOARDING_COLUMNS: { id: OnboardingStage; title: string; icon: React.Reac
   { id: "apply-ready", title: "Apply Ready", icon: <CheckCircle2 className="h-4 w-4" /> },
 ];
 
-function OnboardingCard({ lead }: { lead: Lead }) {
+function OnboardingCard({ lead, onOpenDetail }: { lead: Lead; onOpenDetail: (lead: Lead) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
   });
@@ -46,27 +49,172 @@ function OnboardingCard({ lead }: { lead: Lead }) {
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
       data-testid={`onboarding-card-${lead.id}`}
       className={cn(
-        "bg-zinc-800 border border-zinc-700 rounded-lg p-3 cursor-grab active:cursor-grabbing",
+        "bg-zinc-800 border border-zinc-700 rounded-lg p-3",
         "hover:border-primary/50 transition-colors",
         isDragging && "opacity-50"
       )}
     >
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+        <div 
+          {...attributes}
+          {...listeners}
+          className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center cursor-grab active:cursor-grabbing flex-shrink-0"
+        >
           <User className="h-4 w-4 text-primary" />
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm text-foreground truncate">{lead.name}</p>
+        <div 
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={() => onOpenDetail(lead)}
+          data-testid={`open-detail-${lead.id}`}
+        >
+          <p className="font-medium text-sm text-foreground truncate hover:text-primary transition-colors">{lead.name}</p>
           {lead.company && (
             <p className="text-xs text-muted-foreground truncate">{lead.company}</p>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+function LeadDetailPanel({ lead, open, onClose }: { lead: Lead | null; open: boolean; onClose: () => void }) {
+  const { updateLead } = useStore();
+  const [summary, setSummary] = useState(lead?.summary || '');
+  const [coverLetterIdeas, setCoverLetterIdeas] = useState(lead?.coverLetterIdeas || '');
+  const [notes, setNotes] = useState(lead?.onboardingNotes || '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (lead) {
+      setSummary(lead.summary || '');
+      setCoverLetterIdeas(lead.coverLetterIdeas || '');
+      setNotes(lead.onboardingNotes || '');
+    }
+  }, [lead?.id]);
+
+  const handleSaveSummary = () => {
+    if (!lead) return;
+    setSaving(true);
+    updateLead(lead.id, { summary });
+    setTimeout(() => setSaving(false), 500);
+  };
+
+  const handleSaveCoverLetter = () => {
+    if (!lead) return;
+    setSaving(true);
+    updateLead(lead.id, { coverLetterIdeas });
+    setTimeout(() => setSaving(false), 500);
+  };
+
+  const handleSaveNotes = () => {
+    if (!lead) return;
+    setSaving(true);
+    updateLead(lead.id, { onboardingNotes: notes });
+    setTimeout(() => setSaving(false), 500);
+  };
+
+  if (!lead) return null;
+
+  return (
+    <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <SheetContent className="w-[500px] sm:max-w-[500px] bg-zinc-900 border-zinc-800 overflow-y-auto">
+        <SheetHeader className="pb-4 border-b border-zinc-800">
+          <SheetTitle className="text-xl text-foreground flex items-center gap-2">
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+              <User className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <span>{lead.name}</span>
+              {lead.company && (
+                <p className="text-sm font-normal text-muted-foreground">{lead.company}</p>
+              )}
+            </div>
+          </SheetTitle>
+        </SheetHeader>
+
+        <Tabs defaultValue="fathom" className="mt-4">
+          <TabsList className="w-full bg-zinc-800 border border-zinc-700">
+            <TabsTrigger value="fathom" className="flex-1 gap-1.5 data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+              <MessageSquare className="h-4 w-4" />
+              Fathom
+            </TabsTrigger>
+            <TabsTrigger value="cover-letter" className="flex-1 gap-1.5 data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+              <Lightbulb className="h-4 w-4" />
+              Cover Letter
+            </TabsTrigger>
+            <TabsTrigger value="notes" className="flex-1 gap-1.5 data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+              <StickyNote className="h-4 w-4" />
+              Notes
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="fathom" className="mt-4 space-y-4">
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">Call Summary</h3>
+              <Textarea
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                placeholder="Enter Fathom call summary..."
+                className="min-h-[300px] bg-zinc-800 border-zinc-700 resize-none"
+                data-testid="input-fathom-summary"
+              />
+            </div>
+            <Button 
+              onClick={handleSaveSummary} 
+              disabled={saving}
+              className="w-full"
+              data-testid="btn-save-summary"
+            >
+              {saving ? 'Saving...' : 'Save Summary'}
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="cover-letter" className="mt-4 space-y-4">
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">Cover Letter Ideas</h3>
+              <Textarea
+                value={coverLetterIdeas}
+                onChange={(e) => setCoverLetterIdeas(e.target.value)}
+                placeholder="Jot down cover letter ideas, key points to highlight..."
+                className="min-h-[300px] bg-zinc-800 border-zinc-700 resize-none"
+                data-testid="input-cover-letter-ideas"
+              />
+            </div>
+            <Button 
+              onClick={handleSaveCoverLetter} 
+              disabled={saving}
+              className="w-full"
+              data-testid="btn-save-cover-letter"
+            >
+              {saving ? 'Saving...' : 'Save Cover Letter Ideas'}
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="notes" className="mt-4 space-y-4">
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">Notes</h3>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="General notes about this client..."
+                className="min-h-[300px] bg-zinc-800 border-zinc-700 resize-none"
+                data-testid="input-notes"
+              />
+            </div>
+            <Button 
+              onClick={handleSaveNotes} 
+              disabled={saving}
+              className="w-full"
+              data-testid="btn-save-notes"
+            >
+              {saving ? 'Saving...' : 'Save Notes'}
+            </Button>
+          </TabsContent>
+        </Tabs>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -215,10 +363,12 @@ function SubmissionCard({ submission }: { submission: OnboardingSubmission }) {
 
 function OnboardingColumn({ 
   column, 
-  leads 
+  leads,
+  onOpenDetail
 }: { 
   column: { id: OnboardingStage; title: string; icon: React.ReactNode }; 
-  leads: Lead[] 
+  leads: Lead[];
+  onOpenDetail: (lead: Lead) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -243,7 +393,7 @@ function OnboardingColumn({
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-2 min-h-[100px]">
             {leads.map((lead) => (
-              <OnboardingCard key={lead.id} lead={lead} />
+              <OnboardingCard key={lead.id} lead={lead} onOpenDetail={onOpenDetail} />
             ))}
             {leads.length === 0 && (
               <div className="text-center py-8 text-muted-foreground text-xs">
@@ -260,6 +410,7 @@ function OnboardingColumn({
 export default function OnboardingPage() {
   const { leads, moveOnboardingLead } = useStore();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   const { data: submissions = [] } = useQuery<OnboardingSubmission[]>({
     queryKey: ['/api/onboarding-submissions'],
@@ -329,6 +480,7 @@ export default function OnboardingPage() {
                 key={column.id}
                 column={column}
                 leads={getLeadsByStage(column.id)}
+                onOpenDetail={setSelectedLead}
               />
             ))}
           </div>
@@ -380,6 +532,12 @@ export default function OnboardingPage() {
           </div>
         )}
       </div>
+
+      <LeadDetailPanel 
+        lead={selectedLead} 
+        open={!!selectedLead} 
+        onClose={() => setSelectedLead(null)} 
+      />
     </Layout>
   );
 }
