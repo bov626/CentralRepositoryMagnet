@@ -1140,7 +1140,30 @@ export default function OnboardingForm() {
             </Button>
             <button
               type="button"
-              onClick={() => setCurrentStep(prev => Math.min(prev + 1, STEPS.length - 1))}
+              onClick={() => {
+                if (currentStep === 0) {
+                  setName("Test User");
+                  setLinkedIn("https://linkedin.com/in/testuser");
+                } else if (currentStep === 1) {
+                  updateAnswer('dreamRole', 'VP of Engineering at a growing startup');
+                  updateAnswer('targetCompany', 'Stripe, Figma, or similar high-growth companies');
+                } else if (currentStep === 2) {
+                  setSudokuSolved(true);
+                } else if (currentStep === 3) {
+                  setPuzzleSolved(true);
+                } else if (currentStep === 4) {
+                  updateAnswer('proudMoment', 'Led a team that shipped a critical product launch ahead of schedule');
+                  updateAnswer('onYourMind', 'How to scale leadership while maintaining culture');
+                  updateAnswer('recentWin', 'Closed a major enterprise deal last quarter');
+                } else if (currentStep === 5) {
+                  updateAnswer('misconception', 'People think I am too direct but I value clarity');
+                  updateAnswer('betterThanResume', 'Building cross-functional relationships and alignment');
+                  updateAnswer('nonObviousThing', 'I am an amateur woodworker on weekends');
+                  updateAnswer('sabbatical', 'Travel to learn about different business cultures globally');
+                  updateAnswer('noticeFirst', 'The communication patterns and decision-making speed');
+                }
+                handleNext();
+              }}
               className="text-xs text-zinc-600 hover:text-zinc-400 px-2 py-1 border border-zinc-800 rounded"
             >
               DEV: Skip
