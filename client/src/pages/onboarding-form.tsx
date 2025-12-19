@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft } from "lucide-react";
+import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft, Sparkles } from "lucide-react";
 import { Link as RouterLink } from "wouter";
 
 const STEPS = [
@@ -22,6 +22,8 @@ export default function OnboardingForm() {
   const [highestStep, setHighestStep] = useState(0);
   const [clickedContinue, setClickedContinue] = useState(false);
   const [tipShown, setTipShown] = useState(false);
+  const [continueCount, setContinueCount] = useState(0);
+  const [cheerMessage, setCheerMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [name, setName] = useState("");
@@ -62,6 +64,16 @@ export default function OnboardingForm() {
     }
   }, [currentStep, highestStep]);
 
+  const triggerCheer = () => {
+    setContinueCount(prev => prev + 1);
+    if ((continueCount + 1) % 2 === 0 && Math.random() < 0.2) {
+      const cheers = ["Woah", "Nice", "Wow"];
+      const randomCheer = cheers[Math.floor(Math.random() * cheers.length)];
+      setCheerMessage(randomCheer);
+      setTimeout(() => setCheerMessage(null), 1000);
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -70,6 +82,7 @@ export default function OnboardingForm() {
         
         e.preventDefault();
         if (currentStep < STEPS.length - 1) {
+          triggerCheer();
           handleNext();
         } else if (!submitting) {
           handleSubmit();
@@ -79,7 +92,7 @@ export default function OnboardingForm() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentStep, submitting, name, resumeFile, linkedIn, noLinkedIn]);
+  }, [currentStep, submitting, name, resumeFile, linkedIn, noLinkedIn, continueCount]);
 
   const canProceed = () => {
     if (currentStep === 0) return name.trim() !== "";
@@ -630,15 +643,24 @@ export default function OnboardingForm() {
                   Tip: Press Enter to continue faster
                 </span>
               )}
-              <Button
-                type="button"
-                onClick={() => { setClickedContinue(true); handleNext(); }}
-                disabled={!canProceed()}
-                className="gap-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white border-0 shadow-lg shadow-red-500/20 disabled:opacity-30 disabled:shadow-none px-8"
-              >
-                Continue
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              <div className="relative">
+                {cheerMessage && (
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 animate-in fade-in zoom-in duration-200">
+                    <Sparkles className="h-4 w-4 text-yellow-400" />
+                    <span className="text-sm font-medium text-yellow-400">{cheerMessage}</span>
+                    <Sparkles className="h-4 w-4 text-yellow-400" />
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  onClick={() => { setClickedContinue(true); triggerCheer(); handleNext(); }}
+                  disabled={!canProceed()}
+                  className="gap-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white border-0 shadow-lg shadow-red-500/20 disabled:opacity-30 disabled:shadow-none px-8"
+                >
+                  Continue
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           ) : (
             <Button
