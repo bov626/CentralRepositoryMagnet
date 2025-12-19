@@ -174,6 +174,8 @@ export default function OnboardingForm() {
   const [totalPoints, setTotalPoints] = useState(0);
   const [prevTotalPoints, setPrevTotalPoints] = useState(0);
   const [topPointsAnimation, setTopPointsAnimation] = useState<number | null>(null);
+  const [displayedTopPoints, setDisplayedTopPoints] = useState(0);
+  const [isCountingUp, setIsCountingUp] = useState(false);
   const [pointsAnimation, setPointsAnimation] = useState<number | null>(null);
   const [awardedSteps, setAwardedSteps] = useState<Set<number>>(new Set());
   const [easterEggClaimed, setEasterEggClaimed] = useState(false);
@@ -302,10 +304,34 @@ export default function OnboardingForm() {
   }, [currentStep, highestStep]);
 
   useEffect(() => {
-    if (totalPoints > prevTotalPoints && prevTotalPoints > 0) {
+    if (totalPoints > prevTotalPoints) {
       const diff = totalPoints - prevTotalPoints;
-      setTopPointsAnimation(diff);
-      setTimeout(() => setTopPointsAnimation(null), 1500);
+      if (prevTotalPoints > 0) {
+        setTopPointsAnimation(diff);
+        setIsCountingUp(true);
+        
+        const startValue = prevTotalPoints;
+        const endValue = totalPoints;
+        const duration = 800;
+        const steps = 20;
+        const increment = (endValue - startValue) / steps;
+        const stepTime = duration / steps;
+        let current = startValue;
+        
+        const timer = setInterval(() => {
+          current += increment;
+          if (current >= endValue) {
+            setDisplayedTopPoints(endValue);
+            clearInterval(timer);
+            setIsCountingUp(false);
+            setTimeout(() => setTopPointsAnimation(null), 500);
+          } else {
+            setDisplayedTopPoints(Math.floor(current));
+          }
+        }, stepTime);
+      } else {
+        setDisplayedTopPoints(totalPoints);
+      }
     }
     setPrevTotalPoints(totalPoints);
   }, [totalPoints]);
@@ -601,14 +627,13 @@ export default function OnboardingForm() {
             <span className="bg-red-600 px-5 py-2 inline-block">Session I</span>
           </h1>
           {currentStep > 0 && (
-            <div className="mb-2 relative inline-block">
-              <span className="text-lg font-semibold text-amber-400">{totalPoints} pts</span>
+            <div className="mb-2 flex flex-col items-center">
+              <span className={`text-lg font-semibold text-amber-400 transition-transform duration-100 ${isCountingUp ? 'scale-110' : 'scale-100'}`}>
+                {displayedTopPoints} pts
+              </span>
               {topPointsAnimation !== null && (
                 <span 
-                  className="absolute -top-6 left-1/2 -translate-x-1/2 text-sm font-bold text-green-400 animate-bounce-up whitespace-nowrap"
-                  style={{
-                    animation: 'floatUp 1.5s ease-out forwards'
-                  }}
+                  className="text-sm font-bold text-green-400 animate-in fade-in slide-in-from-bottom-2 duration-300"
                 >
                   +{topPointsAnimation}
                 </span>
