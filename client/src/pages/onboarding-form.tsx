@@ -29,13 +29,11 @@ const CROSS_GRID = [
 ];
 
 const PUZZLE_PIECES = [
-  { id: 1, shape: [[1,1],[1,0]], color: 'bg-rose-400' },
-  { id: 2, shape: [[1],[1],[1]], color: 'bg-sky-400' },
-  { id: 3, shape: [[1,1]], color: 'bg-emerald-400' },
-  { id: 4, shape: [[1,1],[1,1]], color: 'bg-amber-400' },
-  { id: 5, shape: [[1,0],[1,1]], color: 'bg-cyan-400' },
-  { id: 6, shape: [[1,1]], color: 'bg-violet-400' },
-  { id: 7, shape: [[1,1,1]], color: 'bg-pink-400' },
+  { id: 1, shape: [[1,1,1],[0,1,0]], color: 'bg-pink-500' },
+  { id: 2, shape: [[1,0,0],[1,1,1]], color: 'bg-blue-500' },
+  { id: 3, shape: [[1,1],[1,1]], color: 'bg-green-400' },
+  { id: 4, shape: [[0,1,1],[1,1,0]], color: 'bg-teal-400' },
+  { id: 5, shape: [[1],[1],[1],[1]], color: 'bg-yellow-400' },
 ];
 
 const SUDOKU_PUZZLE = [
