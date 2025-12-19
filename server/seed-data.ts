@@ -475,19 +475,25 @@ const seedBlockers = [
 export async function seedProductionDatabase() {
   try {
     const existingLeads = await storage.getAllLeads();
+    const existingEmails = new Set(existingLeads.map(l => l.email?.toLowerCase()));
     
-    if (existingLeads.length === 0) {
-      console.log("Production database is empty. Seeding with development data...");
-      
-      for (const lead of seedLeads) {
+    console.log(`Found ${existingLeads.length} existing leads. Checking for missing leads to seed...`);
+    
+    let seededCount = 0;
+    for (const lead of seedLeads) {
+      if (!lead.email || !existingEmails.has(lead.email.toLowerCase())) {
         try {
           await storage.createLead(lead as any);
           console.log(`Seeded lead: ${lead.name}`);
+          seededCount++;
         } catch (err) {
-          console.log(`Lead ${lead.name} may already exist, skipping...`);
+          console.log(`Lead ${lead.name} may already exist or failed, skipping...`);
         }
       }
-      
+    }
+    
+    const existingBlockers = await storage.getAllBlockers();
+    if (existingBlockers.length === 0) {
       for (const blocker of seedBlockers) {
         try {
           await storage.createBlocker(blocker as any);
@@ -496,11 +502,9 @@ export async function seedProductionDatabase() {
           console.log(`Blocker may already exist, skipping...`);
         }
       }
-      
-      console.log("Database seeding complete!");
-    } else {
-      console.log(`Database already has ${existingLeads.length} leads. Skipping seed.`);
     }
+    
+    console.log(`Database seeding complete! Added ${seededCount} new leads.`);
   } catch (error) {
     console.error("Error seeding database:", error);
   }
