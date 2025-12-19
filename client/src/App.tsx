@@ -54,7 +54,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/onboarding-form" component={OnboardingFormPage} />
-      <Route path="/:rest*">
+      <Route>
         <ProtectedDashboard />
       </Route>
     </Switch>
