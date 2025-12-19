@@ -14,6 +14,7 @@ const STEPS = [
   { id: 'linkedin', title: 'LinkedIn' },
   { id: 'coverletter', title: 'Cover Letter' },
   { id: 'career', title: 'Career Narrative' },
+  { id: 'career2', title: 'Career Narrative Part 2' },
   { id: 'puzzle', title: 'Palate Cleanser' },
   { id: 'thinking', title: 'How You Think' },
   { id: 'perspective', title: 'Perspective' },
@@ -217,7 +218,6 @@ export default function OnboardingForm() {
 
   const [answers, setAnswers] = useState({
     careerHistory: "",
-    whyLoveJob: "",
     dinnerPartyExplanation: "",
     bestJob: "",
     unusuallyGoodAt: "",
@@ -294,20 +294,20 @@ export default function OnboardingForm() {
       if (coverLetterFile) points += 100;
     } else if (currentStep === 4) {
       if (answers.careerHistory.length > 4) points += 100;
-      if (answers.whyLoveJob.length > 4) points += 100;
       if (answers.dinnerPartyExplanation.length > 4) points += 100;
+    } else if (currentStep === 5) {
       if (answers.bestJob.length > 4) points += 100;
       if (answers.unusuallyGoodAt.length > 4) points += 100;
-    } else if (currentStep === 5) {
+    } else if (currentStep === 6) {
       if (puzzleSolved) points += 250;
       const sudokuComplete = sudokuGrid.every((row, ri) => row.every((cell, ci) => cell === SUDOKU_SOLUTION[ri][ci]));
       if (sudokuComplete && puzzleMode === 'sudoku') points += 250;
-    } else if (currentStep === 6) {
+    } else if (currentStep === 7) {
       if (answers.principlesQuotes.length > 4) points += 100;
       if (answers.bookOrMovie.length > 4) points += 100;
       if (answers.optimizeFor.length > 4) points += 100;
       if (answers.whenBreaks.length > 4) points += 100;
-    } else if (currentStep === 7) {
+    } else if (currentStep === 8) {
       if (answers.misconception.length > 4) points += 100;
       if (answers.betterThanResume.length > 4) points += 100;
       if (answers.nonObviousThing.length > 4) points += 100;
@@ -681,18 +681,6 @@ export default function OnboardingForm() {
 
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
-                    You say you love your job, contextualize it for me. Why?
-                  </label>
-                  <Textarea
-                    value={answers.whyLoveJob}
-                    onChange={(e) => updateAnswer('whyLoveJob', e.target.value)}
-                    placeholder="What makes you love what you do..."
-                    className="min-h-[120px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
                     If someone at a dinner party asked what you do, how would you explain it?
                   </label>
                   <Textarea
@@ -702,7 +690,18 @@ export default function OnboardingForm() {
                     className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
+              </div>
+            </div>
+          )}
 
+          {currentStep === 5 && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="mb-8">
+                <h2 className="text-2xl font-light tracking-tight mb-2">Career Narrative Part 2</h2>
+                <p className="text-zinc-500 text-sm">Your experiences and strengths</p>
+              </div>
+
+              <div className="space-y-8">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
                     What is the best job you've ever had and what made it great?
@@ -730,7 +729,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 5 && (
+          {currentStep === 6 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8 text-center">
                 <h2 className="text-3xl font-light tracking-tight mb-2">
@@ -1007,7 +1006,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 6 && (
+          {currentStep === 7 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">How You Think</h2>
@@ -1069,7 +1068,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 7 && (
+          {currentStep === 8 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">Perspective & Differentiation</h2>
