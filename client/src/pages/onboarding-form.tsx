@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Send, CheckCircle2, ChevronRight, ChevronLeft, Upload, FileText, Link, X, ArrowLeft, Sparkles } from "lucide-react";
 import { Link as RouterLink } from "wouter";
+import { DndContext, useDraggable, useDroppable, DragEndEvent } from "@dnd-kit/core";
 
 const STEPS = [
   { id: 'name', title: 'Your Information' },
@@ -28,6 +29,45 @@ const PUZZLE_PIECES = [
   { id: 7, width: 1, height: 2, color: 'bg-pink-500' },
   { id: 8, width: 1, height: 1, color: 'bg-cyan-500' },
 ];
+
+function DraggablePiece({ piece }: { piece: typeof PUZZLE_PIECES[0] }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: piece.id,
+  });
+  
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    width: `${piece.width * 48 + (piece.width - 1) * 4}px`,
+    height: `${piece.height * 48 + (piece.height - 1) * 4}px`,
+  } : {
+    width: `${piece.width * 48 + (piece.width - 1) * 4}px`,
+    height: `${piece.height * 48 + (piece.height - 1) * 4}px`,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={`${piece.color} rounded cursor-grab active:cursor-grabbing shadow-lg transition-transform ${isDragging ? 'opacity-50 scale-105 z-50' : 'hover:scale-105'}`}
+    />
+  );
+}
+
+function GridCell({ id, piece, onClick }: { id: string; piece: typeof PUZZLE_PIECES[0] | null | undefined; onClick: () => void }) {
+  const { isOver, setNodeRef } = useDroppable({ id });
+  
+  return (
+    <div
+      ref={setNodeRef}
+      onClick={onClick}
+      className={`w-12 h-12 rounded border transition-all duration-200 cursor-pointer ${
+        piece ? `${piece.color} border-transparent` : isOver ? 'bg-zinc-700 border-zinc-500' : 'bg-zinc-800/50 border-zinc-700 hover:bg-zinc-700/50'
+      }`}
+    />
+  );
+}
 
 export default function OnboardingForm() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -495,88 +535,85 @@ export default function OnboardingForm() {
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8 text-center">
                 <h2 className="text-3xl font-light tracking-tight mb-2">Palate Cleanser</h2>
-                <p className="text-zinc-500 text-sm">Take a quick break. Fit the pieces into the grid.</p>
+                <p className="text-zinc-500 text-sm">Take a quick break. Drag the pieces into the grid.</p>
                 <span className="inline-block mt-2 px-3 py-1 text-xs text-zinc-500 border border-zinc-700 rounded-full">
                   optional
                 </span>
               </div>
 
-              <div className="flex flex-col items-center gap-8">
-                <div className="grid grid-cols-4 gap-1 p-4 bg-zinc-900/50 rounded-xl border border-zinc-800">
-                  {puzzleGrid.map((row, rowIndex) => (
-                    row.map((cell, colIndex) => {
-                      const piece = cell ? PUZZLE_PIECES.find(p => p.id === cell) : null;
-                      return (
-                        <div
-                          key={`${rowIndex}-${colIndex}`}
-                          onClick={() => {
-                            if (cell) {
-                              const newGrid = puzzleGrid.map(r => r.map(c => c === cell ? null : c));
-                              setPuzzleGrid(newGrid);
-                              setAvailablePieces(prev => [...prev, cell]);
-                            }
-                          }}
-                          className={`w-12 h-12 rounded border border-zinc-700 transition-all duration-200 cursor-pointer ${
-                            piece ? piece.color : 'bg-zinc-800/50 hover:bg-zinc-700/50'
-                          }`}
-                        />
-                      );
-                    })
-                  ))}
-                </div>
-
-                <div className="flex flex-wrap justify-center gap-3 max-w-sm">
-                  {availablePieces.map(pieceId => {
-                    const piece = PUZZLE_PIECES.find(p => p.id === pieceId)!;
-                    return (
-                      <div
-                        key={pieceId}
-                        draggable
-                        onClick={() => {
-                          for (let row = 0; row < 4; row++) {
-                            for (let col = 0; col < 4; col++) {
-                              let canPlace = true;
-                              for (let h = 0; h < piece.height; h++) {
-                                for (let w = 0; w < piece.width; w++) {
-                                  if (row + h >= 4 || col + w >= 4 || puzzleGrid[row + h][col + w] !== null) {
-                                    canPlace = false;
-                                    break;
-                                  }
-                                }
-                                if (!canPlace) break;
-                              }
-                              if (canPlace) {
-                                const newGrid = puzzleGrid.map(r => [...r]);
-                                for (let h = 0; h < piece.height; h++) {
-                                  for (let w = 0; w < piece.width; w++) {
-                                    newGrid[row + h][col + w] = pieceId;
-                                  }
-                                }
+              <DndContext onDragEnd={(event: DragEndEvent) => {
+                const { active, over } = event;
+                if (!over) return;
+                
+                const pieceId = active.id as number;
+                const piece = PUZZLE_PIECES.find(p => p.id === pieceId);
+                if (!piece) return;
+                
+                const [row, col] = (over.id as string).split('-').map(Number);
+                
+                let canPlace = true;
+                for (let h = 0; h < piece.height; h++) {
+                  for (let w = 0; w < piece.width; w++) {
+                    if (row + h >= 4 || col + w >= 4 || puzzleGrid[row + h][col + w] !== null) {
+                      canPlace = false;
+                      break;
+                    }
+                  }
+                  if (!canPlace) break;
+                }
+                
+                if (canPlace) {
+                  const newGrid = puzzleGrid.map(r => [...r]);
+                  for (let h = 0; h < piece.height; h++) {
+                    for (let w = 0; w < piece.width; w++) {
+                      newGrid[row + h][col + w] = pieceId;
+                    }
+                  }
+                  setPuzzleGrid(newGrid);
+                  setAvailablePieces(prev => prev.filter(id => id !== pieceId));
+                }
+              }}>
+                <div className="flex flex-col items-center gap-8">
+                  <div className="grid grid-cols-4 gap-1 p-4 bg-zinc-900/50 rounded-xl border border-zinc-800">
+                    {puzzleGrid.map((row, rowIndex) => (
+                      row.map((cell, colIndex) => {
+                        const piece = cell ? PUZZLE_PIECES.find(p => p.id === cell) : null;
+                        return (
+                          <GridCell
+                            key={`${rowIndex}-${colIndex}`}
+                            id={`${rowIndex}-${colIndex}`}
+                            piece={piece}
+                            onClick={() => {
+                              if (cell) {
+                                const newGrid = puzzleGrid.map(r => r.map(c => c === cell ? null : c));
                                 setPuzzleGrid(newGrid);
-                                setAvailablePieces(prev => prev.filter(id => id !== pieceId));
-                                return;
+                                setAvailablePieces(prev => [...prev, cell]);
                               }
-                            }
-                          }
-                        }}
-                        className={`${piece.color} rounded cursor-pointer hover:scale-110 transition-transform shadow-lg`}
-                        style={{
-                          width: `${piece.width * 48 + (piece.width - 1) * 4}px`,
-                          height: `${piece.height * 48 + (piece.height - 1) * 4}px`,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-
-                {availablePieces.length === 0 && (
-                  <div className="flex items-center gap-2 text-emerald-400 animate-in fade-in duration-500">
-                    <Sparkles className="h-5 w-5" />
-                    <span className="font-medium">Puzzle Complete!</span>
-                    <Sparkles className="h-5 w-5" />
+                            }}
+                          />
+                        );
+                      })
+                    ))}
                   </div>
-                )}
-              </div>
+
+                  <div className="flex flex-wrap justify-center gap-3 max-w-sm">
+                    {availablePieces.map(pieceId => {
+                      const piece = PUZZLE_PIECES.find(p => p.id === pieceId)!;
+                      return (
+                        <DraggablePiece key={pieceId} piece={piece} />
+                      );
+                    })}
+                  </div>
+
+                  {availablePieces.length === 0 && (
+                    <div className="flex items-center gap-2 text-emerald-400 animate-in fade-in duration-500">
+                      <Sparkles className="h-5 w-5" />
+                      <span className="font-medium">Puzzle Complete!</span>
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                  )}
+                </div>
+              </DndContext>
             </div>
           )}
 
