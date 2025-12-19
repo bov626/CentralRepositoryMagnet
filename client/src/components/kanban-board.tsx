@@ -7,7 +7,7 @@ import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
-import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, X, Video } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 // Column Definitions
@@ -233,6 +233,10 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
                   <X className="h-4 w-4" />
                 </button>
               )}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Video className="h-3 w-3 text-primary" />
+              <span>= Enhanced with Fathom notes</span>
             </div>
           </div>
           <div className="flex-1 min-h-0 flex gap-4 overflow-x-auto pb-4">
