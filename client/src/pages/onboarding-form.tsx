@@ -550,12 +550,18 @@ export default function OnboardingForm() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
+      const tier = totalPoints >= 2500 ? 'God Tier Status' :
+                   totalPoints >= 2000 ? 'Gamer Status' :
+                   totalPoints >= 1500 ? 'Operator Status' : 'NPC Status';
+
       const formData = {
         name,
         linkedIn: noLinkedIn ? "N/A" : linkedIn,
         resumeFileName: resumeFile?.name || "",
         coverLetterFileName: coverLetterFile?.name || "",
         answers,
+        totalPoints,
+        tier,
       };
 
       const response = await fetch('/api/onboarding-form', {

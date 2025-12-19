@@ -4,9 +4,20 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Phone, FileText, Linkedin, CheckCircle2, User, ExternalLink } from "lucide-react";
+import { Phone, FileText, Linkedin, CheckCircle2, User, ExternalLink, ChevronDown, ChevronUp, Trophy, Gamepad2, Wrench, Bot, Calendar } from "lucide-react";
 import Layout from "@/components/layout";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
+
+interface OnboardingSubmission {
+  id: string;
+  name: string;
+  tier: string;
+  totalPoints: number;
+  answers: Record<string, any>;
+  submittedAt: string;
+}
 
 const ONBOARDING_COLUMNS: { id: OnboardingStage; title: string; icon: React.ReactNode }[] = [
   { id: "call-1", title: "Call #1", icon: <Phone className="h-4 w-4" /> },
@@ -51,6 +62,97 @@ function OnboardingCard({ lead }: { lead: Lead }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function getTierIcon(tier: string) {
+  if (tier.includes('God')) return <Trophy className="h-5 w-5 text-yellow-400" />;
+  if (tier.includes('Gamer')) return <Gamepad2 className="h-5 w-5 text-purple-400" />;
+  if (tier.includes('Operator')) return <Wrench className="h-5 w-5 text-blue-400" />;
+  return <Bot className="h-5 w-5 text-zinc-400" />;
+}
+
+function getTierColor(tier: string) {
+  if (tier.includes('God')) return 'from-yellow-400 via-amber-500 to-yellow-400';
+  if (tier.includes('Gamer')) return 'from-purple-400 to-purple-600';
+  if (tier.includes('Operator')) return 'from-blue-400 to-blue-600';
+  return 'from-zinc-400 to-zinc-600';
+}
+
+function SubmissionCard({ submission }: { submission: OnboardingSubmission }) {
+  const [expanded, setExpanded] = useState(false);
+  const answers = submission.answers || {};
+
+  const answerLabels: Record<string, string> = {
+    careerHistory: 'Full career history',
+    whyLoveJob: 'Why you love your job',
+    dinnerPartyExplanation: 'Dinner party explanation',
+    bestJob: 'Best job ever',
+    unusuallyGoodAt: 'Unusually good at',
+    principlesQuotes: 'Principles/quotes',
+    bookOrMovie: 'Book or movie seen more than once',
+    optimizeFor: 'What you optimize for',
+    whenBreaks: 'When something breaks',
+    misconception: 'Biggest misconception',
+    betterThanResume: 'Better than resume shows',
+    nonObviousThing: 'Non-obvious thing',
+    sabbatical: 'Sabbatical plans',
+    noticeFirst: 'What you notice first',
+    linkedIn: 'LinkedIn',
+    resumeFileName: 'Resume',
+    coverLetterFileName: 'Cover Letter',
+  };
+
+  return (
+    <div 
+      className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden transition-all duration-300"
+      data-testid={`submission-card-${submission.id}`}
+    >
+      <div 
+        className="p-4 cursor-pointer hover:bg-zinc-800/50 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {getTierIcon(submission.tier)}
+            <span className={cn(
+              "font-bold text-transparent bg-clip-text bg-gradient-to-r",
+              getTierColor(submission.tier)
+            )}>
+              {submission.tier}
+            </span>
+          </div>
+          <div className="flex-1">
+            <span className="font-medium text-foreground">{submission.name}</span>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <span className="text-amber-400 font-semibold">{submission.totalPoints.toLocaleString()} pts</span>
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>{format(new Date(submission.submittedAt), 'MMM d, yyyy')}</span>
+            </div>
+            {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </div>
+        </div>
+      </div>
+      
+      {expanded && (
+        <div className="border-t border-zinc-800 p-4 bg-zinc-950/50 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="grid gap-4 md:grid-cols-2">
+            {Object.entries(answers).map(([key, value]) => {
+              if (!value || (typeof value === 'string' && !value.trim())) return null;
+              const label = answerLabels[key] || key;
+              return (
+                <div key={key} className="space-y-1" data-testid={`answer-${key}-${submission.id}`}>
+                  <span className="text-xs font-medium text-primary uppercase tracking-wide">{label}</span>
+                  <p className="text-sm text-foreground/80 whitespace-pre-wrap">{String(value)}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -102,6 +204,15 @@ function OnboardingColumn({
 export default function OnboardingPage() {
   const { leads, moveOnboardingLead } = useStore();
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  const { data: submissions = [] } = useQuery<OnboardingSubmission[]>({
+    queryKey: ['/api/onboarding-submissions'],
+    queryFn: async () => {
+      const res = await fetch('/api/onboarding-submissions');
+      if (!res.ok) throw new Error('Failed to fetch submissions');
+      return res.json();
+    },
+  });
 
   const onboardingLeads = leads.filter(l => l.onboardingStage);
 
@@ -201,6 +312,17 @@ export default function OnboardingPage() {
             Open Client Onboarding Questionnaire
           </Link>
         </div>
+
+        {submissions.length > 0 && (
+          <div className="mt-8 pt-6 border-t border-border" data-testid="submissions-section">
+            <h2 className="text-xl font-bold text-foreground mb-4">Submitted Forms</h2>
+            <div className="space-y-3">
+              {submissions.map((submission) => (
+                <SubmissionCard key={submission.id} submission={submission} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
