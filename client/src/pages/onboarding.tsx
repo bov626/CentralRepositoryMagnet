@@ -114,92 +114,86 @@ function SubmissionCard({ submission }: { submission: OnboardingSubmission }) {
       className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden transition-all duration-300"
       data-testid={`submission-card-${submission.id}`}
     >
-      <div className="p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className={cn(
-              "gap-1.5 text-xs",
-              hasResume ? "border-emerald-600 text-emerald-400 hover:bg-emerald-950" : "opacity-40 cursor-not-allowed"
-            )}
-            disabled={!hasResume}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (hasResume) window.open(submission.resumePath!, '_blank');
-            }}
-            data-testid={`btn-resume-${submission.id}`}
-          >
-            <Download className="h-3.5 w-3.5" />
-            Resume
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className={cn(
-              "gap-1.5 text-xs",
-              hasCoverLetter ? "border-blue-600 text-blue-400 hover:bg-blue-950" : "opacity-40 cursor-not-allowed"
-            )}
-            disabled={!hasCoverLetter}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (hasCoverLetter) window.open(submission.coverLetterPath!, '_blank');
-            }}
-            data-testid={`btn-cover-letter-${submission.id}`}
-          >
-            <Download className="h-3.5 w-3.5" />
-            Cover Letter
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className={cn(
-              "gap-1.5 text-xs",
-              hasLinkedIn ? "border-sky-600 text-sky-400 hover:bg-sky-950" : "opacity-40 cursor-not-allowed"
-            )}
-            disabled={!hasLinkedIn}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (hasLinkedIn) window.open(submission.linkedIn!, '_blank');
-            }}
-            data-testid={`btn-linkedin-${submission.id}`}
-          >
-            <Linkedin className="h-3.5 w-3.5" />
-            LinkedIn
-          </Button>
-        </div>
-
-        <div 
-          className="cursor-pointer hover:bg-zinc-800/50 -mx-4 -mb-4 p-4 pt-2 transition-colors"
-          onClick={() => setExpanded(!expanded)}
-        >
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              {getTierIcon(submission.tier)}
-              <span className={cn(
-                "font-bold text-transparent bg-clip-text bg-gradient-to-r",
-                getTierColor(submission.tier)
-              )}>
-                {submission.tier}
-              </span>
+      <div 
+        className="p-4 cursor-pointer hover:bg-zinc-800/50 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {getTierIcon(submission.tier)}
+            <span className={cn(
+              "font-bold text-transparent bg-clip-text bg-gradient-to-r",
+              getTierColor(submission.tier)
+            )}>
+              {submission.tier}
+            </span>
+          </div>
+          <div className="flex-1">
+            <span className="font-medium text-foreground">{submission.name}</span>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <span className="text-amber-400 font-semibold">{submission.totalPoints.toLocaleString()} pts</span>
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>{format(new Date(submission.submittedAt), 'MMM d, yyyy')}</span>
             </div>
-            <div className="flex-1">
-              <span className="font-medium text-foreground">{submission.name}</span>
-            </div>
-            <div className="flex items-center gap-4 text-sm">
-              <span className="text-amber-400 font-semibold">{submission.totalPoints.toLocaleString()} pts</span>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5" />
-                <span>{format(new Date(submission.submittedAt), 'MMM d, yyyy')}</span>
-              </div>
-              {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-            </div>
+            {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
           </div>
         </div>
       </div>
       
       {expanded && (
         <div className="border-t border-zinc-800 p-4 bg-zinc-950/50 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-3 mb-4 pb-4 border-b border-zinc-800">
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "gap-1.5 text-xs",
+                hasResume ? "border-emerald-600 text-emerald-400 hover:bg-emerald-950" : "opacity-40 cursor-not-allowed"
+              )}
+              disabled={!hasResume}
+              onClick={() => {
+                if (hasResume) window.open(submission.resumePath!, '_blank');
+              }}
+              data-testid={`btn-resume-${submission.id}`}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Resume
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "gap-1.5 text-xs",
+                hasCoverLetter ? "border-blue-600 text-blue-400 hover:bg-blue-950" : "opacity-40 cursor-not-allowed"
+              )}
+              disabled={!hasCoverLetter}
+              onClick={() => {
+                if (hasCoverLetter) window.open(submission.coverLetterPath!, '_blank');
+              }}
+              data-testid={`btn-cover-letter-${submission.id}`}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Cover Letter
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "gap-1.5 text-xs",
+                hasLinkedIn ? "border-sky-600 text-sky-400 hover:bg-sky-950" : "opacity-40 cursor-not-allowed"
+              )}
+              disabled={!hasLinkedIn}
+              onClick={() => {
+                if (hasLinkedIn) window.open(submission.linkedIn!, '_blank');
+              }}
+              data-testid={`btn-linkedin-${submission.id}`}
+            >
+              <Linkedin className="h-3.5 w-3.5" />
+              LinkedIn
+            </Button>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             {Object.entries(answers).map(([key, value]) => {
               if (!value || (typeof value === 'string' && !value.trim())) return null;
