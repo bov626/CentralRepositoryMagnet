@@ -274,6 +274,16 @@ export default function OnboardingForm() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentStep, submitting, name, resumeFile, linkedIn, noLinkedIn, continueCount]);
 
+  useEffect(() => {
+    const sudokuComplete = sudokuGrid.every((row, ri) => row.every((cell, ci) => cell === SUDOKU_SOLUTION[ri][ci]));
+    if (sudokuComplete && puzzleMode === 'sudoku' && !awardedSteps.has(6)) {
+      setTotalPoints(prev => prev + 250);
+      setPointsAnimation(250);
+      setTimeout(() => setPointsAnimation(null), 1500);
+      setAwardedSteps(prev => new Set(Array.from(prev).concat(6)));
+    }
+  }, [sudokuGrid, puzzleMode, awardedSteps]);
+
   const canProceed = () => {
     if (currentStep === 0) return name.trim() !== "";
     if (currentStep === 1) return resumeFile !== null;
@@ -338,7 +348,7 @@ export default function OnboardingForm() {
         setPointsAnimation(stepPoints);
         setTotalPoints(prev => prev + stepPoints);
         setTimeout(() => setPointsAnimation(null), 1500);
-        setAwardedSteps(prev => new Set([...prev, currentStep]));
+        setAwardedSteps(prev => new Set(Array.from(prev).concat(currentStep)));
       }
     }
     
@@ -735,7 +745,7 @@ export default function OnboardingForm() {
                 <h2 className="text-3xl font-light tracking-tight mb-2">
                   {puzzleMode === 'blocks' ? 'Can you make the blocks fit?' : 'Complete the sudoku'}
                 </h2>
-                {puzzleSolved ? (
+                {puzzleSolved && puzzleMode === 'blocks' ? (
                   <span className="text-emerald-400 font-medium animate-in fade-in duration-300">
                     Correct, it is impossible
                   </span>
@@ -940,7 +950,15 @@ export default function OnboardingForm() {
                     {placements.size >= 3 && !puzzleSolved && (
                       <Button
                         type="button"
-                        onClick={() => setPuzzleSolved(true)}
+                        onClick={() => {
+                          setPuzzleSolved(true);
+                          if (!awardedSteps.has(6)) {
+                            setTotalPoints(prev => prev + 250);
+                            setPointsAnimation(250);
+                            setTimeout(() => setPointsAnimation(null), 1500);
+                            setAwardedSteps(prev => new Set(Array.from(prev).concat(6)));
+                          }
+                        }}
                         variant="outline"
                         className="border-zinc-600 text-zinc-300 hover:bg-zinc-800 hover:text-white animate-in fade-in duration-300"
                       >
