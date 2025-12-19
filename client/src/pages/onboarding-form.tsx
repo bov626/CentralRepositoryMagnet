@@ -160,6 +160,9 @@ function GridCell({ id, isValidCell, previewColor }: { id: string; isValidCell: 
 }
 
 export default function OnboardingForm() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [showContent, setShowContent] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [highestStep, setHighestStep] = useState(0);
   const [clickedContinue, setClickedContinue] = useState(false);
@@ -173,6 +176,29 @@ export default function OnboardingForm() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    const duration = 1800;
+    const interval = 20;
+    const steps = duration / interval;
+    let step = 0;
+    
+    const timer = setInterval(() => {
+      step++;
+      const easeOut = 1 - Math.pow(1 - step / steps, 3);
+      setLoadingProgress(Math.min(easeOut * 100, 100));
+      
+      if (step >= steps) {
+        clearInterval(timer);
+        setTimeout(() => {
+          setIsLoading(false);
+          setTimeout(() => setShowContent(true), 50);
+        }, 200);
+      }
+    }, interval);
+    
+    return () => clearInterval(timer);
+  }, []);
   const [name, setName] = useState("");
   const [linkedIn, setLinkedIn] = useState("");
   const [noLinkedIn, setNoLinkedIn] = useState(false);
@@ -599,6 +625,33 @@ export default function OnboardingForm() {
     }
   }, [submitted]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <img 
+              src="/jumpseat-logo.png" 
+              alt="Jumpseat" 
+              className="h-10 w-auto mx-auto mb-8 opacity-80"
+            />
+          </div>
+          <div className="space-y-3">
+            <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-red-600 to-red-500 rounded-full transition-all duration-75 ease-out"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
+            <p className="text-center text-zinc-500 text-sm">
+              {loadingProgress < 100 ? 'Preparing your session...' : 'Ready'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (submitted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white flex items-center justify-center p-6">
@@ -636,11 +689,11 @@ export default function OnboardingForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white">
+    <div className={`min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white transition-opacity duration-700 ${showContent ? 'opacity-100' : 'opacity-0'}`}>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-800/20 via-transparent to-transparent pointer-events-none" />
       
       <div className="relative max-w-2xl mx-auto px-6 py-12">
-        <div className="flex items-center justify-between mb-8">
+        <div className={`flex items-center justify-between mb-8 transition-all duration-700 delay-100 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
           <img 
             src="/jumpseat-logo.png" 
             alt="Jumpseat" 
@@ -652,7 +705,7 @@ export default function OnboardingForm() {
           </RouterLink>
         </div>
 
-        <div className="mb-12 text-center relative">
+        <div className={`mb-12 text-center relative transition-all duration-700 delay-200 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <div className="inline-block mb-4">
             <span className="text-xs font-medium tracking-widest uppercase text-zinc-500">Onboarding</span>
           </div>
@@ -679,7 +732,7 @@ export default function OnboardingForm() {
         </div>
 
         {currentStep < 12 && (
-          <div className="mb-12">
+          <div className={`mb-12 transition-all duration-700 delay-300 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
             <div className="flex items-center justify-between text-sm mb-3">
               <span className="text-zinc-400 font-medium">
                 Part {currentGroupIndex + 1} of {UNIQUE_GROUPS.length}
@@ -696,7 +749,7 @@ export default function OnboardingForm() {
           </div>
         )}
 
-        <div className="min-h-[400px]">
+        <div className={`min-h-[400px] transition-all duration-700 delay-500 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
           {currentStep === 0 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8 text-center">
