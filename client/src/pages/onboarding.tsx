@@ -2,9 +2,10 @@ import { useStore, OnboardingStage, Lead } from "@/lib/data";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, useDroppable } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { Phone, FileText, Linkedin, CheckCircle2, User, ExternalLink, ChevronDown, ChevronUp, Trophy, Gamepad2, Wrench, Bot, Calendar, Download, MessageSquare, Lightbulb, StickyNote } from "lucide-react";
+import { Phone, FileText, Linkedin, CheckCircle2, User, ExternalLink, ChevronDown, ChevronUp, Trophy, Gamepad2, Wrench, Bot, Calendar, Download, MessageSquare, Lightbulb, StickyNote, Upload, FolderOpen, X } from "lucide-react";
 import Layout from "@/components/layout";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -79,12 +80,46 @@ function OnboardingCard({ lead, onOpenDetail }: { lead: Lead; onOpenDetail: (lea
   );
 }
 
+async function uploadFileToStorage(file: File): Promise<string | null> {
+  try {
+    const res = await fetch("/api/uploads/request-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: file.name,
+        size: file.size,
+        contentType: file.type || "application/octet-stream",
+      }),
+    });
+    if (!res.ok) throw new Error("Failed to get upload URL");
+    const { uploadURL, objectPath } = await res.json();
+    
+    const uploadRes = await fetch(uploadURL, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+    });
+    if (!uploadRes.ok) throw new Error("Failed to upload file");
+    
+    return objectPath;
+  } catch (error) {
+    console.error("File upload error:", error);
+    return null;
+  }
+}
+
 function LeadDetailPanel({ lead, open, onClose }: { lead: Lead | null; open: boolean; onClose: () => void }) {
   const { updateLead } = useStore();
   const [summary, setSummary] = useState(lead?.summary || '');
   const [coverLetterIdeas, setCoverLetterIdeas] = useState(lead?.coverLetterIdeas || '');
   const [notes, setNotes] = useState(lead?.onboardingNotes || '');
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState<string | null>(null);
+  
+  const resumeARef = useRef<HTMLInputElement>(null);
+  const resumeBRef = useRef<HTMLInputElement>(null);
+  const coverLetterARef = useRef<HTMLInputElement>(null);
+  const coverLetterBRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (lead) {
@@ -93,6 +128,25 @@ function LeadDetailPanel({ lead, open, onClose }: { lead: Lead | null; open: boo
       setNotes(lead.onboardingNotes || '');
     }
   }, [lead?.id]);
+
+  const handleFileUpload = async (file: File, field: 'resumePathA' | 'resumePathB' | 'coverLetterPathA' | 'coverLetterPathB') => {
+    if (!lead) return;
+    setUploading(field);
+    const path = await uploadFileToStorage(file);
+    if (path) {
+      updateLead(lead.id, { [field]: path });
+      toast({ title: "File Uploaded", description: `${file.name} uploaded successfully` });
+    } else {
+      toast({ title: "Upload Failed", description: "Could not upload file", variant: "destructive" });
+    }
+    setUploading(null);
+  };
+
+  const handleRemoveFile = (field: 'resumePathA' | 'resumePathB' | 'coverLetterPathA' | 'coverLetterPathB') => {
+    if (!lead) return;
+    updateLead(lead.id, { [field]: null });
+    toast({ title: "File Removed" });
+  };
 
   const handleSaveSummary = () => {
     if (!lead) return;
@@ -147,6 +201,10 @@ function LeadDetailPanel({ lead, open, onClose }: { lead: Lead | null; open: boo
             <TabsTrigger value="notes" className="flex-1 gap-1.5 data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
               <StickyNote className="h-4 w-4" />
               Notes
+            </TabsTrigger>
+            <TabsTrigger value="files" className="flex-1 gap-1.5 data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+              <FolderOpen className="h-4 w-4" />
+              Files
             </TabsTrigger>
           </TabsList>
 
@@ -211,6 +269,208 @@ function LeadDetailPanel({ lead, open, onClose }: { lead: Lead | null; open: boo
             >
               {saving ? 'Saving...' : 'Save Notes'}
             </Button>
+          </TabsContent>
+
+          <TabsContent value="files" className="mt-4 space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-muted-foreground">Resumes</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-zinc-400">Resume A</label>
+                  <input
+                    type="file"
+                    ref={resumeARef}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileUpload(file, 'resumePathA');
+                    }}
+                  />
+                  {lead?.resumePathA ? (
+                    <div className="flex items-center gap-2 p-3 bg-emerald-900/30 border border-emerald-700 rounded-lg">
+                      <FileText className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                      <a 
+                        href={lead.resumePathA} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-emerald-400 hover:underline truncate flex-1"
+                      >
+                        View File
+                      </a>
+                      <button
+                        onClick={() => handleRemoveFile('resumePathA')}
+                        className="p-1 hover:bg-red-900/50 rounded"
+                      >
+                        <X className="h-3 w-3 text-red-400" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => resumeARef.current?.click()}
+                      disabled={uploading === 'resumePathA'}
+                      className="w-full p-3 border-2 border-dashed border-zinc-700 rounded-lg hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-sm text-zinc-400 hover:text-white"
+                    >
+                      {uploading === 'resumePathA' ? (
+                        <span>Uploading...</span>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          Upload A
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-zinc-400">Resume B</label>
+                  <input
+                    type="file"
+                    ref={resumeBRef}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileUpload(file, 'resumePathB');
+                    }}
+                  />
+                  {lead?.resumePathB ? (
+                    <div className="flex items-center gap-2 p-3 bg-emerald-900/30 border border-emerald-700 rounded-lg">
+                      <FileText className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                      <a 
+                        href={lead.resumePathB} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-emerald-400 hover:underline truncate flex-1"
+                      >
+                        View File
+                      </a>
+                      <button
+                        onClick={() => handleRemoveFile('resumePathB')}
+                        className="p-1 hover:bg-red-900/50 rounded"
+                      >
+                        <X className="h-3 w-3 text-red-400" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => resumeBRef.current?.click()}
+                      disabled={uploading === 'resumePathB'}
+                      className="w-full p-3 border-2 border-dashed border-zinc-700 rounded-lg hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-sm text-zinc-400 hover:text-white"
+                    >
+                      {uploading === 'resumePathB' ? (
+                        <span>Uploading...</span>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          Upload B
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-muted-foreground">Cover Letters</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-zinc-400">Cover Letter A</label>
+                  <input
+                    type="file"
+                    ref={coverLetterARef}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileUpload(file, 'coverLetterPathA');
+                    }}
+                  />
+                  {lead?.coverLetterPathA ? (
+                    <div className="flex items-center gap-2 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
+                      <FileText className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                      <a 
+                        href={lead.coverLetterPathA} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-400 hover:underline truncate flex-1"
+                      >
+                        View File
+                      </a>
+                      <button
+                        onClick={() => handleRemoveFile('coverLetterPathA')}
+                        className="p-1 hover:bg-red-900/50 rounded"
+                      >
+                        <X className="h-3 w-3 text-red-400" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => coverLetterARef.current?.click()}
+                      disabled={uploading === 'coverLetterPathA'}
+                      className="w-full p-3 border-2 border-dashed border-zinc-700 rounded-lg hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-sm text-zinc-400 hover:text-white"
+                    >
+                      {uploading === 'coverLetterPathA' ? (
+                        <span>Uploading...</span>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          Upload A
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-zinc-400">Cover Letter B</label>
+                  <input
+                    type="file"
+                    ref={coverLetterBRef}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileUpload(file, 'coverLetterPathB');
+                    }}
+                  />
+                  {lead?.coverLetterPathB ? (
+                    <div className="flex items-center gap-2 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
+                      <FileText className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                      <a 
+                        href={lead.coverLetterPathB} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-400 hover:underline truncate flex-1"
+                      >
+                        View File
+                      </a>
+                      <button
+                        onClick={() => handleRemoveFile('coverLetterPathB')}
+                        className="p-1 hover:bg-red-900/50 rounded"
+                      >
+                        <X className="h-3 w-3 text-red-400" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => coverLetterBRef.current?.click()}
+                      disabled={uploading === 'coverLetterPathB'}
+                      className="w-full p-3 border-2 border-dashed border-zinc-700 rounded-lg hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-sm text-zinc-400 hover:text-white"
+                    >
+                      {uploading === 'coverLetterPathB' ? (
+                        <span>Uploading...</span>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          Upload B
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </SheetContent>

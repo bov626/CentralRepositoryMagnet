@@ -49,6 +49,10 @@ export interface Lead {
   fathomRecordingId?: number | null;
   coverLetterIdeas?: string | null;
   onboardingNotes?: string | null;
+  resumePathA?: string | null;
+  resumePathB?: string | null;
+  coverLetterPathA?: string | null;
+  coverLetterPathB?: string | null;
   archived?: boolean;
   history: any; // JSONB field
   createdAt: Date;

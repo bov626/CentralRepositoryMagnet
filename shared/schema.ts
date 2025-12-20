@@ -30,6 +30,10 @@ export const leads = pgTable("leads", {
   fathomRecordingId: integer("fathom_recording_id"), // Fathom recording ID for tracking enrichment
   coverLetterIdeas: text("cover_letter_ideas"), // Cover letter ideas/notes for this lead
   onboardingNotes: text("onboarding_notes"), // General notes for onboarding
+  resumePathA: text("resume_path_a"), // Object storage path for resume A
+  resumePathB: text("resume_path_b"), // Object storage path for resume B
+  coverLetterPathA: text("cover_letter_path_a"), // Object storage path for cover letter A
+  coverLetterPathB: text("cover_letter_path_b"), // Object storage path for cover letter B
   archived: boolean("archived").notNull().default(false), // Hide from Kanban without deleting
   history: jsonb("history").notNull().default(sql`'[]'::jsonb`), // Array of {date: string, action: string}
   createdAt: timestamp("created_at").notNull().defaultNow(),
