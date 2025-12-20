@@ -47,21 +47,27 @@ Happy to answer any questions, otherwise let me know how you'd like to move forw
   },
   "onboarding-1": {
     subject: "Onboarding Details",
-    body: `{First Name},
+    body: `{Name},
 
-1. Payment Link:
-https://buy.stripe.com/dRm8wP9Wo24acLEfu8gbm02
+Perfect. Here's how we'll get you onboarded:
 
-2. Onboarding #1 
-The first onboarding session I want to know more about you(motivations, goals, thought process). I have provided a list of seemingly random quesitons but they will help me fine tune the applying UI(cover letter, resume, linkedIn). 
+1. Review the Service Outline
+https://bit.ly/Service-Outline
 
-Then during the second onboarding session we will get square on the exact roles we are looking for. 
+2. Complete Payment
+https://buy.stripe.com/dRm8wP9Wo24acLEfu8gbm02 
 
-The first set of questions:
-https://bit.ly/Onboardingcall1
+3. Onboarding Session #1
+This first session is about understanding you (motivations, goals, how you think).
+The answers directly inform how we dial in your resume, cover letter, and LinkedIn.
 
- The link to schedule our first onboarding session:
-https://calendly.com/wyedoyoudothis/onboarding-call`
+Session #2 will lock in the exact roles we're targeting and review the finalized application assets.
+
+For now, please complete this onboarding questionnaire (≈30 minutes): https://jumpseatboarding.com/questions1
+
+Let me know if you have any questions.
+
+– W.W.`
   }
 };
 
