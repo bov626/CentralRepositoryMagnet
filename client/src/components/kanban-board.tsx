@@ -203,6 +203,9 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
               <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
                 <span className="w-2 h-8 bg-primary rounded-sm block"></span>
                 Jumpseat Pipeline
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  ({filteredLeads.filter(l => l.pipeline === "jumpseat").length})
+                </span>
               </h2>
               <a
                 href="https://www.canva.com/design/DAG7gKJfndQ/JPBsVNk6ymFqfNCGN2nr_w/edit"
