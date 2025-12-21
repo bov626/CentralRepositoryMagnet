@@ -478,10 +478,10 @@ export async function seedProductionDatabase() {
     const existingById = new Map(existingLeads.map(l => [l.id, l]));
     const existingByEmail = new Map(existingLeads.filter(l => l.email).map(l => [l.email!.toLowerCase(), l]));
     
-    console.log(`Found ${existingLeads.length} existing leads. Upserting all 31 seed leads...`);
+    console.log(`Found ${existingLeads.length} existing leads. Checking for new leads to insert (existing leads will NOT be modified)...`);
     
     let insertedCount = 0;
-    let updatedCount = 0;
+    let skippedCount = 0;
     
     for (const seedLead of seedLeads) {
       try {
@@ -489,28 +489,9 @@ export async function seedProductionDatabase() {
           (seedLead.email ? existingByEmail.get(seedLead.email.toLowerCase()) : null);
         
         if (existingLead) {
-          await storage.updateLead(existingLead.id, {
-            name: seedLead.name,
-            company: seedLead.company || null,
-            linkedIn: seedLead.linkedIn || null,
-            email: seedLead.email,
-            tags: seedLead.tags || [],
-            pipeline: seedLead.pipeline as any,
-            stage: seedLead.stage,
-            onboardingStage: seedLead.onboardingStage || null,
-            nextFollowUp: seedLead.nextFollowUp ? new Date(seedLead.nextFollowUp) : null,
-            summary: seedLead.summary || null,
-            keyTakeaways: seedLead.keyTakeaways || [],
-            pitchAmount: seedLead.pitchAmount || null,
-            actionItems: seedLead.actionItems || [],
-            recordingLink: seedLead.recordingLink || null,
-            calendarEventId: seedLead.calendarEventId || null,
-            fathomRecordingId: seedLead.fathomRecordingId || null,
-            history: seedLead.history || [],
-            archived: seedLead.archived || false,
-          });
-          console.log(`Updated existing lead: ${seedLead.name}`);
-          updatedCount++;
+          // NEVER update existing leads - preserve user edits
+          console.log(`Skipping existing lead (preserving user data): ${seedLead.name}`);
+          skippedCount++;
         } else {
           await storage.createLead({
             id: seedLead.id,
@@ -537,7 +518,7 @@ export async function seedProductionDatabase() {
           insertedCount++;
         }
       } catch (err) {
-        console.error(`Failed to upsert lead ${seedLead.name}:`, err);
+        console.error(`Failed to insert lead ${seedLead.name}:`, err);
       }
     }
     
@@ -553,7 +534,7 @@ export async function seedProductionDatabase() {
       }
     }
     
-    console.log(`Database seeding complete! Inserted ${insertedCount}, updated ${updatedCount} leads.`);
+    console.log(`Database seeding complete! Inserted ${insertedCount} new leads, skipped ${skippedCount} existing leads (user data preserved).`);
   } catch (error) {
     console.error("Error seeding database:", error);
   }

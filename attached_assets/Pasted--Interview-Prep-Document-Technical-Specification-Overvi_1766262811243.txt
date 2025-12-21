@@ -1,0 +1,166 @@
+# Interview Prep Document - Technical Specification
+
+## Overview
+Build a structured interview prep document template that displays company research, interviewer intel, and custom questions for each scheduled interview.
+
+## Document Structure
+
+### Header Section
+```
+Company: [Company Name]
+Role: [Job Title]
+Interview Date/Time: [DateTime - formatted as "Monday, January 15, 2025 at 2:00 PM EST"]
+Interview Format: [Phone Screen / Video / Panel / In-Person]
+Interviewer(s): [Names + Titles if known, otherwise "TBD"]
+Job Description: [Clickable link to original JD]
+```
+
+### Section 1: Company Overview
+**Header:** Company Overview
+
+**Content:**
+- What they do (plain English description, 2-3 sentences)
+- Company size (number of employees, revenue if public)
+- Recent funding/growth trajectory
+- Company culture vibe (based on Glassdoor, LinkedIn, reviews)
+
+**Format:** Bullet points, clean and scannable
+
+---
+
+### Section 2: Recent News & Updates
+**Header:** Recent News & Updates
+
+**Content:**
+- Last 90 days: Product launches, acquisitions, layoffs, leadership changes
+- Earnings call highlights (if applicable for public companies)
+- Any pain points or challenges the company is facing
+
+**Format:** Bullet points with dates where relevant
+
+---
+
+### Section 3: Role Breakdown
+**Header:** What This Role Actually Does
+
+**Content:**
+- Day-to-day responsibilities (practical translation of JD)
+- Team structure (who you'd be working with)
+- What success looks like in first 90 days
+- Key skills they're actually looking for (beyond what JD lists)
+
+**Format:** Bullet points
+
+---
+
+### Section 4: Your Interviewer(s)
+**Header:** About Your Interviewer(s)
+
+**Content (if interviewer known):**
+- Name and title
+- Background and tenure at company
+- Previous roles/experience
+- LinkedIn activity highlights (what they post/care about)
+- Personal interests/hobbies (scraped from social profiles)
+- **Rapport builders:** 2-3 conversation hooks based on the above
+
+**Content (if interviewer unknown):**
+- Display: "Interviewer details not yet available"
+
+**Format:** Short paragraphs or bullet points per interviewer
+
+---
+
+### Section 5: Tailored Questions You Should Ask
+**Header:** Questions That Show You Did Your Homework
+
+**Content:**
+- 3-5 custom questions built from company research
+- Each question should reference specific company news, challenges, or initiatives
+
+**Example format:**
+```
+- "I saw you just launched [product/feature]—how is that changing the roadmap for this role?"
+- "Your Q3 earnings mentioned [challenge]—is this team directly tasked with solving that?"
+- "I noticed [interviewer name] previously worked on [project]—will I be collaborating with that team?"
+```
+
+**Format:** Bullet points, questions in quotes
+
+---
+
+### Section 6: Wilson's Universal Interview Questions
+**Header:** Universal Questions That Work Anywhere
+
+**Content:**
+Standard set of questions that work in any interview:
+- What does success look like in this role after 6 months?
+- What's the biggest challenge the team is facing right now?
+- How does this role contribute to the company's top priorities this year?
+- What do people who succeed here have in common?
+- What's your favorite part about working here?
+
+**Format:** Bullet points, questions in regular text
+
+---
+
+### Footer Section
+**Content:**
+"We'll send a tailored thank-you email on your behalf after the interview for follow-up."
+
+**Format:** Italicized text, centered or left-aligned at bottom
+
+---
+
+## Technical Requirements
+
+### Display Format
+- Clean, professional layout
+- Mobile-responsive (clients will view on phones before interviews)
+- Scannable headers with clear visual hierarchy
+- Maximum 2-3 pages when printed
+- Each section clearly separated (use dividers or spacing)
+
+### Data Structure
+Each prep document should be tied to:
+- Interview ID
+- Client ID
+- Job application ID (links to "Applied Jobs" panel)
+- Company name
+- Role title
+- Interview datetime
+- Job description URL
+
+### User Interaction
+- Accessible from calendar view in "Interviews" tab
+- Click on calendar event → opens full prep document
+- Should be viewable/downloadable as PDF
+- Mobile-optimized view
+
+### Admin (Wilson's) Input Fields
+For each prep document, Wilson needs to input:
+- Company overview details
+- Recent news (3-5 items)
+- Role breakdown
+- Interviewer details (if known)
+- 3-5 tailored questions
+- Any additional notes
+
+### Default Content
+- "Wilson's Universal Interview Questions" section is static (same for all docs)
+- Footer message is static
+- Header fields auto-populate from interview/job data
+
+---
+
+## UI/UX Notes
+- Use clear visual hierarchy (headers, subheaders, body text)
+- Consider color-coding sections for quick scanning
+- White space is important—don't cram content
+- Bold key information (company name, interviewer names, dates)
+- Make job description link clearly clickable/tappable
+
+## File Format
+- Primary: Web view (HTML/CSS)
+- Secondary: PDF export option
+- Both should maintain formatting and readability
