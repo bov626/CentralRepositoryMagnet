@@ -18,11 +18,10 @@ export type CommunityStage =
   | "would-buy";
 
 export type OnboardingStage = 
+  | "future-cohort"
   | "call-1"
   | "call-2"
-  | "cover-letter"
-  | "resume"
-  | "linkedin"
+  | "document-creation"
   | "apply-ready";
 
 export interface Lead {
@@ -246,11 +245,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const updatedHistory = Array.isArray(lead.history) ? lead.history : [];
       const stageLabels: Record<OnboardingStage, string> = {
+        "future-cohort": "Future Cohort",
         "call-1": "Call #1",
         "call-2": "Call #2",
-        "cover-letter": "Cover Letter",
-        "resume": "Resume",
-        "linkedin": "LinkedIn",
+        "document-creation": "Document Creation",
         "apply-ready": "Apply Ready",
       };
       

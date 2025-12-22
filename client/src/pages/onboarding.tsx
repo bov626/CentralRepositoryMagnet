@@ -28,11 +28,10 @@ interface OnboardingSubmission {
 }
 
 const ONBOARDING_COLUMNS: { id: OnboardingStage; title: string; icon: React.ReactNode }[] = [
+  { id: "future-cohort", title: "Future Cohort", icon: <Calendar className="h-4 w-4" /> },
   { id: "call-1", title: "Call #1", icon: <Phone className="h-4 w-4" /> },
   { id: "call-2", title: "Call #2", icon: <Phone className="h-4 w-4" /> },
-  { id: "cover-letter", title: "Cover Letter", icon: <FileText className="h-4 w-4" /> },
-  { id: "resume", title: "Resume", icon: <FileText className="h-4 w-4" /> },
-  { id: "linkedin", title: "LinkedIn", icon: <Linkedin className="h-4 w-4" /> },
+  { id: "document-creation", title: "Document Creation", icon: <FileText className="h-4 w-4" /> },
   { id: "apply-ready", title: "Apply Ready", icon: <CheckCircle2 className="h-4 w-4" /> },
 ];
 
