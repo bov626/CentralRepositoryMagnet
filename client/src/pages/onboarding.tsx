@@ -718,8 +718,8 @@ export default function OnboardingPage() {
 
   return (
     <Layout>
-      <div className="h-full flex flex-col">
-        <div className="mb-6">
+      <div className="h-full flex flex-col overflow-hidden">
+        <div className="mb-4 shrink-0">
           <h1 className="text-2xl font-bold text-foreground" data-testid="page-title">
             Onboarding Pipeline
           </h1>
@@ -728,62 +728,67 @@ export default function OnboardingPage() {
           </p>
         </div>
 
-        <DndContext
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
-            {ONBOARDING_COLUMNS.map((column) => (
-              <OnboardingColumn
-                key={column.id}
-                column={column}
-                leads={getLeadsByStage(column.id)}
-                onOpenDetail={setSelectedLead}
-              />
-            ))}
-          </div>
+        {/* Top half: Onboarding Pipeline */}
+        <div className="flex-1 min-h-0 flex flex-col" style={{ maxHeight: '50%' }}>
+          <DndContext
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex gap-4 overflow-x-auto overflow-y-auto pb-4 flex-1 min-h-0">
+              {ONBOARDING_COLUMNS.map((column) => (
+                <OnboardingColumn
+                  key={column.id}
+                  column={column}
+                  leads={getLeadsByStage(column.id)}
+                  onOpenDetail={setSelectedLead}
+                />
+              ))}
+            </div>
 
-          <DragOverlay>
-            {activeLead && (
-              <div className="bg-zinc-800 border border-primary rounded-lg p-3 shadow-lg">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">{activeLead.name}</p>
-                    {activeLead.company && (
-                      <p className="text-xs text-muted-foreground">{activeLead.company}</p>
-                    )}
+            <DragOverlay>
+              {activeLead && (
+                <div className="bg-zinc-800 border border-primary rounded-lg p-3 shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{activeLead.name}</p>
+                      {activeLead.company && (
+                        <p className="text-xs text-muted-foreground">{activeLead.company}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
+              )}
+            </DragOverlay>
+          </DndContext>
+
+          {onboardingLeads.length === 0 && (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center text-muted-foreground">
+                <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="text-lg font-medium">No clients in onboarding yet</p>
+                <p className="text-sm">Move leads to "Closed" in the Pipeline to start onboarding them.</p>
               </div>
-            )}
-          </DragOverlay>
-        </DndContext>
-
-        {onboardingLeads.length === 0 && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-muted-foreground">
-              <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="text-lg font-medium">No clients in onboarding yet</p>
-              <p className="text-sm">Move leads to "Closed" in the Pipeline to start onboarding them.</p>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        <div className="mt-6 pt-4 border-t border-border">
+        {/* Link to questionnaire */}
+        <div className="py-3 border-t border-border shrink-0">
           <Link href="/questions1" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
             <ExternalLink className="h-4 w-4" />
             Open Client Onboarding Questionnaire
           </Link>
         </div>
 
+        {/* Bottom half: Submitted Forms */}
         {submissions.length > 0 && (
-          <div className="mt-8 pt-6 border-t border-border" data-testid="submissions-section">
-            <h2 className="text-xl font-bold text-foreground mb-4">Submitted Forms</h2>
-            <div className="space-y-3">
+          <div className="flex-1 min-h-0 flex flex-col border-t border-border pt-4" style={{ maxHeight: '45%' }} data-testid="submissions-section">
+            <h2 className="text-xl font-bold text-foreground mb-4 shrink-0">Submitted Forms</h2>
+            <div className="overflow-y-auto flex-1 min-h-0 space-y-3 pr-2">
               {submissions.map((submission) => (
                 <SubmissionCard key={submission.id} submission={submission} />
               ))}
