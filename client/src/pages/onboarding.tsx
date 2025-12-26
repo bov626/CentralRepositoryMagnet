@@ -634,15 +634,15 @@ function OnboardingColumn({
   });
 
   return (
-    <div className="flex-1 min-w-[200px] max-w-[280px]">
+    <div className="flex-shrink-0 w-[220px] h-full">
       <div 
         ref={setNodeRef}
         className={cn(
-          "bg-zinc-900 border border-zinc-700/50 rounded-xl p-3 h-full transition-colors",
+          "bg-zinc-900 border border-zinc-700/50 rounded-xl p-3 h-full flex flex-col transition-colors",
           isOver && "border-primary bg-primary/5"
         )}
       >
-        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-zinc-700/50">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-zinc-700/50 shrink-0">
           <span className="text-primary">{column.icon}</span>
           <h3 className="font-semibold text-sm text-foreground">{column.title}</h3>
           <span className="ml-auto text-xs text-muted-foreground bg-zinc-800 px-2 py-0.5 rounded-full">
@@ -650,7 +650,7 @@ function OnboardingColumn({
           </span>
         </div>
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-2 min-h-[100px]">
+          <div className="space-y-2 min-h-[100px] flex-1 overflow-y-auto">
             {leads.map((lead) => (
               <OnboardingCard key={lead.id} lead={lead} onOpenDetail={onOpenDetail} />
             ))}
@@ -729,13 +729,13 @@ export default function OnboardingPage() {
         </div>
 
         {/* Top half: Onboarding Pipeline */}
-        <div className="flex-1 min-h-0 flex flex-col" style={{ maxHeight: '50%' }}>
+        <div className="flex-1 min-h-0 flex flex-col" style={{ height: '45%', minHeight: '300px' }}>
           <DndContext
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex gap-4 overflow-x-auto overflow-y-auto pb-4 flex-1 min-h-0">
+            <div className="flex gap-4 overflow-x-auto pb-4 flex-1 min-h-0" style={{ height: '100%' }}>
               {ONBOARDING_COLUMNS.map((column) => (
                 <OnboardingColumn
                   key={column.id}
