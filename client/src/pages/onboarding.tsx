@@ -1,5 +1,5 @@
 import { useStore, OnboardingStage, Lead } from "@/lib/data";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, useDroppable } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, useDroppable, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState, useEffect, useRef } from "react";
@@ -671,6 +671,14 @@ export default function OnboardingPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
   const { data: submissions = [] } = useQuery<OnboardingSubmission[]>({
     queryKey: ['/api/onboarding-submissions'],
     queryFn: async () => {
@@ -731,6 +739,7 @@ export default function OnboardingPage() {
         {/* Top half: Onboarding Pipeline */}
         <div className="flex-1 min-h-0 flex flex-col" style={{ height: '45%', minHeight: '300px' }}>
           <DndContext
+            sensors={sensors}
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
