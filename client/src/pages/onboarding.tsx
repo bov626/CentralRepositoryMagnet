@@ -1,5 +1,5 @@
 import { useStore, OnboardingStage, Lead } from "@/lib/data";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, useDroppable, PointerSensor, MouseSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, useDroppable, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState, useEffect, useRef } from "react";
@@ -40,37 +40,33 @@ function OnboardingCard({ lead, onOpenDetail }: { lead: Lead; onOpenDetail: (lea
     id: lead.id,
   });
 
-  const style: React.CSSProperties = {
+  const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    touchAction: 'none',
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    if (!isDragging) {
-      onOpenDetail(lead);
-    }
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
       data-testid={`onboarding-card-${lead.id}`}
       className={cn(
-        "bg-zinc-800 border border-zinc-700 rounded-lg p-3 cursor-grab active:cursor-grabbing",
+        "bg-zinc-800 border border-zinc-700 rounded-lg p-3",
         "hover:border-primary/50 transition-colors",
-        isDragging && "opacity-50 shadow-lg"
+        isDragging && "opacity-50"
       )}
     >
-      <div className="flex items-center gap-2" onClick={handleClick}>
-        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+      <div className="flex items-center gap-2">
+        <div 
+          {...attributes}
+          {...listeners}
+          className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center cursor-grab active:cursor-grabbing flex-shrink-0"
+        >
           <User className="h-4 w-4 text-primary" />
         </div>
         <div 
-          className="flex-1 min-w-0"
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={() => onOpenDetail(lead)}
           data-testid={`open-detail-${lead.id}`}
         >
           <p className="font-medium text-sm text-foreground truncate hover:text-primary transition-colors">{lead.name}</p>
@@ -676,20 +672,9 @@ export default function OnboardingPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   const sensors = useSensors(
-    useSensor(MouseSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 100,
-        tolerance: 5,
-      },
-    }),
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5,
+        distance: 8,
       },
     })
   );
