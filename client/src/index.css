@@ -155,11 +155,28 @@
   /* Pointer cursor for interactive elements */
   button,
   [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  [role="link"],
+  [role="checkbox"],
+  [role="switch"],
+  [role="slider"],
   a,
   label[for],
   input[type="checkbox"],
   input[type="radio"],
+  input[type="submit"],
+  input[type="button"],
   select,
+  summary,
+  [onclick],
+  [data-testid*="button"],
+  [data-testid*="btn"],
+  [data-testid*="link"],
+  [data-testid*="open"],
+  [data-testid*="close"],
+  [data-testid*="toggle"],
   .cursor-pointer {
     cursor: pointer;
   }
