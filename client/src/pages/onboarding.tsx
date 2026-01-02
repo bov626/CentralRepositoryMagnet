@@ -49,24 +49,25 @@ function OnboardingCard({ lead, onOpenDetail }: { lead: Lead; onOpenDetail: (lea
     <div
       ref={setNodeRef}
       style={style}
+      {...attributes}
+      {...listeners}
       data-testid={`onboarding-card-${lead.id}`}
       className={cn(
-        "bg-zinc-800 border border-zinc-700 rounded-lg p-3",
+        "bg-zinc-800 border border-zinc-700 rounded-lg p-3 cursor-grab active:cursor-grabbing",
         "hover:border-primary/50 transition-colors",
         isDragging && "opacity-50"
       )}
     >
       <div className="flex items-center gap-2">
-        <div 
-          {...attributes}
-          {...listeners}
-          className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center cursor-grab active:cursor-grabbing flex-shrink-0"
-        >
+        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
           <User className="h-4 w-4 text-primary" />
         </div>
         <div 
           className="flex-1 min-w-0 cursor-pointer"
-          onClick={() => onOpenDetail(lead)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenDetail(lead);
+          }}
           data-testid={`open-detail-${lead.id}`}
         >
           <p className="font-medium text-sm text-foreground truncate hover:text-primary transition-colors">{lead.name}</p>
