@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-export type PipelineType = "jumpseat" | "community";
+// Just add "appliers" to the existing union
+export type PipelineType = "jumpseat" | "community" | "appliers";
 
-export type JumpseatStage = 
+export type JumpseatStage =
   | "backlog"
   | "pitch-call"
   | "decision-pending"
@@ -12,12 +13,12 @@ export type JumpseatStage =
   | "closed"
   | "disqualified";
 
-export type CommunityStage =
-  | "backlog"
-  | "to-pitch"
-  | "would-buy";
+export type CommunityStage = "backlog" | "to-pitch" | "would-buy";
 
-export type OnboardingStage = 
+// NEW: Applier hiring stages
+export type ApplierStage = "interview" | "to_hire" | "onboarded";
+
+export type OnboardingStage =
   | "future-cohort"
   | "call-1"
   | "call-2"
@@ -36,7 +37,7 @@ export interface Lead {
   onboardingStage?: OnboardingStage | null;
   nextFollowUp?: string | null; // ISO Date
   actionNeeded: boolean;
-  
+
   // Details
   summary?: string | null;
   keyTakeaways?: string[] | null;
@@ -74,13 +75,17 @@ interface StoreContextType {
   isLoading: boolean;
   emailingLead: Lead | null;
   setEmailingLead: (lead: Lead | null) => void;
-  addLead: (lead: Omit<Lead, "id" | "history" | "createdAt" | "updatedAt">) => void;
+  addLead: (
+    lead: Omit<Lead, "id" | "history" | "createdAt" | "updatedAt">,
+  ) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
   archiveLead: (id: string) => void;
   moveLead: (id: string, pipeline: PipelineType, stage: string) => void;
   moveOnboardingLead: (id: string, onboardingStage: OnboardingStage) => void;
-  addBlocker: (blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">) => void;
+  addBlocker: (
+    blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">,
+  ) => void;
   incrementBlocker: (id: string) => void;
 }
 
@@ -112,7 +117,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Add lead mutation
   const addLeadMutation = useMutation({
-    mutationFn: async (lead: Omit<Lead, "id" | "history" | "createdAt" | "updatedAt">) => {
+    mutationFn: async (
+      lead: Omit<Lead, "id" | "history" | "createdAt" | "updatedAt">,
+    ) => {
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -131,7 +138,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Update lead mutation with optimistic updates
   const updateLeadMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Lead> }) => {
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<Lead>;
+    }) => {
       const res = await fetch(`/api/leads/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -143,12 +156,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     onMutate: async ({ id, updates }) => {
       await queryClient.cancelQueries({ queryKey: ["leads"] });
       const previousLeads = queryClient.getQueryData<Lead[]>(["leads"]);
-      
+
       queryClient.setQueryData<Lead[]>(["leads"], (old) => {
         if (!old) return old;
-        return old.map((lead) => lead.id === id ? { ...lead, ...updates } : lead);
+        return old.map((lead) =>
+          lead.id === id ? { ...lead, ...updates } : lead,
+        );
       });
-      
+
       return { previousLeads };
     },
     onError: (_err, _variables, context) => {
@@ -177,7 +192,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Move lead mutation with optimistic updates for smooth drag-drop
   const moveLeadMutation = useMutation({
-    mutationFn: async ({ id, pipeline, stage }: { id: string; pipeline: PipelineType; stage: string }) => {
+    mutationFn: async ({
+      id,
+      pipeline,
+      stage,
+    }: {
+      id: string;
+      pipeline: PipelineType;
+      stage: string;
+    }) => {
       const lead = leads.find((l) => l.id === id);
       if (!lead) throw new Error("Lead not found");
 
@@ -185,14 +208,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const updates: Record<string, unknown> = {
         pipeline,
         stage,
-        history: [...updatedHistory, { date: new Date().toISOString(), action: `Moved to ${stage}` }],
+        history: [
+          ...updatedHistory,
+          { date: new Date().toISOString(), action: `Moved to ${stage}` },
+        ],
       };
-      
+
       // If moving to "closed", automatically add to onboarding at "call-1"
       if (stage === "closed" && !lead.onboardingStage) {
         updates.onboardingStage = "call-1";
       }
-      
+
       const res = await fetch(`/api/leads/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -204,10 +230,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     onMutate: async ({ id, pipeline, stage }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["leads"] });
-      
+
       // Snapshot previous value
       const previousLeads = queryClient.getQueryData<Lead[]>(["leads"]);
-      
+
       // Optimistically update the cache
       queryClient.setQueryData<Lead[]>(["leads"], (old) => {
         if (!old) return old;
@@ -217,13 +243,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ...lead,
               pipeline,
               stage,
-              onboardingStage: stage === "closed" && !lead.onboardingStage ? "call-1" as OnboardingStage : lead.onboardingStage,
+              onboardingStage:
+                stage === "closed" && !lead.onboardingStage
+                  ? ("call-1" as OnboardingStage)
+                  : lead.onboardingStage,
             };
           }
           return lead;
         });
       });
-      
+
       return { previousLeads };
     },
     onError: (_err, _variables, context) => {
@@ -239,7 +268,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Move onboarding lead mutation with optimistic updates
   const moveOnboardingLeadMutation = useMutation({
-    mutationFn: async ({ id, onboardingStage }: { id: string; onboardingStage: OnboardingStage }) => {
+    mutationFn: async ({
+      id,
+      onboardingStage,
+    }: {
+      id: string;
+      onboardingStage: OnboardingStage;
+    }) => {
       const lead = leads.find((l) => l.id === id);
       if (!lead) throw new Error("Lead not found");
 
@@ -251,13 +286,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         "document-creation": "Document Creation",
         "apply-ready": "Apply Ready",
       };
-      
+
       const res = await fetch(`/api/leads/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           onboardingStage,
-          history: [...updatedHistory, { date: new Date().toISOString(), action: `Onboarding: ${stageLabels[onboardingStage]}` }],
+          history: [
+            ...updatedHistory,
+            {
+              date: new Date().toISOString(),
+              action: `Onboarding: ${stageLabels[onboardingStage]}`,
+            },
+          ],
         }),
       });
       if (!res.ok) throw new Error("Failed to move onboarding lead");
@@ -266,12 +307,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     onMutate: async ({ id, onboardingStage }) => {
       await queryClient.cancelQueries({ queryKey: ["leads"] });
       const previousLeads = queryClient.getQueryData<Lead[]>(["leads"]);
-      
+
       queryClient.setQueryData<Lead[]>(["leads"], (old) => {
         if (!old) return old;
-        return old.map((lead) => lead.id === id ? { ...lead, onboardingStage } : lead);
+        return old.map((lead) =>
+          lead.id === id ? { ...lead, onboardingStage } : lead,
+        );
       });
-      
+
       return { previousLeads };
     },
     onError: (_err, _variables, context) => {
@@ -286,7 +329,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Add blocker mutation
   const addBlockerMutation = useMutation({
-    mutationFn: async (blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">) => {
+    mutationFn: async (
+      blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">,
+    ) => {
       const res = await fetch("/api/blockers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -323,7 +368,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const addLead = (lead: Omit<Lead, "id" | "history" | "createdAt" | "updatedAt">) => {
+  const addLead = (
+    lead: Omit<Lead, "id" | "history" | "createdAt" | "updatedAt">,
+  ) => {
     addLeadMutation.mutate(lead);
   };
 
@@ -347,7 +394,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     moveOnboardingLeadMutation.mutate({ id, onboardingStage });
   };
 
-  const addBlocker = (blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">) => {
+  const addBlocker = (
+    blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">,
+  ) => {
     addBlockerMutation.mutate(blocker);
   };
 
@@ -356,24 +405,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   // Filter out archived leads from the active leads list
-  const activeLeads = leads.filter(lead => !lead.archived);
+  const activeLeads = leads.filter((lead) => !lead.archived);
 
   return (
     <StoreContext.Provider
-      value={{ 
-        leads: activeLeads, 
-        blockers, 
+      value={{
+        leads: activeLeads,
+        blockers,
         isLoading: leadsLoading || blockersLoading,
         emailingLead,
         setEmailingLead,
-        addLead, 
+        addLead,
         updateLead,
         deleteLead,
         archiveLead,
-        moveLead, 
+        moveLead,
         moveOnboardingLead,
-        addBlocker, 
-        incrementBlocker 
+        addBlocker,
+        incrementBlocker,
       }}
     >
       {children}
