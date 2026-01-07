@@ -16,7 +16,7 @@ export const leads = pgTable("leads", {
   linkedIn: text("linked_in"),
   email: text("email"),
   tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
-  pipeline: text("pipeline").notNull(), // "jumpseat" | "community" | "appliers"
+  pipeline: text("pipeline").notNull(), // "jumpseat" | "community"
   stage: text("stage").notNull(),
   onboardingStage: text("onboarding_stage"), // null = not onboarding, or "future-cohort" | "call-1" | "call-2" | "document-creation" | "apply-ready"
   nextFollowUp: timestamp("next_follow_up"),
@@ -27,7 +27,6 @@ export const leads = pgTable("leads", {
   followUpAngle: text("follow_up_angle"),
   recordingLink: text("recording_link"),
   calendarEventId: text("calendar_event_id"), // Google Calendar event ID for deduplication
-  meetingDate: timestamp("meeting_date"), // Date/time of the call from Google Calendar
   fathomRecordingId: integer("fathom_recording_id"), // Fathom recording ID for tracking enrichment
   coverLetterIdeas: text("cover_letter_ideas"), // Cover letter ideas/notes for this lead
   onboardingNotes: text("onboarding_notes"), // General notes for onboarding
