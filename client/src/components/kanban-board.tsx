@@ -29,7 +29,7 @@ import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
-import { Search, X, Video, Users } from "lucide-react";
+import { Search, X, Video } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 // Column Definitions
@@ -63,6 +63,7 @@ const DEFAULT_STAGES: Record<PipelineType, string> = {
 };
 
 type ActiveTab = "jumpseat" | "community" | "appliers";
+type ColorScheme = "default" | "purple" | "emerald";
 
 interface UnifiedKanbanBoardProps {
   onLeadClick: (id: string) => void;
@@ -96,7 +97,7 @@ function DroppableTab({
         isActive && pipeline === "jumpseat" && "border-primary text-primary",
         isActive &&
           pipeline === "community" &&
-          "border-secondary text-secondary-foreground",
+          "border-purple-500 text-purple-400",
         isActive &&
           pipeline === "appliers" &&
           "border-emerald-500 text-emerald-400",
@@ -105,7 +106,16 @@ function DroppableTab({
         // Highlight when dragging over
         isOver &&
           activeId &&
+          pipeline === "jumpseat" &&
           "bg-primary/20 border-primary ring-2 ring-primary/50 scale-105",
+        isOver &&
+          activeId &&
+          pipeline === "community" &&
+          "bg-purple-500/20 border-purple-500 ring-2 ring-purple-500/50 scale-105",
+        isOver &&
+          activeId &&
+          pipeline === "appliers" &&
+          "bg-emerald-500/20 border-emerald-500 ring-2 ring-emerald-500/50 scale-105",
       )}
     >
       {children}
@@ -335,7 +345,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
             activeId={activeId}
           >
             <span className="flex items-center gap-2">
-              <span className="w-2 h-4 bg-secondary rounded-sm block"></span>
+              <span className="w-2 h-4 bg-purple-500 rounded-sm block"></span>
               Community Pipeline
               <span className="text-xs opacity-70 tabular-nums">
                 (
@@ -351,7 +361,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
             activeId={activeId}
           >
             <span className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
+              <span className="w-2 h-4 bg-emerald-500 rounded-sm block"></span>
               Appliers Pipeline
               <span className="text-xs opacity-70 tabular-nums">
                 ({filteredLeads.filter((l) => l.pipeline === "appliers").length}
@@ -412,6 +422,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
                   showGhost={overColumnId === col.id && activeId !== null}
                   ghostLead={activeLead}
                   activeId={activeId}
+                  colorScheme="default"
                 />
               ))}
             </div>
@@ -438,8 +449,13 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
                   showGhost={overColumnId === col.id && activeId !== null}
                   ghostLead={activeLead}
                   activeId={activeId}
+                  colorScheme="purple"
                 />
               ))}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2 px-1">
+              <Video className="h-3 w-3 text-purple-500" />
+              <span>= Enhanced with Fathom notes</span>
             </div>
           </section>
         )}
@@ -478,9 +494,9 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
             <div
               className={cn(
                 "w-[280px] cursor-grabbing scale-105 shadow-2xl",
-                activeLead.pipeline === "appliers"
-                  ? "shadow-emerald-500/20"
-                  : "shadow-primary/20",
+                activeLead.pipeline === "appliers" && "shadow-emerald-500/20",
+                activeLead.pipeline === "community" && "shadow-purple-500/20",
+                activeLead.pipeline === "jumpseat" && "shadow-primary/20",
               )}
               style={{
                 transform: `rotate(${dragRotation}deg)`,
@@ -514,7 +530,7 @@ function KanbanColumn({
   showGhost?: boolean;
   ghostLead?: Lead | null;
   activeId?: string | null;
-  colorScheme?: "default" | "emerald";
+  colorScheme?: ColorScheme;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -523,6 +539,7 @@ function KanbanColumn({
     ? leads.filter((l) => l.id !== activeId)
     : leads;
 
+  const isPurple = colorScheme === "purple";
   const isEmerald = colorScheme === "emerald";
 
   return (
@@ -531,9 +548,15 @@ function KanbanColumn({
       className={cn(
         "flex-shrink-0 w-[280px] flex flex-col h-full rounded-lg border transition-all duration-200",
         "bg-zinc-900/80 border-zinc-700/50 shadow-lg",
+        // Default (Jumpseat) hover
         isOver &&
-          !isEmerald &&
+          colorScheme === "default" &&
           "bg-zinc-800/90 border-primary/40 ring-1 ring-primary/30 shadow-inner",
+        // Purple (Community) hover
+        isOver &&
+          isPurple &&
+          "bg-purple-950/30 border-purple-500/40 ring-1 ring-purple-500/30 shadow-inner",
+        // Emerald (Appliers) hover
         isOver &&
           isEmerald &&
           "bg-emerald-950/30 border-emerald-500/40 ring-1 ring-emerald-500/30 shadow-inner",
@@ -542,15 +565,17 @@ function KanbanColumn({
       <div
         className={cn(
           "p-3 border-b flex items-center justify-between sticky top-0 backdrop-blur-md rounded-t-lg z-10",
-          isEmerald
-            ? "border-emerald-700/30 bg-emerald-900/20"
-            : "border-zinc-700/50 bg-zinc-900/90",
+          colorScheme === "default" && "border-zinc-700/50 bg-zinc-900/90",
+          isPurple && "border-purple-700/30 bg-purple-900/20",
+          isEmerald && "border-emerald-700/30 bg-emerald-900/20",
         )}
       >
         <h3
           className={cn(
             "font-medium text-sm uppercase tracking-wider",
-            isEmerald ? "text-emerald-400" : "text-muted-foreground",
+            colorScheme === "default" && "text-muted-foreground",
+            isPurple && "text-purple-400",
+            isEmerald && "text-emerald-400",
           )}
         >
           {title}
@@ -558,9 +583,11 @@ function KanbanColumn({
         <span
           className={cn(
             "text-xs font-mono px-1.5 py-0.5 rounded border",
-            isEmerald
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-              : "bg-white/5 text-muted-foreground border-white/5",
+            colorScheme === "default" &&
+              "bg-white/5 text-muted-foreground border-white/5",
+            isPurple && "bg-purple-500/10 text-purple-400 border-purple-500/20",
+            isEmerald &&
+              "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
           )}
         >
           {leads.length}
@@ -585,16 +612,18 @@ function KanbanColumn({
           <div
             className={cn(
               "border-2 border-dashed rounded-md p-3 animate-pulse",
-              isEmerald
-                ? "bg-emerald-500/10 border-emerald-500/40"
-                : "bg-primary/10 border-primary/40",
+              colorScheme === "default" && "bg-primary/10 border-primary/40",
+              isPurple && "bg-purple-500/10 border-purple-500/40",
+              isEmerald && "bg-emerald-500/10 border-emerald-500/40",
             )}
           >
             <div className="flex justify-between items-start mb-2">
               <h4
                 className={cn(
                   "font-semibold text-sm leading-tight line-clamp-2",
-                  isEmerald ? "text-emerald-400/70" : "text-primary/70",
+                  colorScheme === "default" && "text-primary/70",
+                  isPurple && "text-purple-400/70",
+                  isEmerald && "text-emerald-400/70",
                 )}
               >
                 {ghostLead.name}
@@ -604,7 +633,9 @@ function KanbanColumn({
               <p
                 className={cn(
                   "text-xs mb-2",
-                  isEmerald ? "text-emerald-400/50" : "text-primary/50",
+                  colorScheme === "default" && "text-primary/50",
+                  isPurple && "text-purple-400/50",
+                  isEmerald && "text-emerald-400/50",
                 )}
               >
                 {ghostLead.company}
@@ -616,9 +647,12 @@ function KanbanColumn({
                   key={tag}
                   className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded-sm border",
-                    isEmerald
-                      ? "bg-emerald-500/10 text-emerald-400/50 border-emerald-500/20"
-                      : "bg-primary/10 text-primary/50 border-primary/20",
+                    colorScheme === "default" &&
+                      "bg-primary/10 text-primary/50 border-primary/20",
+                    isPurple &&
+                      "bg-purple-500/10 text-purple-400/50 border-purple-500/20",
+                    isEmerald &&
+                      "bg-emerald-500/10 text-emerald-400/50 border-emerald-500/20",
                   )}
                 >
                   {tag}
@@ -632,16 +666,20 @@ function KanbanColumn({
           <div
             className={cn(
               "h-24 border-2 border-dashed rounded-md flex items-center justify-center transition-colors",
+              isOver &&
+                colorScheme === "default" &&
+                "border-primary/40 bg-primary/5",
+              isOver && isPurple && "border-purple-500/40 bg-purple-500/5",
               isOver && isEmerald && "border-emerald-500/40 bg-emerald-500/5",
-              isOver && !isEmerald && "border-primary/40 bg-primary/5",
               !isOver && "border-zinc-600/30",
             )}
           >
             <span
               className={cn(
                 "text-xs",
+                isOver && colorScheme === "default" && "text-primary/70",
+                isOver && isPurple && "text-purple-400/70",
                 isOver && isEmerald && "text-emerald-400/70",
-                isOver && !isEmerald && "text-primary/70",
                 !isOver && "text-muted-foreground/50",
               )}
             >

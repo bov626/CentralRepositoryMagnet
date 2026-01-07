@@ -126,15 +126,15 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
 
   const handleCompleteActionItem = (index: number, itemText: string) => {
     if (!lead) return;
-    
+
     // Add to completing animation set
     setCompletingItems(prev => new Set(prev).add(index));
-    
+
     // After animation, remove item and add to history
     setTimeout(() => {
       const updatedItems = (lead.actionItems || []).filter((_, i) => i !== index);
       const existingHistory = Array.isArray(lead.history) ? lead.history : [];
-      
+
       updateLead(lead.id, { 
         actionItems: updatedItems,
         history: [...existingHistory, {
@@ -142,7 +142,7 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
           action: `Completed: ${itemText}`
         }]
       });
-      
+
       setCompletingItems(prev => {
         const newSet = new Set(prev);
         newSet.delete(index);
@@ -190,122 +190,110 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                         onChange={(e) => setEditableName(e.target.value)}
                         onBlur={handleSaveName}
                         onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
-                        className="text-2xl font-bold tracking-tight text-foreground bg-transparent border-b-2 border-primary focus:outline-none w-full"
+                        className="text-2xl font-bold bg-transparent border-b border-primary focus:outline-none w-full"
                         autoFocus
                         data-testid="input-lead-name"
                       />
                     ) : (
                       <h2 
-                        className="text-2xl font-bold tracking-tight text-foreground cursor-pointer hover:text-primary transition-colors"
+                        className="text-2xl font-bold cursor-pointer hover:text-primary transition-colors truncate"
                         onClick={() => setIsEditingName(true)}
                         title="Click to edit name"
                       >
                         {lead.name}
                       </h2>
                     )}
-                    {lead.email && (
-                      <a href={`mailto:${lead.email}`} className="text-muted-foreground hover:text-primary text-sm">
-                        {lead.email}
-                      </a>
-                    )}
-                                    </div>
-                <div className="flex gap-2 items-center">
-                    {hasActionNeeded && (
-                        <Badge variant="destructive" className="animate-pulse">Action Needed</Badge>
-                    )}
+                    {lead.company && <p className="text-muted-foreground text-sm">{lead.company}</p>}
                 </div>
-            </div>
-            
-            <div className="flex flex-wrap gap-2 mb-4">
-                {lead.tags.map(tag => (
-                    <Badge 
-                        key={tag} 
-                        variant="outline" 
-                        className="bg-background/50 backdrop-blur-sm px-2 py-0.5 text-xs font-mono group/tag flex items-center gap-1"
-                    >
-                        {tag}
-                        <button 
-                            onClick={() => handleRemoveTag(tag)}
-                            className="opacity-0 group-hover/tag:opacity-100 hover:text-red-400 transition-opacity"
-                            data-testid={`button-remove-tag-${tag}`}
-                        >
-                            <X className="h-3 w-3" />
-                        </button>
+                {hasActionNeeded && (
+                    <Badge variant="destructive" className="ml-2 bg-orange-500/20 text-orange-400 border-orange-500/30 shrink-0">
+                        Action Needed
                     </Badge>
-                ))}
-                {isAddingTag ? (
-                    <div className="flex items-center gap-1">
-                        <Input
-                            value={newTag}
-                            onChange={(e) => setNewTag(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                            placeholder="Tag name..."
-                            className="h-6 w-24 text-xs px-2"
-                            autoFocus
-                            data-testid="input-new-tag"
-                        />
-                        <Button size="sm" variant="ghost" className="h-6 px-2" onClick={handleAddTag} data-testid="button-save-tag">
-                            <Plus className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => { setIsAddingTag(false); setNewTag(""); }}>
-                            <X className="h-3 w-3" />
-                        </Button>
-                    </div>
-                ) : (
-                    <button 
-                        onClick={() => setIsAddingTag(true)}
-                        className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 px-2 py-0.5 border border-dashed border-muted-foreground/30 rounded hover:border-primary transition-colors"
-                        data-testid="button-add-tag"
-                    >
-                        <Plus className="h-3 w-3" /> Add Tag
-                    </button>
                 )}
             </div>
 
-            <div className="flex flex-col gap-3">
-                 {/* LinkedIn Field */}
+            {/* Tags */}
+            <div className="flex flex-wrap gap-1.5 mb-4">
+                {lead.tags.map((tag) => (
+                    <Badge 
+                      key={tag} 
+                      variant="secondary" 
+                      className="text-xs group cursor-pointer hover:bg-destructive/20"
+                      onClick={() => handleRemoveTag(tag)}
+                    >
+                        {tag}
+                        <X className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Badge>
+                ))}
+                {isAddingTag ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                      onBlur={() => { handleAddTag(); setIsAddingTag(false); }}
+                      placeholder="Tag name"
+                      className="h-6 w-24 text-xs"
+                      autoFocus
+                      data-testid="input-new-tag"
+                    />
+                  </div>
+                ) : (
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs cursor-pointer hover:bg-muted"
+                    onClick={() => setIsAddingTag(true)}
+                    data-testid="button-add-tag"
+                  >
+                    <Plus className="h-3 w-3 mr-1" /> Add Tag
+                  </Badge>
+                )}
+            </div>
+
+            {/* Contact Info */}
+            <div className="flex flex-col gap-2 text-sm">
+                {lead.email && (
+                    <a href={`mailto:${lead.email}`} className="text-primary hover:underline flex items-center gap-2">
+                        {lead.email}
+                    </a>
+                )}
                 <div className="flex items-center gap-2">
-                    <Linkedin className="h-4 w-4 text-[#0077b5]" />
-                    <Input 
+                    <Linkedin className="h-4 w-4 text-muted-foreground" />
+                    <Input
                         value={linkedInUrl}
                         onChange={(e) => setLinkedInUrl(e.target.value)}
                         onBlur={handleSaveLinkedIn}
-                        placeholder="Paste LinkedIn URL..."
-                        className="h-7 text-xs bg-transparent border-transparent hover:border-border focus:border-primary px-1 w-full max-w-[300px]"
+                        placeholder="Add LinkedIn URL"
+                        className="h-7 text-xs bg-transparent border-none p-0 focus-visible:ring-0"
+                        data-testid="input-linkedin"
                     />
                     {linkedInUrl && (
-                        <a href={linkedInUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary">
+                        <a href={linkedInUrl} target="_blank" rel="noreferrer" className="text-primary">
                             <ExternalLink className="h-3 w-3" />
                         </a>
                     )}
                 </div>
+            </div>
 
-                <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                    <div className="flex items-center gap-1.5">
-                        <Calendar className="h-4 w-4" />
-                        <span>Created {format(new Date(lead.history[0].date), "MMM d")}</span>
-                    </div>
-                </div>
-
-                {/* Editable Follow-up Date */}
-                <div className="flex items-center gap-2 mt-3">
-                    <Clock className="h-4 w-4 text-orange-400" />
-                    <span className="text-sm text-muted-foreground">Follow-up:</span>
+            {/* Follow-up Date */}
+            <div className="mt-4 pt-4 border-t border-border/50">
+                <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Next Follow-up:</span>
                     <input
                         type="date"
                         value={followUpDate}
                         onChange={(e) => {
-                          const newDate = e.target.value;
-                          setFollowUpDate(newDate);
-                          handleSaveFollowUp(newDate);
+                            setFollowUpDate(e.target.value);
+                            handleSaveFollowUp(e.target.value);
                         }}
-                        className="bg-transparent border border-border/50 rounded px-2 py-1 text-sm focus:border-primary focus:outline-none"
+                        className="bg-transparent border-none text-sm focus:outline-none cursor-pointer"
                         data-testid="input-follow-up-date"
                     />
                     {followUpDate && (
-                        <button
+                        <button 
                             onClick={handleClearFollowUp}
-                            className="text-muted-foreground hover:text-red-400 p-1"
+                            className="text-muted-foreground hover:text-destructive"
                             title="Clear date"
                             data-testid="button-clear-follow-up"
                         >
@@ -329,6 +317,12 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                         </a>
                     )}
                 </div>
+                {lead.meetingDate && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        {format(new Date(lead.meetingDate), "EEEE, MMMM d, yyyy 'at' h:mm a")}
+                    </p>
+                )}
                 <div className="bg-muted/30 rounded-md p-4 border border-border/50">
                     <Textarea 
                         value={notes} 
@@ -425,7 +419,7 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
             </section>
 
             <Separator />
-            
+
             {/* History Log */}
             <section className="space-y-4">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Activity History</h3>

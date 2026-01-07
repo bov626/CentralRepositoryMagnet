@@ -1,10 +1,19 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertLeadSchema, insertBlockerSchema, insertOnboardingSubmissionSchema } from "@shared/schema";
+import {
+  insertLeadSchema,
+  insertBlockerSchema,
+  insertOnboardingSubmissionSchema,
+} from "@shared/schema";
 import { z } from "zod";
 import { getUpcomingEvents, createEvent } from "./google-calendar";
-import { listMeetings, getMeeting, extractLeadDataFromMeeting, isFathomConfigured } from "./fathom";
+import {
+  listMeetings,
+  getMeeting,
+  extractLeadDataFromMeeting,
+  isFathomConfigured,
+} from "./fathom";
 import { summarizeClientNeeds } from "./ai-summarize";
 import { sendEmail, isGmailConfigured } from "./gmail";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -14,9 +23,8 @@ const activeSessions = new Map<string, number>();
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
 ): Promise<Server> {
-  
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
 
@@ -24,42 +32,42 @@ export async function registerRoutes(
   app.post("/api/auth/login", (req, res) => {
     const { password } = req.body;
     const adminPassword = process.env.ADMIN_PASSWORD;
-    
+
     if (!adminPassword) {
       console.error("ADMIN_PASSWORD environment variable not set");
       return res.status(500).json({ error: "Authentication not configured" });
     }
-    
+
     if (password === adminPassword) {
       const token = crypto.randomBytes(32).toString("hex");
       const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
       activeSessions.set(token, expiresAt);
       return res.json({ success: true, token });
     }
-    
+
     return res.status(401).json({ success: false, error: "Invalid password" });
   });
 
   app.post("/api/auth/verify", (req, res) => {
     const { token } = req.body;
-    
+
     if (!token) {
       return res.json({ valid: false });
     }
-    
+
     const expiresAt = activeSessions.get(token);
     if (!expiresAt) {
       return res.json({ valid: false });
     }
-    
+
     if (Date.now() > expiresAt) {
       activeSessions.delete(token);
       return res.json({ valid: false });
     }
-    
+
     return res.json({ valid: true });
   });
-  
+
   // Lead routes
   app.get("/api/leads", async (req, res) => {
     try {
@@ -91,7 +99,9 @@ export async function registerRoutes(
       res.status(201).json(newLead);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid lead data", details: error.errors });
+        return res
+          .status(400)
+          .json({ error: "Invalid lead data", details: error.errors });
       }
       console.error("Error creating lead:", error);
       res.status(500).json({ error: "Failed to create lead" });
@@ -103,9 +113,11 @@ export async function registerRoutes(
       // Convert date strings to Date objects for timestamp fields
       const updates = { ...req.body };
       if (updates.nextFollowUp !== undefined) {
-        updates.nextFollowUp = updates.nextFollowUp ? new Date(updates.nextFollowUp) : null;
+        updates.nextFollowUp = updates.nextFollowUp
+          ? new Date(updates.nextFollowUp)
+          : null;
       }
-      
+
       const updatedLead = await storage.updateLead(req.params.id, updates);
       if (!updatedLead) {
         return res.status(404).json({ error: "Lead not found" });
@@ -148,7 +160,9 @@ export async function registerRoutes(
       res.status(201).json(newBlocker);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid blocker data", details: error.errors });
+        return res
+          .status(400)
+          .json({ error: "Invalid blocker data", details: error.errors });
       }
       console.error("Error creating blocker:", error);
       res.status(500).json({ error: "Failed to create blocker" });
@@ -157,7 +171,10 @@ export async function registerRoutes(
 
   app.patch("/api/blockers/:id", async (req, res) => {
     try {
-      const updatedBlocker = await storage.updateBlocker(req.params.id, req.body);
+      const updatedBlocker = await storage.updateBlocker(
+        req.params.id,
+        req.body,
+      );
       if (!updatedBlocker) {
         return res.status(404).json({ error: "Blocker not found" });
       }
@@ -175,24 +192,29 @@ export async function registerRoutes(
       res.json(events);
     } catch (error: any) {
       console.error("Error fetching calendar events:", error);
-      res.status(500).json({ error: error.message || "Failed to fetch calendar events" });
+      res
+        .status(500)
+        .json({ error: error.message || "Failed to fetch calendar events" });
     }
   });
 
   app.post("/api/calendar/events", async (req, res) => {
     try {
-      const { summary, description, startTime, endTime, attendeeEmail } = req.body;
+      const { summary, description, startTime, endTime, attendeeEmail } =
+        req.body;
       const event = await createEvent(
         summary,
         description,
         new Date(startTime),
         new Date(endTime),
-        attendeeEmail
+        attendeeEmail,
       );
       res.status(201).json(event);
     } catch (error: any) {
       console.error("Error creating calendar event:", error);
-      res.status(500).json({ error: error.message || "Failed to create calendar event" });
+      res
+        .status(500)
+        .json({ error: error.message || "Failed to create calendar event" });
     }
   });
 
@@ -213,7 +235,9 @@ export async function registerRoutes(
       res.json(meetings);
     } catch (error: any) {
       console.error("Error fetching Fathom meetings:", error);
-      res.status(500).json({ error: error.message || "Failed to fetch meetings from Fathom" });
+      res.status(500).json({
+        error: error.message || "Failed to fetch meetings from Fathom",
+      });
     }
   });
 
@@ -222,60 +246,77 @@ export async function registerRoutes(
       if (!isFathomConfigured()) {
         return res.status(400).json({ error: "Fathom API key not configured" });
       }
-      
+
       const recordingId = parseInt(req.params.recordingId);
       const meeting = await getMeeting(recordingId);
-      
+
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }
-      
+
       const leadData = extractLeadDataFromMeeting(meeting);
-      
+
       // Use AI to summarize just the client's needs (not the pitch)
       let clientSummary = leadData.summary;
       try {
-        clientSummary = await summarizeClientNeeds(leadData.summary, leadData.actionItems);
+        clientSummary = await summarizeClientNeeds(
+          leadData.summary,
+          leadData.actionItems,
+        );
       } catch (error) {
         console.error("AI summarization failed, using original:", error);
       }
-      
+
       // Check if lead with this email already exists - ENHANCE instead of duplicate
       let existingLead = null;
       if (leadData.email) {
         existingLead = await storage.getLeadByEmail(leadData.email);
       }
-      
+
       if (existingLead) {
         // Enhance existing lead with Fathom data - APPEND instead of replace
-        const existingHistory = Array.isArray(existingLead.history) ? existingLead.history : [];
-        const existingActionItems = Array.isArray(existingLead.actionItems) ? existingLead.actionItems : [];
-        
+        const existingHistory = Array.isArray(existingLead.history)
+          ? existingLead.history
+          : [];
+        const existingActionItems = Array.isArray(existingLead.actionItems)
+          ? existingLead.actionItems
+          : [];
+
         // Check if lead is in onboarding (closed in Jumpseat pipeline with onboardingStage explicitly set)
         // This means the lead has graduated from active sales and is now being onboarded
         // Subsequent Fathom imports should only append to summary for the onboarding panel view
-        const isInOnboarding = existingLead.pipeline === 'jumpseat' && 
-                               existingLead.stage === 'closed' && 
-                               existingLead.onboardingStage !== null && 
-                               existingLead.onboardingStage !== undefined;
-        
+        const isInOnboarding =
+          existingLead.pipeline === "jumpseat" &&
+          existingLead.stage === "closed" &&
+          existingLead.onboardingStage !== null &&
+          existingLead.onboardingStage !== undefined;
+
         // Append summary: keep existing notes, add new Fathom summary below
-        let combinedSummary = existingLead.summary || '';
+        let combinedSummary = existingLead.summary || "";
         if (clientSummary) {
-          const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-          const separator = combinedSummary ? `\n\n--- Fathom Call (${dateStr}) ---\n` : '';
+          const dateStr = new Date().toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          const separator = combinedSummary
+            ? `\n\n--- Fathom Call (${dateStr}) ---\n`
+            : "";
           combinedSummary = combinedSummary + separator + clientSummary;
         }
-        
+
         if (isInOnboarding) {
           // For onboarding leads: ONLY append to summary and update history
           // Do NOT update pipeline-facing fields (actionItems, recordingLink, nextFollowUp, etc.)
           const updatedLead = await storage.updateLead(existingLead.id, {
             summary: combinedSummary,
-            history: [...existingHistory, {
-              date: new Date().toISOString(),
-              action: `Onboarding call added: ${meeting.title}`
-            }],
+            history: [
+              ...existingHistory,
+              {
+                date: new Date().toISOString(),
+                action: `Onboarding call added: ${meeting.title}`,
+              },
+            ],
           });
           res.status(200).json(updatedLead);
         } else {
@@ -288,17 +329,22 @@ export async function registerRoutes(
               mergedActionItems.push(item);
             }
           }
-          
+
           const updatedLead = await storage.updateLead(existingLead.id, {
             summary: combinedSummary,
             actionItems: mergedActionItems,
             recordingLink: leadData.recordingLink,
             fathomRecordingId: recordingId,
-            nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : existingLead.nextFollowUp,
-            history: [...existingHistory, {
-              date: new Date().toISOString(),
-              action: `Enhanced with Fathom call: ${meeting.title}`
-            }],
+            nextFollowUp: leadData.nextFollowUp
+              ? new Date(leadData.nextFollowUp)
+              : existingLead.nextFollowUp,
+            history: [
+              ...existingHistory,
+              {
+                date: new Date().toISOString(),
+                action: `Enhanced with Fathom call: ${meeting.title}`,
+              },
+            ],
           });
           res.status(200).json(updatedLead);
         }
@@ -313,22 +359,28 @@ export async function registerRoutes(
           pipeline: "jumpseat",
           stage: "backlog",
           onboardingStage: null,
-          nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : null,
+          nextFollowUp: leadData.nextFollowUp
+            ? new Date(leadData.nextFollowUp)
+            : null,
           summary: clientSummary,
           actionItems: leadData.actionItems,
           followUpAngle: null,
           recordingLink: leadData.recordingLink,
           fathomRecordingId: recordingId,
-          history: [{
-            date: new Date().toISOString(),
-            action: `Imported from Fathom: ${meeting.title}`
-          }],
+          history: [
+            {
+              date: new Date().toISOString(),
+              action: `Imported from Fathom: ${meeting.title}`,
+            },
+          ],
         });
         res.status(201).json(newLead);
       }
     } catch (error: any) {
       console.error("Error importing from Fathom:", error);
-      res.status(500).json({ error: error.message || "Failed to import meeting" });
+      res
+        .status(500)
+        .json({ error: error.message || "Failed to import meeting" });
     }
   });
 
@@ -338,64 +390,90 @@ export async function registerRoutes(
       const events = await getUpcomingEvents(20);
       const createdLeads: any[] = [];
       const skippedCount = { existing: 0, noAttendee: 0 };
-      
+
       for (const event of events) {
         // Get external attendee (not self)
         const attendees = event.attendees || [];
-        const externalAttendee = attendees.find(a => !a.self && !a.organizer && a.email);
-        
+        const externalAttendee = attendees.find(
+          (a) => !a.self && !a.organizer && a.email,
+        );
+
         if (!externalAttendee || !externalAttendee.email) {
           skippedCount.noAttendee++;
           continue;
         }
-        
+
         // Check if lead already exists with this email or calendar event ID
-        const existingByEmail = await storage.getLeadByEmail(externalAttendee.email);
-        const existingByEvent = event.id ? await storage.getLeadByCalendarEventId(event.id) : null;
-        
+        const existingByEmail = await storage.getLeadByEmail(
+          externalAttendee.email,
+        );
+        const existingByEvent = event.id
+          ? await storage.getLeadByCalendarEventId(event.id)
+          : null;
+
         if (existingByEmail || existingByEvent) {
           skippedCount.existing++;
           continue;
         }
-        
+
         // Create new lead from calendar event
         // Priority: 1) displayName from Google, 2) Parse name from event title (before "and"/"with"), 3) formatted email prefix
         let attendeeName = externalAttendee.displayName;
-        
+
         if (!attendeeName) {
-          const eventTitle = event.summary || '';
+          const eventTitle = event.summary || "";
           // Parse name from event title: "Michael McClellan and Wilson Wye" -> "Michael McClellan"
           // Common patterns: "Name and Name", "Name with Name", "Name - Name", "Name/Name"
-          const namePart = eventTitle.split(/\s+(and|with|&|-|\/)\s+/i)[0]?.trim();
-          
+          const namePart = eventTitle
+            .split(/\s+(and|with|&|-|\/)\s+/i)[0]
+            ?.trim();
+
           // Check if the extracted part looks like a name (2-4 words, letters only, reasonable length)
-          const looksLikeName = namePart && /^[A-Za-z]+(\s[A-Za-z]+){0,3}$/.test(namePart) && namePart.length < 40;
-          
+          const looksLikeName =
+            namePart &&
+            /^[A-Za-z]+(\s[A-Za-z]+){0,3}$/.test(namePart) &&
+            namePart.length < 40;
+
           if (looksLikeName) {
             attendeeName = namePart;
           } else {
             // Fallback: Convert email prefix to proper name: "carl.j.noonan" -> "Carl J Noonan"
-            const emailPrefix = externalAttendee.email.split('@')[0];
+            const emailPrefix = externalAttendee.email.split("@")[0];
             attendeeName = emailPrefix
-              .replace(/[._-]/g, ' ')
-              .replace(/\d+/g, '')
+              .replace(/[._-]/g, " ")
+              .replace(/\d+/g, "")
               .trim()
-              .split(' ')
-              .filter(w => w.length > 0)
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-              .join(' ');
+              .split(" ")
+              .filter((w) => w.length > 0)
+              .map(
+                (word) =>
+                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+              )
+              .join(" ");
           }
         }
-        
+
         // Extract company from email domain (only for non-personal email domains)
-        const emailDomain = externalAttendee.email.split('@')[1] || '';
-        const personalDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'protonmail.com', 'aol.com'];
-        const company = personalDomains.includes(emailDomain.toLowerCase()) 
-          ? null 
-          : emailDomain.replace(/\.(com|org|net|io|co|edu)$/i, '').split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        
+        const emailDomain = externalAttendee.email.split("@")[1] || "";
+        const personalDomains = [
+          "gmail.com",
+          "yahoo.com",
+          "hotmail.com",
+          "outlook.com",
+          "icloud.com",
+          "protonmail.com",
+          "aol.com",
+        ];
+        const company = personalDomains.includes(emailDomain.toLowerCase())
+          ? null
+          : emailDomain
+              .replace(/\.(com|org|net|io|co|edu)$/i, "")
+              .split(".")
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" ");
+
         const newLead = await storage.createLead({
-          name: attendeeName || 'Unknown',
+          name: attendeeName || "Unknown",
           email: externalAttendee.email,
           company,
           linkedIn: null,
@@ -404,31 +482,35 @@ export async function registerRoutes(
           stage: "backlog",
           onboardingStage: null,
           nextFollowUp: null, // Don't auto-set follow-up - only from Fathom or manual entry
-          actionNeeded: true,
-          summary: `Upcoming call: ${event.summary || 'Meeting'}`,
+          summary: `Upcoming call: ${event.summary || "Meeting"}`,
           keyTakeaways: [],
-          blocker: null,
-          decisionTrigger: null,
           followUpAngle: null,
           recordingLink: null,
           calendarEventId: event.id || null,
-          history: [{
-            date: new Date().toISOString(),
-            action: `Auto-created from calendar: ${event.summary || 'Meeting'}`
-          }],
+          meetingDate: event.start?.dateTime
+            ? new Date(event.start.dateTime)
+            : null,
+          history: [
+            {
+              date: new Date().toISOString(),
+              action: `Auto-created from calendar: ${event.summary || "Meeting"}`,
+            },
+          ],
         });
-        
+
         createdLeads.push(newLead);
       }
-      
-      res.json({ 
-        created: createdLeads.length, 
+
+      res.json({
+        created: createdLeads.length,
         skipped: skippedCount,
-        leads: createdLeads 
+        leads: createdLeads,
       });
     } catch (error: any) {
       console.error("Error syncing calendar:", error);
-      res.status(500).json({ error: error.message || "Failed to sync calendar" });
+      res
+        .status(500)
+        .json({ error: error.message || "Failed to sync calendar" });
     }
   });
 
@@ -441,11 +523,13 @@ export async function registerRoutes(
   app.post("/api/email/send", async (req, res) => {
     try {
       const { to, subject, body } = req.body;
-      
+
       if (!to || !subject || !body) {
-        return res.status(400).json({ error: "Missing required fields: to, subject, body" });
+        return res
+          .status(400)
+          .json({ error: "Missing required fields: to, subject, body" });
       }
-      
+
       await sendEmail(to, subject, body);
       res.json({ success: true, message: "Email sent successfully" });
     } catch (error: any) {
@@ -467,8 +551,16 @@ export async function registerRoutes(
 
   app.post("/api/onboarding-form", async (req, res) => {
     try {
-      const { name, linkedIn, resumePath, coverLetterPath, answers, totalPoints, tier } = req.body;
-      
+      const {
+        name,
+        linkedIn,
+        resumePath,
+        coverLetterPath,
+        answers,
+        totalPoints,
+        tier,
+      } = req.body;
+
       if (!name) {
         return res.status(400).json({ error: "Name is required" });
       }
@@ -484,65 +576,86 @@ export async function registerRoutes(
         linkedIn: linkedIn || null,
       };
 
-      const savedSubmission = await storage.createOnboardingSubmission(submissionData);
+      const savedSubmission =
+        await storage.createOnboardingSubmission(submissionData);
 
       // Format the answers into a readable email
-      const formatSection = (title: string, items: {label: string, value: string}[]) => {
+      const formatSection = (
+        title: string,
+        items: { label: string; value: string }[],
+      ) => {
         const content = items
-          .filter(item => item.value?.trim())
-          .map(item => `${item.label}\n${item.value}`)
-          .join('\n\n');
-        return content ? `=== ${title} ===\n\n${content}` : '';
+          .filter((item) => item.value?.trim())
+          .map((item) => `${item.label}\n${item.value}`)
+          .join("\n\n");
+        return content ? `=== ${title} ===\n\n${content}` : "";
       };
 
-      const resumeFileName = answers?.resumeFileName || 'Not provided';
-      const coverLetterFileName = answers?.coverLetterFileName || 'Not provided';
-      
+      const resumeFileName = answers?.resumeFileName || "Not provided";
+      const coverLetterFileName =
+        answers?.coverLetterFileName || "Not provided";
+
       const infoSection = `=== 👤 YOUR INFORMATION ===
 
 Name: ${name}
-LinkedIn: ${linkedIn || 'N/A'}
-Resume: ${resumeFileName}${resumePath ? ' (uploaded)' : ''}
-Cover Letter: ${coverLetterFileName}${coverLetterPath ? ' (uploaded)' : ''}
+LinkedIn: ${linkedIn || "N/A"}
+Resume: ${resumeFileName}${resumePath ? " (uploaded)" : ""}
+Cover Letter: ${coverLetterFileName}${coverLetterPath ? " (uploaded)" : ""}
 Points: ${totalPoints || 0}
-Tier: ${tier || 'N/A'}`;
+Tier: ${tier || "N/A"}`;
 
-      const careerSection = formatSection('📖 CAREER NARRATIVE', [
-        { label: 'Full career history:', value: answers.careerHistory },
-        { label: 'Why you love your job:', value: answers.whyLoveJob },
-        { label: 'Dinner party explanation:', value: answers.dinnerPartyExplanation },
-        { label: 'Best job ever:', value: answers.bestJob },
-        { label: 'Unusually good at:', value: answers.unusuallyGoodAt },
+      const careerSection = formatSection("📖 CAREER NARRATIVE", [
+        { label: "Full career history:", value: answers.careerHistory },
+        { label: "Why you love your job:", value: answers.whyLoveJob },
+        {
+          label: "Dinner party explanation:",
+          value: answers.dinnerPartyExplanation,
+        },
+        { label: "Best job ever:", value: answers.bestJob },
+        { label: "Unusually good at:", value: answers.unusuallyGoodAt },
       ]);
 
-      const thinkingSection = formatSection('🧠 HOW YOU THINK', [
-        { label: 'Principles/quotes:', value: answers.principlesQuotes },
-        { label: 'Book or movie seen more than once:', value: answers.bookOrMovie },
-        { label: 'What you optimize for:', value: answers.optimizeFor },
-        { label: 'When something breaks:', value: answers.whenBreaks },
+      const thinkingSection = formatSection("🧠 HOW YOU THINK", [
+        { label: "Principles/quotes:", value: answers.principlesQuotes },
+        {
+          label: "Book or movie seen more than once:",
+          value: answers.bookOrMovie,
+        },
+        { label: "What you optimize for:", value: answers.optimizeFor },
+        { label: "When something breaks:", value: answers.whenBreaks },
       ]);
 
-      const perspectiveSection = formatSection('🔍 PERSPECTIVE & DIFFERENTIATION', [
-        { label: 'Biggest misconception:', value: answers.misconception },
-        { label: 'Better than resume shows:', value: answers.betterThanResume },
-        { label: 'Non-obvious thing:', value: answers.nonObviousThing },
-        { label: 'Sabbatical plans:', value: answers.sabbatical },
-        { label: 'What you notice first:', value: answers.noticeFirst },
-      ]);
+      const perspectiveSection = formatSection(
+        "🔍 PERSPECTIVE & DIFFERENTIATION",
+        [
+          { label: "Biggest misconception:", value: answers.misconception },
+          {
+            label: "Better than resume shows:",
+            value: answers.betterThanResume,
+          },
+          { label: "Non-obvious thing:", value: answers.nonObviousThing },
+          { label: "Sabbatical plans:", value: answers.sabbatical },
+          { label: "What you notice first:", value: answers.noticeFirst },
+        ],
+      );
 
       const emailBody = `ONBOARDING QUESTIONNAIRE SUBMISSION
 
 Submitted: ${new Date().toLocaleString()}
 
-${[infoSection, careerSection, thinkingSection, perspectiveSection].filter(Boolean).join('\n\n\n')}`;
+${[infoSection, careerSection, thinkingSection, perspectiveSection].filter(Boolean).join("\n\n\n")}`;
 
       await sendEmail(
-        'wyedoyoudothis@gmail.com',
+        "wyedoyoudothis@gmail.com",
         `Onboarding Form: ${name}`,
-        emailBody
+        emailBody,
       );
 
-      res.json({ success: true, message: "Form submitted successfully", submission: savedSubmission });
+      res.json({
+        success: true,
+        message: "Form submitted successfully",
+        submission: savedSubmission,
+      });
     } catch (error: any) {
       console.error("Error submitting onboarding form:", error);
       res.status(500).json({ error: error.message || "Failed to submit form" });

@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-// Just add "appliers" to the existing union
 export type PipelineType = "jumpseat" | "community" | "appliers";
 
 export type JumpseatStage =
@@ -15,7 +14,6 @@ export type JumpseatStage =
 
 export type CommunityStage = "backlog" | "to-pitch" | "would-buy";
 
-// NEW: Applier hiring stages
 export type ApplierStage = "interview" | "to_hire" | "onboarded";
 
 export type OnboardingStage =
@@ -36,16 +34,16 @@ export interface Lead {
   stage: string;
   onboardingStage?: OnboardingStage | null;
   nextFollowUp?: string | null; // ISO Date
-  actionNeeded: boolean;
 
   // Details
   summary?: string | null;
   keyTakeaways?: string[] | null;
-  blocker?: string | null;
-  decisionTrigger?: string | null;
+  pitchAmount?: string | null;
+  actionItems?: string[] | null;
   followUpAngle?: string | null;
   recordingLink?: string | null;
   calendarEventId?: string | null;
+  meetingDate?: string | null; // ISO Date - from Google Calendar
   fathomRecordingId?: number | null;
   coverLetterIdeas?: string | null;
   onboardingNotes?: string | null;
