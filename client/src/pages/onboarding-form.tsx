@@ -44,8 +44,8 @@ const STEPS = [
   { id: 'career', title: 'Career Narrative', group: 'career' },
   { id: 'career2', title: 'Career Narrative Part 2', group: 'career' },
   { id: 'puzzle', title: 'Palate Cleanser', group: 'puzzle' },
+  { id: 'impact', title: 'Your Impact', group: 'impact' },
   { id: 'thinking', title: 'How You Think', group: 'thinking' },
-  { id: 'thinking2', title: 'How You Think Part 2', group: 'thinking' },
   { id: 'trivia', title: 'Trivia', group: 'trivia' },
   { id: 'perspective', title: 'Perspective', group: 'perspective' },
   { id: 'perspective2', title: 'Perspective Part 2', group: 'perspective' },
@@ -323,18 +323,21 @@ export default function OnboardingForm() {
   );
 
   const [answers, setAnswers] = useState({
-    careerHistory: "",
-    dinnerPartyExplanation: "",
     bestJob: "",
-    unusuallyGoodAt: "",
+    careerChoice: "",
+    mentors: "",
+    beyondJobDescription: "",
+    colleaguesComeToYouFor: "",
+    careerHistory: "",
+    targetRoles: "",
+    impactPerRole: "",
+    impactMetrics: "",
     principlesQuotes: "",
     bookOrMovie: "",
-    optimizeFor: "",
-    whenBreaks: "",
-    misconception: "",
-    nonObviousThing: "",
+    unlistedAccomplishment: "",
+    hobbiesSideProjects: "",
     sabbatical: "",
-    noticeFirst: "",
+    anythingElse: "",
   });
 
   const updateAnswer = (key: keyof typeof answers, value: string) => {
@@ -349,7 +352,7 @@ export default function OnboardingForm() {
     if (currentStep === 12) return 100;
     const stepId = STEPS[currentStep].id;
     const group = STEPS[currentStep].group;
-    const multiPartGroups = ['career', 'thinking', 'perspective'];
+    const multiPartGroups = ['career', 'perspective'];
     
     let completedGroups = currentGroupIndex;
     let subProgress = 0;
@@ -421,7 +424,7 @@ export default function OnboardingForm() {
           clearInterval(timer);
           setResultsShown(true);
           
-          if (totalPoints >= 2500) {
+          if (totalPoints >= 2700) {
             confetti({
               particleCount: 200,
               spread: 100,
@@ -435,7 +438,7 @@ export default function OnboardingForm() {
               });
             }, 500);
             setTimeout(() => setShowAward(true), 1000);
-          } else if (totalPoints >= 2000) {
+          } else if (totalPoints >= 2400) {
             confetti({
               particleCount: 50,
               spread: 60,
@@ -521,7 +524,7 @@ export default function OnboardingForm() {
 
   const calculateStepPoints = () => {
     let points = 0;
-    
+
     if (currentStep === 0) {
       if (name.trim().length > 0) points += 100;
     } else if (currentStep === 1) {
@@ -531,31 +534,34 @@ export default function OnboardingForm() {
     } else if (currentStep === 3) {
       if (coverLetterFile) points += 100;
     } else if (currentStep === 4) {
-      if (answers.careerHistory.length > 4) points += 100;
-      if (answers.dinnerPartyExplanation.length > 4) points += 100;
-    } else if (currentStep === 5) {
       if (answers.bestJob.length > 4) points += 100;
-      if (answers.unusuallyGoodAt.length > 4) points += 100;
+      if (answers.careerChoice.length > 4) points += 100;
+      if (answers.mentors.length > 4) points += 100;
+      if (answers.beyondJobDescription.length > 4) points += 100;
+      if (answers.colleaguesComeToYouFor.length > 4) points += 100;
+    } else if (currentStep === 5) {
+      if (answers.careerHistory.length > 4) points += 100;
+      if (answers.targetRoles.length > 4) points += 100;
     } else if (currentStep === 6) {
       if (puzzleSolved) points += 250;
       const sudokuComplete = sudokuGrid.every((row, ri) => row.every((cell, ci) => cell === SUDOKU_SOLUTION[ri][ci]));
       if (sudokuComplete && puzzleMode === 'sudoku') points += 250;
     } else if (currentStep === 7) {
+      if (answers.impactPerRole.length > 4) points += 100;
+      if (answers.impactMetrics.length > 4) points += 100;
+    } else if (currentStep === 8) {
       if (answers.principlesQuotes.length > 4) points += 100;
       if (answers.bookOrMovie.length > 4) points += 100;
-    } else if (currentStep === 8) {
-      if (answers.optimizeFor.length > 4) points += 100;
-      if (answers.whenBreaks.length > 4) points += 100;
     } else if (currentStep === 9) {
       // Trivia points are awarded immediately per question
     } else if (currentStep === 10) {
-      if (answers.misconception.length > 4) points += 100;
-      if (answers.nonObviousThing.length > 4) points += 100;
+      if (answers.unlistedAccomplishment.length > 4) points += 100;
+      if (answers.hobbiesSideProjects.length > 4) points += 100;
     } else if (currentStep === 11) {
       if (answers.sabbatical.length > 4) points += 100;
-      if (answers.noticeFirst.length > 4) points += 100;
+      if (answers.anythingElse.length > 4) points += 100;
     }
-    
+
     return points;
   };
 
@@ -633,9 +639,10 @@ export default function OnboardingForm() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const tier = totalPoints >= 2500 ? 'Perfectionist' :
+      const tier = totalPoints >= 2700 ? 'Perfectionist' :
                    totalPoints >= 2400 ? 'Main Character' :
-                   totalPoints > 1000 ? 'Operator Status' : 'NPC Status';
+                   totalPoints > 1900 ? 'Gamer Status' :
+                   totalPoints >= 1200 ? 'Operator Status' : 'NPC Status';
 
       let resumePath: string | null = null;
       let coverLetterPath: string | null = null;
@@ -1061,30 +1068,66 @@ export default function OnboardingForm() {
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">Career Narrative</h2>
-                <p className="text-zinc-500 text-sm">How you got here and how you see your work</p>
+                <p className="text-zinc-500 text-sm">Your story, your strengths, your people</p>
               </div>
 
               <div className="space-y-8">
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300 leading-relaxed">
-                    Bring me up to date on your full career, how did we get here? Include everything, even the random jobs you worked for a week during the summer.
+                  <label className="text-sm font-medium text-zinc-300">
+                    What's the best job you've ever had?
                   </label>
                   <Textarea
-                    value={answers.careerHistory}
-                    onChange={(e) => updateAnswer('careerHistory', e.target.value)}
-                    placeholder="Your career journey..."
-                    className="min-h-[140px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
+                    value={answers.bestJob}
+                    onChange={(e) => updateAnswer('bestJob', e.target.value)}
+                    placeholder="Your best job experience..."
+                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
 
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
-                    If someone at a dinner party asked what you do, how would you explain it?
+                    How did you choose your career? When was it apparent to you that you were good?
                   </label>
                   <Textarea
-                    value={answers.dinnerPartyExplanation}
-                    onChange={(e) => updateAnswer('dinnerPartyExplanation', e.target.value)}
-                    placeholder="Your dinner party explanation..."
+                    value={answers.careerChoice}
+                    onChange={(e) => updateAnswer('careerChoice', e.target.value)}
+                    placeholder="How you found your path..."
+                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-zinc-300">
+                    Did you have any teachers or mentors that helped you along the way? Name dropping is great for cover letters.
+                  </label>
+                  <Textarea
+                    value={answers.mentors}
+                    onChange={(e) => updateAnswer('mentors', e.target.value)}
+                    placeholder="People who shaped your career..."
+                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-zinc-300">
+                    What's something you do that wasn't originally part of your job?
+                  </label>
+                  <Textarea
+                    value={answers.beyondJobDescription}
+                    onChange={(e) => updateAnswer('beyondJobDescription', e.target.value)}
+                    placeholder="Things you took on beyond your role..."
+                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-zinc-300">
+                    What do colleagues or managers come to you specifically for?
+                  </label>
+                  <Textarea
+                    value={answers.colleaguesComeToYouFor}
+                    onChange={(e) => updateAnswer('colleaguesComeToYouFor', e.target.value)}
+                    placeholder="Your go-to reputation..."
                     className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
@@ -1096,30 +1139,30 @@ export default function OnboardingForm() {
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">Career Narrative Part 2</h2>
-                <p className="text-zinc-500 text-sm">Your experiences and strengths</p>
+                <p className="text-zinc-500 text-sm">The full picture and where you're headed</p>
               </div>
 
               <div className="space-y-8">
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    What is the best job you've ever had and what made it great?
+                  <label className="text-sm font-medium text-zinc-300 leading-relaxed">
+                    Bring me up to date on your full career. Start from the beginning, include the weird jobs, the short term stint, everything. We're not putting it all on the resume but it helps paint a better picture of you.
                   </label>
                   <Textarea
-                    value={answers.bestJob}
-                    onChange={(e) => updateAnswer('bestJob', e.target.value)}
-                    placeholder="Your best job experience..."
-                    className="min-h-[120px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
+                    value={answers.careerHistory}
+                    onChange={(e) => updateAnswer('careerHistory', e.target.value)}
+                    placeholder="Your full career journey..."
+                    className="min-h-[140px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
 
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
-                    What are you unusually good at?
+                    High level what are the top 3 role titles that we are targeting?
                   </label>
                   <Textarea
-                    value={answers.unusuallyGoodAt}
-                    onChange={(e) => updateAnswer('unusuallyGoodAt', e.target.value)}
-                    placeholder="Your unique strengths..."
+                    value={answers.targetRoles}
+                    onChange={(e) => updateAnswer('targetRoles', e.target.value)}
+                    placeholder="e.g. Senior Product Manager, Director of Operations, VP of Strategy"
                     className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
@@ -1423,35 +1466,35 @@ export default function OnboardingForm() {
           {currentStep === 7 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
-                <h2 className="text-2xl font-light tracking-tight mb-2">How You Think</h2>
-                <p className="text-zinc-500 text-sm">Patterns, principles, and instincts</p>
+                <h2 className="text-2xl font-light tracking-tight mb-2">Your Impact</h2>
+                <p className="text-zinc-500 text-sm">The projects and numbers that tell your story</p>
               </div>
 
               <div className="space-y-8">
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    Are there any ideas, quotes or principles you come back to?
+                  <label className="text-sm font-medium text-zinc-300 leading-relaxed">
+                    For each role on your resume, tell me the single most important project or contribution. What was broken or missing, what did you do?
                   </label>
-                  <p className="text-xs text-zinc-600 italic leading-relaxed">
-                    Examples: "The opposite of love is not hate, it is indifference." • "Everything in life is simple, yet nothing is easy."
-                  </p>
                   <Textarea
-                    value={answers.principlesQuotes}
-                    onChange={(e) => updateAnswer('principlesQuotes', e.target.value)}
-                    placeholder="Ideas, quotes, or principles you live by..."
-                    className="min-h-[120px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
+                    value={answers.impactPerRole}
+                    onChange={(e) => updateAnswer('impactPerRole', e.target.value)}
+                    placeholder="Your key contributions per role..."
+                    className="min-h-[140px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    Tell me about a book or movie you have seen more than once.
+                  <label className="text-sm font-medium text-zinc-300 leading-relaxed">
+                    For the above answers can you think of specific metrics that would support it?
                   </label>
+                  <p className="text-xs text-zinc-600 italic leading-relaxed">
+                    Examples: Time saved, dollars saved or generated, number of people or systems impacted, error reduction. Even rough estimates work — "cut report time from 3 hours to 10 minutes" is exactly the kind of thing we're looking for.
+                  </p>
                   <Textarea
-                    value={answers.bookOrMovie}
-                    onChange={(e) => updateAnswer('bookOrMovie', e.target.value)}
-                    placeholder="A book or movie you revisit..."
-                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
+                    value={answers.impactMetrics}
+                    onChange={(e) => updateAnswer('impactMetrics', e.target.value)}
+                    placeholder="Metrics and numbers that back up your impact..."
+                    className="min-h-[120px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
               </div>
@@ -1461,31 +1504,31 @@ export default function OnboardingForm() {
           {currentStep === 8 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
-                <h2 className="text-2xl font-light tracking-tight mb-2">How You Think Part 2</h2>
-                <p className="text-zinc-500 text-sm">Your instincts and problem-solving</p>
+                <h2 className="text-2xl font-light tracking-tight mb-2">How You Think</h2>
+                <p className="text-zinc-500 text-sm">Patterns, principles, and what sticks with you</p>
               </div>
 
               <div className="space-y-8">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
-                    What do you tend to optimize for instinctively?
+                    Is there a quote or idea that changed how you approach your work or life? What was happening when it clicked?
                   </label>
                   <Textarea
-                    value={answers.optimizeFor}
-                    onChange={(e) => updateAnswer('optimizeFor', e.target.value)}
-                    placeholder="What you naturally prioritize..."
-                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
+                    value={answers.principlesQuotes}
+                    onChange={(e) => updateAnswer('principlesQuotes', e.target.value)}
+                    placeholder="A quote or idea that changed your approach..."
+                    className="min-h-[120px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
 
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
-                    When something breaks, where do you look first?
+                    Tell me about a book or movie you have seen more than once. Why do you keep going back?
                   </label>
                   <Textarea
-                    value={answers.whenBreaks}
-                    onChange={(e) => updateAnswer('whenBreaks', e.target.value)}
-                    placeholder="Your troubleshooting instinct..."
+                    value={answers.bookOrMovie}
+                    onChange={(e) => updateAnswer('bookOrMovie', e.target.value)}
+                    placeholder="A book or movie you revisit and why..."
                     className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
@@ -1832,31 +1875,31 @@ export default function OnboardingForm() {
           {currentStep === 10 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
-                <h2 className="text-2xl font-light tracking-tight mb-2">Perspective & Differentiation</h2>
+                <h2 className="text-2xl font-light tracking-tight mb-2">Perspective</h2>
                 <p className="text-zinc-500 text-sm">What doesn't show up on a resume</p>
               </div>
 
               <div className="space-y-8">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
-                    What's the biggest misconception people have about you at work?
+                    What's one accomplishment you're proud of that you've never put on a resume?
                   </label>
                   <Textarea
-                    value={answers.misconception}
-                    onChange={(e) => updateAnswer('misconception', e.target.value)}
-                    placeholder="Common misconceptions about you..."
+                    value={answers.unlistedAccomplishment}
+                    onChange={(e) => updateAnswer('unlistedAccomplishment', e.target.value)}
+                    placeholder="A proud moment that never made the resume..."
                     className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
 
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
-                    What's one interesting or non-obvious thing about you that doesn't usually come up professionally?
+                    Outside of work what do you spend time on? Hobbies, side projects, the weirder and more niche the better.
                   </label>
                   <Textarea
-                    value={answers.nonObviousThing}
-                    onChange={(e) => updateAnswer('nonObviousThing', e.target.value)}
-                    placeholder="Something interesting about you..."
+                    value={answers.hobbiesSideProjects}
+                    onChange={(e) => updateAnswer('hobbiesSideProjects', e.target.value)}
+                    placeholder="Your hobbies, side projects, interests..."
                     className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
@@ -1867,8 +1910,8 @@ export default function OnboardingForm() {
           {currentStep === 11 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
-                <h2 className="text-2xl font-light tracking-tight mb-2">Perspective & Differentiation Part 2</h2>
-                <p className="text-zinc-500 text-sm">Motivation and observation</p>
+                <h2 className="text-2xl font-light tracking-tight mb-2">Perspective Part 2</h2>
+                <p className="text-zinc-500 text-sm">Motivation and anything we missed</p>
               </div>
 
               <div className="space-y-8">
@@ -1876,9 +1919,6 @@ export default function OnboardingForm() {
                   <label className="text-sm font-medium text-zinc-300">
                     If your company gave you a one-year paid sabbatical, how would you spend it?
                   </label>
-                  <p className="text-xs text-zinc-600 italic">
-                    This is less about fantasy, more about motivation and direction.
-                  </p>
                   <Textarea
                     value={answers.sabbatical}
                     onChange={(e) => updateAnswer('sabbatical', e.target.value)}
@@ -1889,12 +1929,12 @@ export default function OnboardingForm() {
 
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-zinc-300">
-                    What do you notice first when you enter a new system or organization?
+                    Is there anything else you want us to know? Anything we didn't ask that feels important?
                   </label>
                   <Textarea
-                    value={answers.noticeFirst}
-                    onChange={(e) => updateAnswer('noticeFirst', e.target.value)}
-                    placeholder="What you observe in new environments..."
+                    value={answers.anythingElse}
+                    onChange={(e) => updateAnswer('anythingElse', e.target.value)}
+                    placeholder="Anything else on your mind..."
                     className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
@@ -1918,24 +1958,28 @@ export default function OnboardingForm() {
                       <h3 className="text-2xl font-medium text-white">
                         Good work, you reached{' '}
                         <span className={
-                          totalPoints >= 2500 ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-400' :
+                          totalPoints >= 2700 ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-400' :
                           totalPoints >= 2400 ? 'text-purple-400' :
-                          totalPoints > 1000 ? 'text-blue-400' :
+                          totalPoints > 1900 ? 'text-emerald-400' :
+                          totalPoints >= 1200 ? 'text-blue-400' :
                           'text-zinc-400'
                         }>
-                          {totalPoints >= 2500 ? 'Perfectionist' :
+                          {totalPoints >= 2700 ? 'Perfectionist' :
                            totalPoints >= 2400 ? 'Main Character' :
-                           totalPoints > 1000 ? 'Operator Status' :
+                           totalPoints > 1900 ? 'Gamer Status' :
+                           totalPoints >= 1200 ? 'Operator Status' :
                            'NPC Status'}
                         </span>
                       </h3>
                       <div className="text-sm text-zinc-400 max-w-md mx-auto">
-                        {totalPoints >= 2500 ? (
+                        {totalPoints >= 2700 ? (
                           <p className="text-yellow-400 font-medium">Perfect score! You found every point possible.</p>
                         ) : totalPoints >= 2400 ? (
-                          <p>Nice! The highest possible was 2,500.</p>
-                        ) : totalPoints > 1000 ? (
-                          <p>Appreciate you not going above and beyond. You are ready for Overemployment.</p>
+                          <p>Nice! The highest possible was 2,800.</p>
+                        ) : totalPoints > 1900 ? (
+                          <p>Love the effort on the extras. We see you.</p>
+                        ) : totalPoints >= 1200 ? (
+                          <p>Solid answers all around. We've got what we need to get started.</p>
                         ) : (
                           <p>Did you even try? Just playing, we'll go over these on call.</p>
                         )}
@@ -1943,7 +1987,7 @@ export default function OnboardingForm() {
                       <p className="text-zinc-500">Too bad these points are useless.</p>
                     </div>
 
-                    {showAward && totalPoints >= 2500 && (
+                    {showAward && totalPoints >= 2700 && (
                       <div className="animate-in zoom-in duration-700 flex flex-col items-center gap-4 p-8">
                         <div className="relative">
                           <Trophy className="h-24 w-24 text-yellow-400" />

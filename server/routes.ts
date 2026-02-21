@@ -508,33 +508,37 @@ Points: ${totalPoints || 0}
 Tier: ${tier || 'N/A'}`;
 
       const careerSection = formatSection('📖 CAREER NARRATIVE', [
-        { label: 'Full career history:', value: answers.careerHistory },
-        { label: 'Why you love your job:', value: answers.whyLoveJob },
-        { label: 'Dinner party explanation:', value: answers.dinnerPartyExplanation },
         { label: 'Best job ever:', value: answers.bestJob },
-        { label: 'Unusually good at:', value: answers.unusuallyGoodAt },
+        { label: 'How they chose their career:', value: answers.careerChoice },
+        { label: 'Teachers & mentors:', value: answers.mentors },
+        { label: 'Beyond job description:', value: answers.beyondJobDescription },
+        { label: 'What colleagues come to them for:', value: answers.colleaguesComeToYouFor },
+        { label: 'Full career history:', value: answers.careerHistory },
+        { label: 'Target role titles:', value: answers.targetRoles },
+      ]);
+
+      const impactSection = formatSection('💥 YOUR IMPACT', [
+        { label: 'Key impact per role:', value: answers.impactPerRole },
+        { label: 'Impact metrics:', value: answers.impactMetrics },
       ]);
 
       const thinkingSection = formatSection('🧠 HOW YOU THINK', [
-        { label: 'Principles/quotes:', value: answers.principlesQuotes },
+        { label: 'Guiding quote or idea:', value: answers.principlesQuotes },
         { label: 'Book or movie seen more than once:', value: answers.bookOrMovie },
-        { label: 'What you optimize for:', value: answers.optimizeFor },
-        { label: 'When something breaks:', value: answers.whenBreaks },
       ]);
 
-      const perspectiveSection = formatSection('🔍 PERSPECTIVE & DIFFERENTIATION', [
-        { label: 'Biggest misconception:', value: answers.misconception },
-        { label: 'Better than resume shows:', value: answers.betterThanResume },
-        { label: 'Non-obvious thing:', value: answers.nonObviousThing },
+      const perspectiveSection = formatSection('🔍 PERSPECTIVE', [
+        { label: 'Unlisted accomplishment:', value: answers.unlistedAccomplishment },
+        { label: 'Hobbies & side projects:', value: answers.hobbiesSideProjects },
         { label: 'Sabbatical plans:', value: answers.sabbatical },
-        { label: 'What you notice first:', value: answers.noticeFirst },
+        { label: 'Anything else:', value: answers.anythingElse },
       ]);
 
       const emailBody = `ONBOARDING QUESTIONNAIRE SUBMISSION
 
 Submitted: ${new Date().toLocaleString()}
 
-${[infoSection, careerSection, thinkingSection, perspectiveSection].filter(Boolean).join('\n\n\n')}`;
+${[infoSection, careerSection, impactSection, thinkingSection, perspectiveSection].filter(Boolean).join('\n\n\n')}`;
 
       await sendEmail(
         'wyedoyoudothis@gmail.com',

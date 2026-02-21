@@ -479,15 +479,17 @@ function LeadDetailPanel({ lead, open, onClose }: { lead: Lead | null; open: boo
 }
 
 function getTierIcon(tier: string) {
-  if (tier.includes('God')) return <Trophy className="h-5 w-5 text-yellow-400" />;
-  if (tier.includes('Gamer')) return <Gamepad2 className="h-5 w-5 text-purple-400" />;
+  if (tier.includes('Perfectionist')) return <Trophy className="h-5 w-5 text-yellow-400" />;
+  if (tier.includes('Main Character')) return <Trophy className="h-5 w-5 text-purple-400" />;
+  if (tier.includes('Gamer')) return <Gamepad2 className="h-5 w-5 text-emerald-400" />;
   if (tier.includes('Operator')) return <Wrench className="h-5 w-5 text-blue-400" />;
   return <Bot className="h-5 w-5 text-zinc-400" />;
 }
 
 function getTierColor(tier: string) {
-  if (tier.includes('God')) return 'from-yellow-400 via-amber-500 to-yellow-400';
-  if (tier.includes('Gamer')) return 'from-purple-400 to-purple-600';
+  if (tier.includes('Perfectionist')) return 'from-yellow-400 via-amber-500 to-yellow-400';
+  if (tier.includes('Main Character')) return 'from-purple-400 to-purple-600';
+  if (tier.includes('Gamer')) return 'from-emerald-400 to-emerald-600';
   if (tier.includes('Operator')) return 'from-blue-400 to-blue-600';
   return 'from-zinc-400 to-zinc-600';
 }
@@ -498,19 +500,20 @@ function SubmissionCard({ submission }: { submission: OnboardingSubmission }) {
 
   const answerLabels: Record<string, string> = {
     careerHistory: 'Full career history',
-    whyLoveJob: 'Why you love your job',
-    dinnerPartyExplanation: 'Dinner party explanation',
     bestJob: 'Best job ever',
-    unusuallyGoodAt: 'Unusually good at',
-    principlesQuotes: 'Principles/quotes',
+    careerChoice: 'How they chose their career',
+    mentors: 'Teachers & mentors',
+    beyondJobDescription: 'Beyond job description',
+    colleaguesComeToYouFor: 'What colleagues come to them for',
+    targetRoles: 'Target role titles',
+    impactPerRole: 'Key impact per role',
+    impactMetrics: 'Impact metrics',
+    principlesQuotes: 'Guiding quote or idea',
     bookOrMovie: 'Book or movie seen more than once',
-    optimizeFor: 'What you optimize for',
-    whenBreaks: 'When something breaks',
-    misconception: 'Biggest misconception',
-    betterThanResume: 'Better than resume shows',
-    nonObviousThing: 'Non-obvious thing',
+    unlistedAccomplishment: 'Unlisted accomplishment',
+    hobbiesSideProjects: 'Hobbies & side projects',
     sabbatical: 'Sabbatical plans',
-    noticeFirst: 'What you notice first',
+    anythingElse: 'Anything else',
   };
 
   const hasResume = !!submission.resumePath;
