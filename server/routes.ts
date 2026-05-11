@@ -48,12 +48,16 @@ export async function registerRoutes(
       return res.status(500).json({ error: "Authentication not configured" });
     }
     
-    if (password === adminPassword) {
+    console.log(`[auth] Login attempt. ADMIN_PASSWORD length: ${adminPassword.length}, submitted length: ${(password || "").length}`);
+    
+    if ((password || "").trim() === adminPassword.trim()) {
       const payload = { exp: Date.now() + 30 * 24 * 60 * 60 * 1000 };
-      const token = signToken(payload, adminPassword);
+      const token = signToken(payload, adminPassword.trim());
+      console.log("[auth] Login successful");
       return res.json({ success: true, token });
     }
     
+    console.log("[auth] Login failed - password mismatch");
     return res.status(401).json({ success: false, error: "Invalid password" });
   });
 
@@ -65,7 +69,7 @@ export async function registerRoutes(
       return res.json({ valid: false });
     }
     
-    const payload = verifyToken(token, adminPassword);
+    const payload = verifyToken(token, adminPassword.trim());
     return res.json({ valid: payload !== null });
   });
   
