@@ -41,14 +41,14 @@ export async function registerRoutes(
   // Auth routes — uses HMAC-signed tokens so sessions survive server restarts
   app.post("/api/auth/login", (req, res) => {
     const { password } = req.body;
-    const adminPassword = process.env.ADMIN_PASSWORD;
+    const adminPassword = process.env.CRM_PASSWORD;
     
     if (!adminPassword) {
-      console.error("ADMIN_PASSWORD environment variable not set");
+      console.error("CRM_PASSWORD environment variable not set");
       return res.status(500).json({ error: "Authentication not configured" });
     }
     
-    console.log(`[auth] Login attempt. ADMIN_PASSWORD length: ${adminPassword.length}, submitted length: ${(password || "").length}`);
+    console.log(`[auth] Login attempt. CRM_PASSWORD length: ${adminPassword.length}, submitted length: ${(password || "").length}`);
     
     if ((password || "").trim() === adminPassword.trim()) {
       const payload = { exp: Date.now() + 30 * 24 * 60 * 60 * 1000 };
@@ -63,7 +63,7 @@ export async function registerRoutes(
 
   app.post("/api/auth/verify", (req, res) => {
     const { token } = req.body;
-    const adminPassword = process.env.ADMIN_PASSWORD;
+    const adminPassword = process.env.CRM_PASSWORD;
     
     if (!token || !adminPassword) {
       return res.json({ valid: false });
