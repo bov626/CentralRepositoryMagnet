@@ -10,7 +10,25 @@ import { sendEmail, isGmailConfigured } from "./gmail";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import crypto from "crypto";
 
-const activeSessions = new Map<string, number>();
+function signToken(payload: object, secret: string): string {
+  const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = crypto.createHmac("sha256", secret).update(data).digest("base64url");
+  return `${data}.${sig}`;
+}
+
+function verifyToken(token: string, secret: string): { exp: number } | null {
+  try {
+    const [data, sig] = token.split(".");
+    if (!data || !sig) return null;
+    const expected = crypto.createHmac("sha256", secret).update(data).digest("base64url");
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+    const payload = JSON.parse(Buffer.from(data, "base64url").toString());
+    if (Date.now() > payload.exp) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -20,7 +38,7 @@ export async function registerRoutes(
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
 
-  // Auth routes for internal dashboard protection
+  // Auth routes — uses HMAC-signed tokens so sessions survive server restarts
   app.post("/api/auth/login", (req, res) => {
     const { password } = req.body;
     const adminPassword = process.env.ADMIN_PASSWORD;
@@ -31,9 +49,8 @@ export async function registerRoutes(
     }
     
     if (password === adminPassword) {
-      const token = crypto.randomBytes(32).toString("hex");
-      const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
-      activeSessions.set(token, expiresAt);
+      const payload = { exp: Date.now() + 30 * 24 * 60 * 60 * 1000 };
+      const token = signToken(payload, adminPassword);
       return res.json({ success: true, token });
     }
     
@@ -42,22 +59,14 @@ export async function registerRoutes(
 
   app.post("/api/auth/verify", (req, res) => {
     const { token } = req.body;
+    const adminPassword = process.env.ADMIN_PASSWORD;
     
-    if (!token) {
+    if (!token || !adminPassword) {
       return res.json({ valid: false });
     }
     
-    const expiresAt = activeSessions.get(token);
-    if (!expiresAt) {
-      return res.json({ valid: false });
-    }
-    
-    if (Date.now() > expiresAt) {
-      activeSessions.delete(token);
-      return res.json({ valid: false });
-    }
-    
-    return res.json({ valid: true });
+    const payload = verifyToken(token, adminPassword);
+    return res.json({ valid: payload !== null });
   });
   
   // Lead routes
