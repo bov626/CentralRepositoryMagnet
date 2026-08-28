@@ -85,6 +85,14 @@ app.use((req, res, next) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
+  app.use("/api", (req, res) => {
+    res.status(404).json({
+      error: "API route not found",
+      method: req.method,
+      path: req.originalUrl,
+    });
+  });
+
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {

@@ -91,6 +91,30 @@ export async function registerRoutes(
     const payload = verifyToken(token, adminPassword.trim());
     return res.json({ valid: payload !== null });
   });
+
+  app.get("/api/health", (_req, res) => {
+    res.json({ ok: true });
+  });
+
+  async function handleSkoolMember(req: any, res: any) {
+    try {
+      if (!webhookAllowed(req)) return res.status(401).json({ error: "Unauthorized" });
+      const { name, email, paid, first_name, last_name } = req.body || {};
+      const fullName = String(name || [first_name, last_name].filter(Boolean).join(" ")).trim();
+      if (!fullName) return res.status(400).json({ error: "name is required" });
+      const result = await ingestSkoolMember({
+        name: fullName,
+        email,
+        paid: paid === true || paid === "true",
+      });
+      res.status(result.created ? 201 : 200).json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to ingest Skool member" });
+    }
+  }
+
+  app.post("/api/leads/skool-member", handleSkoolMember);
+  app.post("/api/webhooks/skool", handleSkoolMember);
   
   // Lead routes
   app.get("/api/leads", async (req, res) => {
@@ -296,23 +320,6 @@ export async function registerRoutes(
       res.status(result.created ? 201 : 200).json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to ingest audit" });
-    }
-  });
-
-  app.post("/api/leads/skool-member", async (req, res) => {
-    try {
-      if (!webhookAllowed(req)) return res.status(401).json({ error: "Unauthorized" });
-      const { name, email, paid, first_name, last_name } = req.body || {};
-      const fullName = String(name || [first_name, last_name].filter(Boolean).join(" ")).trim();
-      if (!fullName) return res.status(400).json({ error: "name is required" });
-      const result = await ingestSkoolMember({
-        name: fullName,
-        email,
-        paid: paid === true || paid === "true",
-      });
-      res.status(result.created ? 201 : 200).json(result);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message || "Failed to ingest Skool member" });
     }
   });
 

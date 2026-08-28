@@ -32,6 +32,9 @@ export async function setupVite(server: Server, app: Express) {
   app.use(vite.middlewares);
 
   app.use("*", async (req, res, next) => {
+    if (req.originalUrl.startsWith("/api") || req.path.startsWith("/api")) {
+      return res.status(404).json({ error: "API route not found", path: req.originalUrl });
+    }
     const url = req.originalUrl;
 
     try {
