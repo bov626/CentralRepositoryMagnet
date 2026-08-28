@@ -122,3 +122,106 @@ export function formatDollars(n: number): string {
     maximumFractionDigits: 0,
   }).format(n);
 }
+
+export function formatSignedDollars(n: number): string {
+  if (n > 0) return `+${formatDollars(n)}`;
+  if (n < 0) return `-${formatDollars(Math.abs(n))}`;
+  return formatDollars(0);
+}
+
+export const DENVER_TZ = "America/Denver";
+
+export function monthKeyFromDate(value: Date | string | number, timeZone = DENVER_TZ): string {
+  const d = value instanceof Date ? value : new Date(typeof value === "number" ? value : String(value));
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+  }).format(d).slice(0, 7);
+}
+
+export function lastMonthKeys(count = 12, now = new Date(), timeZone = DENVER_TZ): string[] {
+  const [yearStr, monthStr] = monthKeyFromDate(now, timeZone).split("-");
+  let year = Number(yearStr);
+  let month = Number(monthStr);
+  const keys: string[] = [];
+  for (let i = 0; i < count; i++) {
+    keys.unshift(`${year}-${String(month).padStart(2, "0")}`);
+    month -= 1;
+    if (month === 0) {
+      month = 12;
+      year -= 1;
+    }
+  }
+  return keys;
+}
+
+export function monthLabel(key: string): string {
+  const [year, month] = key.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleString("en-US", { month: "short" });
+}
+
+export function monthLabelLong(key: string): string {
+  const [year, month] = key.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleString("en-US", { month: "short", year: "numeric" });
+}
+
+export type MoneyMonth = {
+  key: string;
+  label: string;
+  labelLong: string;
+  jumpseat: number;
+  skoolGrowth: number;
+  skoolMrr: number;
+  skoolMembers: number;
+};
+
+export function skoolMonthlySeries(
+  leads: MoneyLead[],
+  monthKeys: string[],
+): MoneyMonth[] {
+  const members = leads.filter(communityBought).map((l) => ({
+    key: monthKeyFromDate(l.boughtAt || l.createdAt || new Date()),
+  }));
+
+  return monthKeys.map((key) => {
+    const newThisMonth = members.filter((m) => m.key === key).length;
+    const membersToDate = members.filter((m) => m.key <= key).length;
+    return {
+      key,
+      label: monthLabel(key),
+      labelLong: monthLabelLong(key),
+      jumpseat: 0,
+      skoolGrowth: newThisMonth * COMMUNITY_MRR_PER_MEMBER,
+      skoolMrr: membersToDate * COMMUNITY_MRR_PER_MEMBER,
+      skoolMembers: membersToDate,
+    };
+  });
+}
+
+export function buildMoneyView(
+  leads: MoneyLead[],
+  stripe: { configured: boolean; thisMonth: number; total: number; byMonth: Record<string, number> },
+  monthCount = 12,
+) {
+  const keys = lastMonthKeys(monthCount);
+  const skool = skoolMonthlySeries(leads, keys);
+  const months: MoneyMonth[] = skool.map((row) => ({
+    ...row,
+    jumpseat: stripe.byMonth[row.key] || 0,
+  }));
+  const latest = months[months.length - 1];
+  return {
+    thisMonth: {
+      jumpseat: stripe.configured ? stripe.thisMonth : (latest?.jumpseat || 0),
+      skoolGrowth: latest?.skoolGrowth || 0,
+    },
+    totals: {
+      jumpseat: stripe.total,
+      skoolMrr: latest?.skoolMrr || 0,
+      skoolMembers: latest?.skoolMembers || 0,
+    },
+    months,
+    stripeConfigured: stripe.configured,
+  };
+}

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { formatDollars } from "@shared/money";
+import { SalesPulseCard, type MoneyView } from "@/components/sales-pulse-card";
 
 type TodayItem = {
   lead: {
@@ -37,11 +37,7 @@ export default function TodayPage() {
   const { data, isLoading } = useQuery<{
     count: number;
     items: TodayItem[];
-    money?: {
-      agency: { closed: number; paid: number; toCollect: number; paidSource?: "stripe" | "crm" };
-      community: { members: number; mrr: number; mrrGrowth: number };
-    };
-    stripe?: { configured: boolean };
+    money?: MoneyView;
   }>({
     queryKey: ["today-focus"],
     queryFn: async () => {
@@ -55,51 +51,23 @@ export default function TodayPage() {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto space-y-8">
-        <header className="border-b border-border/60 pb-6">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">
-            {format(today, "EEEE · MMMM d")}
-          </p>
-          <h1 className="text-3xl font-bold tracking-tight">Today's Focus</h1>
-          <p className="text-muted-foreground mt-2">
-            {isLoading
-              ? "Loading queue…"
-              : items.length === 0
-                ? "Nobody to email today."
-                : `${items.length} ${items.length === 1 ? "person" : "people"} to email. Open, edit, send.`}
-          </p>
-        </header>
-
-        {data?.money && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="border border-border rounded-md p-4 bg-card">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Jumpseat</p>
-              <p className="text-2xl font-semibold mt-1 tabular-nums">
-                {formatDollars(data.money.agency.paid)}
-                <span className="text-sm font-normal text-muted-foreground"> paid</span>
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {data.money.agency.closed} closed this month · {formatDollars(data.money.agency.toCollect)} to collect
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-2">
-                {data.money.agency.paidSource === "stripe"
-                  ? "Stripe this month"
-                  : "Add STRIPE_SECRET_KEY for live totals"}
-              </p>
-            </div>
-            <div className="border border-border rounded-md p-4 bg-card">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Skool</p>
-              <p className="text-2xl font-semibold mt-1 tabular-nums">
-                {formatDollars(data.money.community.mrr)}
-                <span className="text-sm font-normal text-muted-foreground"> MRR</span>
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {data.money.community.members} members · {data.money.community.mrrGrowth >= 0 ? "+" : ""}
-                {formatDollars(data.money.community.mrrGrowth)} this month
-              </p>
-            </div>
+      <div className="max-w-4xl mx-auto space-y-8">
+        <header className="border-b border-border/60 pb-6 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">
+              {format(today, "EEEE · MMMM d")}
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight">Today's Focus</h1>
+            <p className="text-muted-foreground mt-2">
+              {isLoading
+                ? "Loading queue…"
+                : items.length === 0
+                  ? "Nobody to email today."
+                  : `${items.length} ${items.length === 1 ? "person" : "people"} to email. Open, edit, send.`}
+            </p>
           </div>
-        )}
+          {data?.money && <SalesPulseCard money={data.money} />}
+        </header>
 
         <div className="space-y-3">
           {isLoading ? (

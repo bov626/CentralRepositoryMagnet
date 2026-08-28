@@ -10,8 +10,8 @@ import { recordOutboundEmail, syncAllLeadEmails, syncLeadEmails } from "./email-
 import { draftEmailForLead } from "./email-draft";
 import { sendSalesFocusEmail } from "./jobs";
 import { dueToday, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
-import { moneySnapshot, withStripePaid } from "@shared/money";
-import { isStripeConfigured, jumpseatPaidThisMonth } from "./stripe";
+import { buildMoneyView } from "@shared/money";
+import { isStripeConfigured, jumpseatPaidHistory } from "./stripe";
 import {
   autoImportFathomCalls,
   ingestAuditLead,
@@ -560,17 +560,17 @@ export async function registerRoutes(
           });
         }
       }
-      let stripePaid = { dollars: 0, chargeCount: 0, configured: false };
+      let stripeHistory = { configured: false, thisMonth: 0, total: 0, byMonth: {} as Record<string, number> };
       try {
-        stripePaid = await jumpseatPaidThisMonth();
+        stripeHistory = await jumpseatPaidHistory(12);
       } catch (error) {
         console.error("Stripe month total failed", error);
       }
       res.json({
         count: due.length,
         items: due,
-        money: withStripePaid(moneySnapshot(allLeads), stripePaid),
-        stripe: { configured: isStripeConfigured() && stripePaid.configured },
+        money: buildMoneyView(allLeads, stripeHistory),
+        stripe: { configured: isStripeConfigured() && stripeHistory.configured },
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to load today's focus" });
