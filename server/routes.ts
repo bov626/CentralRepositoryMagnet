@@ -302,9 +302,14 @@ export async function registerRoutes(
   app.post("/api/leads/skool-member", async (req, res) => {
     try {
       if (!webhookAllowed(req)) return res.status(401).json({ error: "Unauthorized" });
-      const { name, email, paid } = req.body || {};
-      if (!name) return res.status(400).json({ error: "name is required" });
-      const result = await ingestSkoolMember({ name, email, paid: paid === true || paid === "true" });
+      const { name, email, paid, first_name, last_name } = req.body || {};
+      const fullName = String(name || [first_name, last_name].filter(Boolean).join(" ")).trim();
+      if (!fullName) return res.status(400).json({ error: "name is required" });
+      const result = await ingestSkoolMember({
+        name: fullName,
+        email,
+        paid: paid === true || paid === "true",
+      });
       res.status(result.created ? 201 : 200).json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to ingest Skool member" });
