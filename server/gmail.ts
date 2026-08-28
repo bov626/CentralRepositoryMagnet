@@ -203,7 +203,10 @@ export async function searchEmails(
   }
 }
 
-export async function searchThreadsForLead(leadEmail: string): Promise<EmailThread[]> {
+export async function searchThreadsForLead(leadEmail: string): Promise<{
+  threads: EmailThread[];
+  draftThreadIds: string[];
+}> {
   const hits = await searchEmails(`${leadEmail} -in:spam -in:trash -in:drafts -is:draft`, 40);
   const byThread = new Map<string, EmailThread>();
 
@@ -224,7 +227,24 @@ export async function searchThreadsForLead(leadEmail: string): Promise<EmailThre
     }
   }
 
-  return Array.from(byThread.values()).sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  const gmail = await getUncachableGmailClient();
+  const drafts = await gmail.users.messages.list({
+    userId: "me",
+    q: `${leadEmail} in:drafts`,
+    maxResults: 40,
+  });
+  const draftThreadIds = Array.from(
+    new Set(
+      (drafts.data.messages || [])
+        .map((m) => m.threadId)
+        .filter((id): id is string => !!id),
+    ),
   );
+
+  return {
+    threads: Array.from(byThread.values()).sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    ),
+    draftThreadIds,
+  };
 }

@@ -25,9 +25,15 @@ export async function syncLeadEmails(leadId: string): Promise<SyncResult> {
   }
 
   const gmailReady = await isGmailConfigured();
-  const incoming = gmailReady
-    ? await searchThreadsForLead(lead.email)
-    : mockThreadsForLead(lead.name, lead.email);
+  let incoming: EmailThread[] = [];
+  let draftThreadIds = new Set<string>();
+  if (gmailReady) {
+    const found = await searchThreadsForLead(lead.email);
+    incoming = found.threads;
+    draftThreadIds = new Set(found.draftThreadIds);
+  } else {
+    incoming = mockThreadsForLead(lead.name, lead.email);
+  }
 
   const existing = Array.isArray(lead.emailThreads)
     ? (lead.emailThreads as EmailThread[])
@@ -36,9 +42,12 @@ export async function syncLeadEmails(leadId: string): Promise<SyncResult> {
     ? (lead.history as HistoryItem[])
     : [];
 
+  const incomingIds = new Set(incoming.map((t) => t.gmailThreadId || t.gmailMessageId));
   const byId = new Map<string, EmailThread>();
   for (const thread of existing) {
-    byId.set(thread.gmailThreadId || thread.gmailMessageId, thread);
+    const key = thread.gmailThreadId || thread.gmailMessageId;
+    if (draftThreadIds.has(thread.gmailThreadId) && !incomingIds.has(key)) continue;
+    byId.set(key, thread);
   }
 
   const added: EmailThread[] = [];
@@ -53,7 +62,11 @@ export async function syncLeadEmails(leadId: string): Promise<SyncResult> {
   );
 
   const history = [
-    ...existingHistory,
+    ...existingHistory.filter((item) => {
+      if (!item.gmailThreadId) return true;
+      if (!draftThreadIds.has(item.gmailThreadId)) return true;
+      return incomingIds.has(item.gmailThreadId);
+    }),
     ...added.map(emailHistoryItem),
   ];
 
