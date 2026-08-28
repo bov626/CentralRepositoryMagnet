@@ -77,6 +77,7 @@ type FollowUpLead = {
   pipeline?: string | null;
   stage?: string | null;
   source?: string | null;
+  tags?: string[] | null;
   archived?: boolean | null;
   nextFollowUp?: string | Date | null;
   actionItemDates?: unknown;
@@ -155,11 +156,9 @@ export function dueToday(lead: FollowUpLead, now = new Date()): DueToday {
     return { due: true, reason: "Follow-up date", cadence: "follow-up-date" };
   }
 
-  if (
-    lead.source === "audit" &&
-    lead.stage === "backlog" &&
-    outboundEmailDates(lead).length === 0
-  ) {
+  const fromAudit =
+    lead.source === "audit" || (Array.isArray(lead.tags) && lead.tags.includes("audit"));
+  if (fromAudit && lead.stage === "backlog" && outboundEmailDates(lead).length === 0) {
     return { due: true, reason: "Audit follow-up", cadence: "follow-up-date" };
   }
 
