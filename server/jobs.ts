@@ -57,6 +57,13 @@ ${appUrl()}/today`;
   return { sent: true, count: due.length };
 }
 
+export async function runNightlyJobs() {
+  const email = await syncAllLeadEmails();
+  const fathom = await autoImportFathomCalls();
+  const ghosted = await moveGhostedAfterCadence();
+  return { email, fathom, ghosted };
+}
+
 export function startEmailJobs() {
   setInterval(async () => {
     const { hour, minute, dayKey } = denverNowParts();
@@ -65,12 +72,8 @@ export function startEmailJobs() {
       lastSyncDay = dayKey;
       console.log("[jobs] nightly email sync starting");
       try {
-        const result = await syncAllLeadEmails();
+        const result = await runNightlyJobs();
         console.log("[jobs] nightly email sync", result);
-        const fathom = await autoImportFathomCalls();
-        console.log("[jobs] fathom auto-import", fathom);
-        const ghosted = await moveGhostedAfterCadence();
-        if (ghosted) console.log("[jobs] ghosted to future-client", ghosted);
       } catch (error) {
         console.error("[jobs] nightly email sync failed", error);
       }

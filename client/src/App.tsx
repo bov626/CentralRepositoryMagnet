@@ -8,53 +8,36 @@ import PipelinePage from "@/pages/pipeline";
 import OnboardingPage from "@/pages/onboarding";
 import OnboardingFormPage from "@/pages/onboarding-form";
 import TodayPage from "@/pages/today";
-import SettingsPage from "@/pages/settings";
 import FathomPage from "@/pages/fathom";
 import { StoreProvider } from "@/lib/data";
 import { useEffect } from "react";
 import { AuthProvider, ProtectedRoute } from "@/hooks/use-auth";
 
-function CalendarAutoSync() {
+function FathomAutoImport() {
   const qc = useQueryClient();
-  
-  useEffect(() => {
-    fetch("/api/calendar/sync", { method: "POST" })
-      .then(res => res.json())
-      .then(data => {
-        if (data.created > 0) {
-          qc.invalidateQueries({ queryKey: ["leads"] });
-          console.log(`Auto-synced ${data.created} leads from calendar`);
-        }
-      })
-      .catch(err => {
-        console.log("Calendar sync skipped:", err.message);
-      });
 
+  useEffect(() => {
     fetch("/api/fathom/auto-import", { method: "POST" })
       .then(res => res.json())
       .then(data => {
         if (data.imported > 0) {
           qc.invalidateQueries({ queryKey: ["leads"] });
-          console.log(`Auto-imported ${data.imported} Fathom calls`);
         }
       })
-      .catch(err => {
-        console.log("Fathom auto-import skipped:", err.message);
-      });
+      .catch(() => {});
   }, []);
-  
+
   return null;
 }
 
 function ProtectedDashboard() {
   return (
     <ProtectedRoute>
-      <CalendarAutoSync />
+      <FathomAutoImport />
       <Switch>
         <Route path="/" component={PipelinePage} />
         <Route path="/onboarding" component={OnboardingPage} />
         <Route path="/today" component={TodayPage} />
-        <Route path="/settings" component={SettingsPage} />
         <Route path="/fathom" component={FathomPage} />
         <Route component={NotFound} />
       </Switch>

@@ -8,7 +8,7 @@ import { listMeetings, isFathomConfigured } from "./fathom";
 import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
 import { recordOutboundEmail, syncAllLeadEmails, syncLeadEmails } from "./email-sync";
 import { draftEmailForLead } from "./email-draft";
-import { sendSalesFocusEmail } from "./jobs";
+import { runNightlyJobs, sendSalesFocusEmail } from "./jobs";
 import { dueToday, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
 import { buildMoneyView } from "@shared/money";
 import { isStripeConfigured, jumpseatPaidHistory } from "./stripe";
@@ -31,7 +31,12 @@ function webhookAllowed(req: any): boolean {
   if (process.env.NODE_ENV !== "production") return true;
   const secret = process.env.WEBHOOK_SECRET || process.env.CRM_PASSWORD;
   if (!secret) return true;
-  const provided = String(req.headers["x-webhook-secret"] || req.body?.secret || "");
+  const provided = String(
+    req.headers["x-webhook-secret"] ||
+    req.headers["x-cron-secret"] ||
+    req.body?.secret ||
+    ""
+  );
   return provided === secret;
 }
 
@@ -583,15 +588,21 @@ export async function registerRoutes(
 
   app.post("/api/email/daily-focus", async (req, res) => {
     try {
-      const secret = process.env.CRM_PASSWORD;
-      const provided = String(req.headers["x-cron-secret"] || req.body?.secret || "");
-      if (process.env.NODE_ENV === "production" && secret && provided !== secret) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
+      if (!webhookAllowed(req)) return res.status(401).json({ error: "Unauthorized" });
       const result = await sendSalesFocusEmail();
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to send sales focus email" });
+    }
+  });
+
+  app.post("/api/jobs/nightly", async (req, res) => {
+    try {
+      if (!webhookAllowed(req)) return res.status(401).json({ error: "Unauthorized" });
+      const result = await runNightlyJobs();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to run nightly jobs" });
     }
   });
 

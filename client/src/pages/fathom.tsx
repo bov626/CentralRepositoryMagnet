@@ -1,11 +1,11 @@
 import Layout from "@/components/layout";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Video, Clock, Users, Download, CheckCircle2, ExternalLink, AlertCircle, Key, RefreshCw, X, Trash2 } from "lucide-react";
+import { Video, Clock, Users, CheckCircle2, ExternalLink, AlertCircle, Key, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useStore } from "@/lib/data";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface FathomAttendee {
   name: string;
@@ -42,7 +42,6 @@ interface FathomResponse {
 }
 
 export default function FathomPage() {
-  const queryClient = useQueryClient();
   const { leads } = useStore();
   
   // Track dismissed (hidden) meeting IDs in localStorage
@@ -92,37 +91,10 @@ export default function FathomPage() {
     enabled: status?.configured === true,
   });
 
-  const importMutation = useMutation({
-    mutationFn: async (recordingId: number) => {
-      const res = await fetch(`/api/fathom/import/${recordingId}`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to import meeting");
-      }
-      return res.json();
-    },
-    onSuccess: (data, _variables, context) => {
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
-      // Check if this was an enhancement (lead already existed) or new import
-      const wasEnhancement = leads.some(l => l.email && l.email === data.email);
-      toast.success(wasEnhancement 
-        ? `Enhanced "${data.name}" with Fathom call data` 
-        : `Imported "${data.name}" as a new lead`
-      );
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
-  // Split meetings into available, imported, and dismissed
-  const availableMeetings = meetings?.items.filter(m => 
+  const recentMeetings = meetings?.items.filter(m =>
     !importedRecordingIds.has(m.recording_id) && !dismissedIds.has(m.recording_id)
   ) || [];
   const importedMeetings = meetings?.items.filter(m => importedRecordingIds.has(m.recording_id)) || [];
-  const dismissedMeetings = meetings?.items.filter(m => dismissedIds.has(m.recording_id)) || [];
 
   if (!status?.configured) {
     return (
@@ -132,7 +104,7 @@ export default function FathomPage() {
             <Key className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
             <h2 className="text-2xl font-bold mb-4">Connect Fathom</h2>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              To import meeting notes from Fathom, you'll need to add your Fathom API key. 
+              Calls import into the board automatically once a Fathom API key is set.
               You can find this in your Fathom account settings.
             </p>
             <div className="bg-muted/50 rounded-lg p-4 text-sm text-left max-w-md mx-auto">
@@ -192,24 +164,22 @@ export default function FathomPage() {
 
         {meetings && (
           <div className="space-y-8">
-            {/* Available Meetings */}
+            {/* Recent calls not yet on a card */}
             <section>
               <h2 className="text-lg font-semibold mb-4 text-muted-foreground">
-                Available to Import ({availableMeetings.length})
+                Recent calls ({recentMeetings.length})
               </h2>
-              {availableMeetings.length === 0 ? (
+              {recentMeetings.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground border-2 border-dashed border-border rounded-lg">
-                  All meetings have been imported
+                  All listed calls are already on the board
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {availableMeetings.map((meeting) => (
+                  {recentMeetings.map((meeting) => (
                     <MeetingCard
                       key={meeting.recording_id}
                       meeting={meeting}
                       isImported={false}
-                      isImporting={importMutation.isPending && importMutation.variables === meeting.recording_id}
-                      onImport={() => importMutation.mutate(meeting.recording_id)}
                       onDismiss={() => dismissMeeting(meeting.recording_id)}
                     />
                   ))}
@@ -217,11 +187,10 @@ export default function FathomPage() {
               )}
             </section>
 
-            {/* Imported Meetings */}
             {importedMeetings.length > 0 && (
               <section>
                 <h2 className="text-lg font-semibold mb-4 text-muted-foreground">
-                  Already Imported ({importedMeetings.length})
+                  On the board ({importedMeetings.length})
                 </h2>
                 <div className="space-y-4 opacity-60">
                   {importedMeetings.map((meeting) => (
@@ -229,8 +198,6 @@ export default function FathomPage() {
                       key={meeting.recording_id}
                       meeting={meeting}
                       isImported={true}
-                      isImporting={false}
-                      onImport={() => importMutation.mutate(meeting.recording_id)}
                     />
                   ))}
                 </div>
@@ -246,14 +213,10 @@ export default function FathomPage() {
 function MeetingCard({
   meeting,
   isImported,
-  isImporting,
-  onImport,
   onDismiss,
 }: {
   meeting: FathomMeeting;
   isImported: boolean;
-  isImporting: boolean;
-  onImport: () => void;
   onDismiss?: () => void;
 }) {
   const externalAttendees = meeting.calendar_invitees?.filter(a => a.is_external) || [];
@@ -341,26 +304,11 @@ function MeetingCard({
             <ExternalLink className="h-5 w-5" />
           </a>
 
-          {isImported ? (
+          {isImported && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-green-500/10 text-green-500">
               <CheckCircle2 className="h-5 w-5" />
-              <span className="text-sm font-medium">Imported</span>
+              <span className="text-sm font-medium">On the board</span>
             </div>
-          ) : (
-            <button
-              onClick={onImport}
-              disabled={isImporting}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-md transition-colors font-medium",
-                isImporting
-                  ? "bg-primary/50 text-primary-foreground cursor-wait"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-              )}
-              data-testid={`button-import-${meeting.recording_id}`}
-            >
-              <Download className="h-4 w-4" />
-              {isImporting ? "Importing..." : "Import as Lead"}
-            </button>
           )}
         </div>
       </div>
