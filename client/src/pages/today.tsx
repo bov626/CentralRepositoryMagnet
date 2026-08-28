@@ -38,9 +38,10 @@ export default function TodayPage() {
     count: number;
     items: TodayItem[];
     money?: {
-      agency: { closed: number; paid: number; toCollect: number };
+      agency: { closed: number; paid: number; toCollect: number; paidSource?: "stripe" | "crm" };
       community: { members: number; mrr: number; mrrGrowth: number };
     };
+    stripe?: { configured: boolean };
   }>({
     queryKey: ["today-focus"],
     queryFn: async () => {
@@ -72,7 +73,7 @@ export default function TodayPage() {
         {data?.money && (
           <div className="grid grid-cols-2 gap-3">
             <div className="border border-border rounded-md p-4 bg-card">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Agency</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Jumpseat</p>
               <p className="text-2xl font-semibold mt-1 tabular-nums">
                 {formatDollars(data.money.agency.paid)}
                 <span className="text-sm font-normal text-muted-foreground"> paid</span>
@@ -80,9 +81,14 @@ export default function TodayPage() {
               <p className="text-sm text-muted-foreground mt-1">
                 {data.money.agency.closed} closed this month · {formatDollars(data.money.agency.toCollect)} to collect
               </p>
+              <p className="text-[10px] text-muted-foreground mt-2">
+                {data.money.agency.paidSource === "stripe"
+                  ? "Stripe this month"
+                  : "Add STRIPE_SECRET_KEY for live totals"}
+              </p>
             </div>
             <div className="border border-border rounded-md p-4 bg-card">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Community</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Skool</p>
               <p className="text-2xl font-semibold mt-1 tabular-nums">
                 {formatDollars(data.money.community.mrr)}
                 <span className="text-sm font-normal text-muted-foreground"> MRR</span>

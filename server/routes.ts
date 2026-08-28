@@ -10,7 +10,8 @@ import { recordOutboundEmail, syncAllLeadEmails, syncLeadEmails } from "./email-
 import { draftEmailForLead } from "./email-draft";
 import { sendSalesFocusEmail } from "./jobs";
 import { dueToday, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
-import { moneySnapshot } from "@shared/money";
+import { moneySnapshot, withStripePaid } from "@shared/money";
+import { isStripeConfigured, jumpseatPaidThisMonth } from "./stripe";
 import {
   autoImportFathomCalls,
   ingestAuditLead,
@@ -547,7 +548,18 @@ export async function registerRoutes(
           });
         }
       }
-      res.json({ count: due.length, items: due, money: moneySnapshot(allLeads) });
+      let stripePaid = { dollars: 0, chargeCount: 0, configured: false };
+      try {
+        stripePaid = await jumpseatPaidThisMonth();
+      } catch (error) {
+        console.error("Stripe month total failed", error);
+      }
+      res.json({
+        count: due.length,
+        items: due,
+        money: withStripePaid(moneySnapshot(allLeads), stripePaid),
+        stripe: { configured: isStripeConfigured() && stripePaid.configured },
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to load today's focus" });
     }

@@ -88,12 +88,29 @@ export function moneySnapshot(leads: MoneyLead[], now = new Date()) {
       toCollect: openCollect,
       paidThisMonth: paid,
       toCollectThisMonth: toCollect,
+      paidSource: "crm" as const,
     },
     community: {
       members,
       mrr: members * COMMUNITY_MRR_PER_MEMBER,
       mrrGrowth: newMembers * COMMUNITY_MRR_PER_MEMBER,
       newMembers,
+    },
+  };
+}
+
+export function withStripePaid(
+  snapshot: ReturnType<typeof moneySnapshot>,
+  stripe: { dollars: number; configured: boolean } | null,
+) {
+  if (!stripe?.configured) return snapshot;
+  return {
+    ...snapshot,
+    agency: {
+      ...snapshot.agency,
+      paid: stripe.dollars,
+      paidThisMonth: stripe.dollars,
+      paidSource: "stripe" as const,
     },
   };
 }
