@@ -4,9 +4,19 @@ import { storage } from "./storage";
 import { insertLeadSchema, insertBlockerSchema, insertOnboardingSubmissionSchema } from "@shared/schema";
 import { z } from "zod";
 import { getUpcomingEvents, createEvent } from "./google-calendar";
-import { listMeetings, getMeeting, extractLeadDataFromMeeting, isFathomConfigured } from "./fathom";
-import { summarizeClientNeeds } from "./ai-summarize";
-import { sendEmail, isGmailConfigured } from "./gmail";
+import { listMeetings, isFathomConfigured } from "./fathom";
+import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
+import { recordOutboundEmail, syncAllLeadEmails, syncLeadEmails } from "./email-sync";
+import { draftEmailForLead } from "./email-draft";
+import { sendSalesFocusEmail } from "./jobs";
+import { dueToday, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
+import { moneySnapshot } from "@shared/money";
+import {
+  autoImportFathomCalls,
+  ingestAuditLead,
+  ingestFathomMeeting,
+  ingestSkoolMember,
+} from "./lead-intake";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import crypto from "crypto";
 
@@ -14,6 +24,14 @@ function signToken(payload: object, secret: string): string {
   const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const sig = crypto.createHmac("sha256", secret).update(data).digest("base64url");
   return `${data}.${sig}`;
+}
+
+function webhookAllowed(req: any): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
+  const secret = process.env.WEBHOOK_SECRET || process.env.CRM_PASSWORD;
+  if (!secret) return true;
+  const provided = String(req.headers["x-webhook-secret"] || req.body?.secret || "");
+  return provided === secret;
 }
 
 function verifyToken(token: string, secret: string): { exp: number } | null {
@@ -117,6 +135,12 @@ export async function registerRoutes(
       const updates = { ...req.body };
       if (updates.nextFollowUp !== undefined) {
         updates.nextFollowUp = updates.nextFollowUp ? new Date(updates.nextFollowUp) : null;
+      }
+      if (updates.cadenceAnchor !== undefined) {
+        updates.cadenceAnchor = updates.cadenceAnchor ? new Date(updates.cadenceAnchor) : null;
+      }
+      if (updates.boughtAt !== undefined) {
+        updates.boughtAt = updates.boughtAt ? new Date(updates.boughtAt) : null;
       }
       
       const updatedLead = await storage.updateLead(req.params.id, updates);
@@ -235,113 +259,54 @@ export async function registerRoutes(
       if (!isFathomConfigured()) {
         return res.status(400).json({ error: "Fathom API key not configured" });
       }
-      
       const recordingId = parseInt(req.params.recordingId);
-      const meeting = await getMeeting(recordingId);
-      
-      if (!meeting) {
-        return res.status(404).json({ error: "Meeting not found" });
-      }
-      
-      const leadData = extractLeadDataFromMeeting(meeting);
-      
-      // Use AI to summarize just the client's needs (not the pitch)
-      let clientSummary = leadData.summary;
-      try {
-        clientSummary = await summarizeClientNeeds(leadData.summary, leadData.actionItems);
-      } catch (error) {
-        console.error("AI summarization failed, using original:", error);
-      }
-      
-      // Check if lead with this email already exists - ENHANCE instead of duplicate
-      let existingLead = null;
-      if (leadData.email) {
-        existingLead = await storage.getLeadByEmail(leadData.email);
-      }
-      
-      if (existingLead) {
-        // Enhance existing lead with Fathom data - APPEND instead of replace
-        const existingHistory = Array.isArray(existingLead.history) ? existingLead.history : [];
-        const existingActionItems = Array.isArray(existingLead.actionItems) ? existingLead.actionItems : [];
-        
-        // Check if lead is in onboarding (closed in Jumpseat pipeline with onboardingStage explicitly set)
-        // This means the lead has graduated from active sales and is now being onboarded
-        // Subsequent Fathom imports should only append to summary for the onboarding panel view
-        const isInOnboarding = existingLead.pipeline === 'jumpseat' && 
-                               existingLead.stage === 'closed' && 
-                               existingLead.onboardingStage !== null && 
-                               existingLead.onboardingStage !== undefined;
-        
-        // Append summary: keep existing notes, add new Fathom summary below
-        let combinedSummary = existingLead.summary || '';
-        if (clientSummary) {
-          const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-          const separator = combinedSummary ? `\n\n--- Fathom Call (${dateStr}) ---\n` : '';
-          combinedSummary = combinedSummary + separator + clientSummary;
-        }
-        
-        if (isInOnboarding) {
-          // For onboarding leads: ONLY append to summary and update history
-          // Do NOT update pipeline-facing fields (actionItems, recordingLink, nextFollowUp, etc.)
-          const updatedLead = await storage.updateLead(existingLead.id, {
-            summary: combinedSummary,
-            history: [...existingHistory, {
-              date: new Date().toISOString(),
-              action: `Onboarding call added: ${meeting.title}`
-            }],
-          });
-          res.status(200).json(updatedLead);
-        } else {
-          // For pipeline leads: update all fields as before
-          // Merge action items: existing + new (avoid duplicates)
-          const newActionItems = leadData.actionItems || [];
-          const mergedActionItems = [...existingActionItems];
-          for (const item of newActionItems) {
-            if (!mergedActionItems.includes(item)) {
-              mergedActionItems.push(item);
-            }
-          }
-          
-          const updatedLead = await storage.updateLead(existingLead.id, {
-            summary: combinedSummary,
-            actionItems: mergedActionItems,
-            recordingLink: leadData.recordingLink,
-            fathomRecordingId: recordingId,
-            nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : existingLead.nextFollowUp,
-            history: [...existingHistory, {
-              date: new Date().toISOString(),
-              action: `Enhanced with Fathom call: ${meeting.title}`
-            }],
-          });
-          res.status(200).json(updatedLead);
-        }
-      } else {
-        // Create new lead
-        const newLead = await storage.createLead({
-          name: leadData.name,
-          email: leadData.email || null,
-          company: leadData.company,
-          linkedIn: null,
-          tags: [],
-          pipeline: "jumpseat",
-          stage: "backlog",
-          onboardingStage: null,
-          nextFollowUp: leadData.nextFollowUp ? new Date(leadData.nextFollowUp) : null,
-          summary: clientSummary,
-          actionItems: leadData.actionItems,
-          followUpAngle: null,
-          recordingLink: leadData.recordingLink,
-          fathomRecordingId: recordingId,
-          history: [{
-            date: new Date().toISOString(),
-            action: `Imported from Fathom: ${meeting.title}`
-          }],
-        });
-        res.status(201).json(newLead);
-      }
+      const result = await ingestFathomMeeting(recordingId);
+      res.status(result.created ? 201 : 200).json(result.lead);
     } catch (error: any) {
       console.error("Error importing from Fathom:", error);
       res.status(500).json({ error: error.message || "Failed to import meeting" });
+    }
+  });
+
+  app.post("/api/fathom/auto-import", async (req, res) => {
+    try {
+      if (!isFathomConfigured()) {
+        return res.json({ imported: 0, skipped: 0, configured: false });
+      }
+      const result = await autoImportFathomCalls();
+      res.json({ ...result, configured: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to auto-import Fathom" });
+    }
+  });
+
+  app.post("/api/leads/audit", async (req, res) => {
+    try {
+      if (!webhookAllowed(req)) return res.status(401).json({ error: "Unauthorized" });
+      const { name, email, linkedIn, summary, pdfUrl, pdf_url } = req.body || {};
+      if (!name) return res.status(400).json({ error: "name is required" });
+      const result = await ingestAuditLead({
+        name,
+        email,
+        linkedIn,
+        summary,
+        pdfUrl: pdfUrl || pdf_url,
+      });
+      res.status(result.created ? 201 : 200).json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to ingest audit" });
+    }
+  });
+
+  app.post("/api/leads/skool-member", async (req, res) => {
+    try {
+      if (!webhookAllowed(req)) return res.status(401).json({ error: "Unauthorized" });
+      const { name, email, paid } = req.body || {};
+      if (!name) return res.status(400).json({ error: "name is required" });
+      const result = await ingestSkoolMember({ name, email, paid: paid === true || paid === "true" });
+      res.status(result.created ? 201 : 200).json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to ingest Skool member" });
     }
   });
 
@@ -417,11 +382,8 @@ export async function registerRoutes(
           stage: "backlog",
           onboardingStage: null,
           nextFollowUp: null, // Don't auto-set follow-up - only from Fathom or manual entry
-          actionNeeded: true,
           summary: `Upcoming call: ${event.summary || 'Meeting'}`,
           keyTakeaways: [],
-          blocker: null,
-          decisionTrigger: null,
           followUpAngle: null,
           recordingLink: null,
           calendarEventId: event.id || null,
@@ -448,22 +410,160 @@ export async function registerRoutes(
   // Email routes
   app.get("/api/email/status", async (req, res) => {
     const configured = await isGmailConfigured();
-    res.json({ configured });
+    res.json({
+      configured,
+      mockOnLocalhost: !configured && process.env.NODE_ENV !== "production",
+    });
+  });
+
+  app.get("/api/email/search", async (req, res) => {
+    try {
+      const q = String(req.query.q || "").trim();
+      if (!q) {
+        return res.status(400).json({ error: "Missing query parameter q" });
+      }
+      const configured = await isGmailConfigured();
+      if (!configured) {
+        return res.status(401).json({
+          error: "Gmail not connected. Search works on Replit after Gmail is connected, or use Sync on a lead locally to load mock threads.",
+        });
+      }
+      const results = await searchEmails(q, 50);
+      res.json(results);
+    } catch (error: any) {
+      const message = error.message || "Failed to search email";
+      const status = message.toLowerCase().includes("read access") ? 401 : 500;
+      res.status(status).json({ error: message });
+    }
+  });
+
+  app.post("/api/email/sync/:leadId", async (req, res) => {
+    try {
+      const result = await syncLeadEmails(req.params.leadId);
+      res.json(result);
+    } catch (error: any) {
+      const message = error.message || "Failed to sync email";
+      const status = message.includes("no email") ? 400 : message.includes("not found") ? 404 : 500;
+      res.status(status).json({ error: message });
+    }
+  });
+
+  app.post("/api/email/sync-all", async (req, res) => {
+    try {
+      const secret = process.env.CRM_PASSWORD;
+      const provided = String(req.headers["x-cron-secret"] || req.body?.secret || "");
+      if (process.env.NODE_ENV === "production" && secret && provided !== secret) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await syncAllLeadEmails();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to sync all email" });
+    }
   });
 
   app.post("/api/email/send", async (req, res) => {
     try {
-      const { to, subject, body } = req.body;
+      const { to, subject, body, leadId, cadence } = req.body;
       
       if (!to || !subject || !body) {
         return res.status(400).json({ error: "Missing required fields: to, subject, body" });
       }
+
+      let gmailId: string | undefined;
+      let threadId: string | undefined;
+      const configured = await isGmailConfigured();
+      if (configured) {
+        const sent = await sendEmail(to, subject, body);
+        gmailId = sent.id;
+        threadId = sent.threadId;
+      } else if (process.env.NODE_ENV === "production") {
+        throw new Error("Gmail not connected");
+      }
+
+      let lead = null;
+      if (leadId) {
+        lead = await recordOutboundEmail(leadId, { to, subject, body, gmailId, threadId });
+        const next = nextFollowUpAfterSend((cadence as CadenceKind) || null);
+        if (lead) {
+          lead = await storage.updateLead(leadId, { nextFollowUp: next ? new Date(next) : null }) || lead;
+        }
+      }
       
-      await sendEmail(to, subject, body);
-      res.json({ success: true, message: "Email sent successfully" });
+      res.json({
+        success: true,
+        message: configured ? "Email sent successfully" : "Logged locally (Gmail not connected — send will go out on Replit)",
+        mocked: !configured,
+        lead,
+      });
     } catch (error: any) {
       console.error("Error sending email:", error);
       res.status(500).json({ error: error.message || "Failed to send email" });
+    }
+  });
+
+  app.post("/api/email/draft/:leadId", async (req, res) => {
+    try {
+      const lead = await storage.getLead(req.params.leadId);
+      if (!lead) return res.status(404).json({ error: "Lead not found" });
+      const allLeads = await storage.getAllLeads();
+      const cadence = (req.body?.cadence as CadenceKind) || dueToday(lead).cadence;
+      const draft = await draftEmailForLead(lead, allLeads, cadence);
+      res.json({ ...draft, cadence, reason: dueToday(lead).reason });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to draft email" });
+    }
+  });
+
+  app.get("/api/today-focus", async (req, res) => {
+    try {
+      const allLeads = await storage.getAllLeads();
+      const due = [];
+      for (const lead of allLeads) {
+        const info = dueToday(lead);
+        if (!info.due) continue;
+        const draft = await draftEmailForLead(lead, allLeads, info.cadence);
+        due.push({
+          lead,
+          reason: info.reason,
+          cadence: info.cadence,
+          draft,
+          preview: false,
+        });
+      }
+
+      if (due.length === 0 && process.env.NODE_ENV !== "production") {
+        const previewLeads = allLeads
+          .filter((l) => !l.archived && l.email && l.stage !== "closed" && l.stage !== "disqualified")
+          .slice(0, 3);
+        for (const lead of previewLeads) {
+          const draft = await draftEmailForLead(lead, allLeads, "same-day");
+          due.push({
+            lead,
+            reason: "Localhost preview — not actually due. Set a follow-up date to test for real.",
+            cadence: "same-day" as CadenceKind,
+            draft,
+            preview: true,
+          });
+        }
+      }
+      res.json({ count: due.length, items: due, money: moneySnapshot(allLeads) });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to load today's focus" });
+    }
+  });
+
+  app.post("/api/email/daily-focus", async (req, res) => {
+    try {
+      const secret = process.env.CRM_PASSWORD;
+      const provided = String(req.headers["x-cron-secret"] || req.body?.secret || "");
+      if (process.env.NODE_ENV === "production" && secret && provided !== secret) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await sendSalesFocusEmail();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to send sales focus email" });
     }
   });
 

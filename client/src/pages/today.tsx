@@ -1,134 +1,117 @@
 import Layout from "@/components/layout";
-import { useStore, Lead } from "@/lib/data";
 import { LeadDetails } from "@/components/lead-details";
 import { useState } from "react";
-import { format, isToday, isPast, isTomorrow } from "date-fns";
-import { CheckSquare, Clock, AlertTriangle, ArrowRight, Calendar, Video, Users } from "lucide-react";
+import { format } from "date-fns";
+import { Send, Loader2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/hooks/use-toast";
+import { formatDollars } from "@shared/money";
 
-interface CalendarEvent {
-  id: string;
-  summary: string;
-  start: { dateTime?: string; date?: string };
-  end: { dateTime?: string; date?: string };
-  attendees?: { email: string; displayName?: string; self?: boolean }[];
-  htmlLink?: string;
-}
+type TodayItem = {
+  lead: {
+    id: string;
+    name: string;
+    email: string | null;
+    company?: string | null;
+    stage: string;
+    summary?: string | null;
+  };
+  reason: string;
+  cadence: string | null;
+  preview?: boolean;
+  draft: {
+    subject: string;
+    body: string;
+    source: "closed-won" | "template";
+  };
+};
 
 export default function TodayPage() {
-  const { leads } = useStore();
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const today = new Date();
 
-  const { data: calendarEvents = [], isLoading: calendarLoading } = useQuery<CalendarEvent[]>({
-    queryKey: ["calendar-events"],
+  const { data, isLoading } = useQuery<{
+    count: number;
+    items: TodayItem[];
+    money?: {
+      agency: { closed: number; paid: number; toCollect: number };
+      community: { members: number; mrr: number; mrrGrowth: number };
+    };
+  }>({
+    queryKey: ["today-focus"],
     queryFn: async () => {
-      const res = await fetch("/api/calendar/events");
-      if (!res.ok) throw new Error("Failed to fetch calendar events");
+      const res = await fetch("/api/today-focus");
+      if (!res.ok) throw new Error("Failed to load today's focus");
       return res.json();
     },
   });
 
-  const today = new Date();
-  
-  // Filter calendar events for today
-  const todaysMeetings = calendarEvents.filter(event => {
-    const eventDate = event.start.dateTime || event.start.date;
-    if (!eventDate) return false;
-    return isToday(new Date(eventDate));
-  });
-  
-  const dueToday = leads.filter(l => l.nextFollowUp && isToday(new Date(l.nextFollowUp)));
-  const overdue = leads.filter(l => l.nextFollowUp && isPast(new Date(l.nextFollowUp)) && !isToday(new Date(l.nextFollowUp)));
-  const waitingOnMe = leads.filter(l => l.actionNeeded && !isToday(new Date(l.nextFollowUp || ""))); // Avoid duplicates if it's already in due today
-  
-  // Mock pitch calls for today (in reality this would filter by stage + date)
-  const pitchCalls = leads.filter(l => l.stage === "pitch-call" && (l.nextFollowUp ? isToday(new Date(l.nextFollowUp)) : true));
+  const items = data?.items || [];
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto space-y-10">
-        <header className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Today's Focus</h1>
-            <p className="text-muted-foreground">{format(today, "EEEE, MMMM do, yyyy")}</p>
+      <div className="max-w-3xl mx-auto space-y-8">
+        <header className="border-b border-border/60 pb-6">
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">
+            {format(today, "EEEE · MMMM d")}
+          </p>
+          <h1 className="text-3xl font-bold tracking-tight">Today's Focus</h1>
+          <p className="text-muted-foreground mt-2">
+            {isLoading
+              ? "Loading queue…"
+              : items.length === 0
+                ? "Nobody to email today."
+                : `${items.length} ${items.length === 1 ? "person" : "people"} to email. Open, edit, send.`}
+          </p>
         </header>
 
-        {/* Sales Meetings from Calendar */}
-        <section>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-blue-500" />
-                Sales Meetings Today ({todaysMeetings.length})
-            </h2>
-            <div className="grid gap-3">
-                {calendarLoading ? (
-                    <div className="p-4 text-center text-muted-foreground">Loading calendar...</div>
-                ) : todaysMeetings.length > 0 ? todaysMeetings.map(event => (
-                    <MeetingCard key={event.id} event={event} />
-                )) : (
-                    <EmptyState message="No sales meetings scheduled for today." />
-                )}
+        {data?.money && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="border border-border rounded-md p-4 bg-card">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Agency</p>
+              <p className="text-2xl font-semibold mt-1 tabular-nums">
+                {formatDollars(data.money.agency.paid)}
+                <span className="text-sm font-normal text-muted-foreground"> paid</span>
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {data.money.agency.closed} closed this month · {formatDollars(data.money.agency.toCollect)} to collect
+              </p>
             </div>
-        </section>
-
-        {/* Pitch Calls Section */}
-        <section>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                Pitch Calls ({pitchCalls.length})
-            </h2>
-            <div className="grid gap-3">
-                {pitchCalls.length > 0 ? pitchCalls.map(lead => (
-                    <TaskCard key={lead.id} lead={lead} type="pitch" onClick={() => setSelectedLeadId(lead.id)} />
-                )) : (
-                    <EmptyState message="No pitch calls scheduled for today." />
-                )}
+            <div className="border border-border rounded-md p-4 bg-card">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Community</p>
+              <p className="text-2xl font-semibold mt-1 tabular-nums">
+                {formatDollars(data.money.community.mrr)}
+                <span className="text-sm font-normal text-muted-foreground"> MRR</span>
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {data.money.community.members} members · {data.money.community.mrrGrowth >= 0 ? "+" : ""}
+                {formatDollars(data.money.community.mrrGrowth)} this month
+              </p>
             </div>
-        </section>
-
-        {/* Overdue Section */}
-        {overdue.length > 0 && (
-            <section>
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-red-400 mb-4 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Overdue Follow-ups ({overdue.length})
-                </h2>
-                <div className="grid gap-3">
-                    {overdue.map(lead => (
-                        <TaskCard key={lead.id} lead={lead} type="overdue" onClick={() => setSelectedLeadId(lead.id)} />
-                    ))}
-                </div>
-            </section>
+          </div>
         )}
 
-        {/* Due Today Section */}
-        <section>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                Due Today ({dueToday.length})
-            </h2>
-            <div className="grid gap-3">
-                {dueToday.length > 0 ? dueToday.map(lead => (
-                    <TaskCard key={lead.id} lead={lead} type="due" onClick={() => setSelectedLeadId(lead.id)} />
-                )) : (
-                    <EmptyState message="You're all caught up for today!" />
-                )}
+        <div className="space-y-3">
+          {isLoading ? (
+            <div className="p-8 text-center text-muted-foreground">Loading…</div>
+          ) : items.length > 0 ? (
+            items.map((item) => (
+              <QueueRow
+                key={item.lead.id}
+                item={item}
+                onOpenLead={() => setSelectedLeadId(item.lead.id)}
+              />
+            ))
+          ) : (
+            <div className="p-10 text-center border border-dashed border-border/60 rounded-md">
+              <p className="text-muted-foreground">You're all caught up for today.</p>
             </div>
-        </section>
-
-        {/* Waiting On Me */}
-        {waitingOnMe.length > 0 && (
-            <section>
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-orange-500"></div>
-                    Action Required ({waitingOnMe.length})
-                </h2>
-                <div className="grid gap-3">
-                    {waitingOnMe.map(lead => (
-                        <TaskCard key={lead.id} lead={lead} type="action" onClick={() => setSelectedLeadId(lead.id)} />
-                    ))}
-                </div>
-            </section>
-        )}
+          )}
+        </div>
       </div>
 
       <LeadDetails leadId={selectedLeadId} onClose={() => setSelectedLeadId(null)} />
@@ -136,98 +119,107 @@ export default function TodayPage() {
   );
 }
 
-function TaskCard({ lead, type, onClick }: { lead: Lead, type: 'pitch' | 'overdue' | 'due' | 'action', onClick: () => void }) {
-    return (
-        <div 
-            onClick={onClick}
-            className={cn(
-                "flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-all cursor-pointer group shadow-sm",
-                type === 'overdue' ? "border-red-500/30 bg-red-500/5" : "border-border"
-            )}
-        >
-            <div className="flex items-center gap-4">
-                <div className={cn(
-                    "h-10 w-10 rounded-full flex items-center justify-center border",
-                    type === 'pitch' ? "bg-blue-500/10 border-blue-500/20 text-blue-500" :
-                    type === 'overdue' ? "bg-red-500/10 border-red-500/20 text-red-500" :
-                    type === 'action' ? "bg-orange-500/10 border-orange-500/20 text-orange-500" :
-                    "bg-green-500/10 border-green-500/20 text-green-500"
-                )}>
-                    {type === 'pitch' ? <Clock className="h-5 w-5" /> : <CheckSquare className="h-5 w-5" />}
-                </div>
-                <div>
-                    <h3 className="font-semibold text-foreground">{lead.name}</h3>
-                    <p className="text-sm text-muted-foreground">{lead.company || "No Company"} • <span className="capitalize">{lead.stage.replace('-', ' ')}</span></p>
-                </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-                {lead.nextFollowUp && (
-                    <div className={cn(
-                        "text-xs font-mono px-2 py-1 rounded",
-                        type === 'overdue' ? "text-red-400 bg-red-500/10" : "text-muted-foreground bg-muted"
-                    )}>
-                        {format(new Date(lead.nextFollowUp), "MMM d")}
-                    </div>
-                )}
-                <ArrowRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-colors" />
-            </div>
-        </div>
-    )
-}
+function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => void }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [subject, setSubject] = useState(item.draft.subject);
+  const [body, setBody] = useState(item.draft.body);
 
-function MeetingCard({ event }: { event: CalendarEvent }) {
-    const startTime = event.start.dateTime ? new Date(event.start.dateTime) : null;
-    const endTime = event.end.dateTime ? new Date(event.end.dateTime) : null;
-    const attendees = event.attendees?.filter(a => !a.self) || [];
-    
-    return (
-        <a 
-            href={event.htmlLink || "#"}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center justify-between p-4 rounded-lg border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 transition-all cursor-pointer group shadow-sm"
-        >
-            <div className="flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full flex items-center justify-center border bg-blue-500/10 border-blue-500/20 text-blue-500">
-                    <Video className="h-5 w-5" />
-                </div>
-                <div>
-                    <h3 className="font-semibold text-foreground">{event.summary}</h3>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {startTime && endTime && (
-                            <span>{format(startTime, "h:mm a")} - {format(endTime, "h:mm a")}</span>
-                        )}
-                        {attendees.length > 0 && (
-                            <>
-                                <span>•</span>
-                                <span className="flex items-center gap-1">
-                                    <Users className="h-3 w-3" />
-                                    {attendees.slice(0, 2).map(a => a.displayName || a.email.split('@')[0]).join(', ')}
-                                    {attendees.length > 2 && ` +${attendees.length - 2}`}
-                                </span>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-                {startTime && (
-                    <div className="text-xs font-mono px-2 py-1 rounded text-blue-400 bg-blue-500/10">
-                        {format(startTime, "h:mm a")}
-                    </div>
-                )}
-                <ArrowRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-colors" />
-            </div>
-        </a>
-    );
-}
+  const send = useMutation({
+    mutationFn: async () => {
+      if (!item.lead.email) throw new Error("This lead has no email address");
+      const res = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: item.lead.email,
+          subject,
+          body,
+          leadId: item.lead.id,
+          cadence: item.cadence,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send");
+      return data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: data.mocked ? "Logged (not sent)" : "Sent",
+        description: data.mocked
+          ? `Saved to ${item.lead.name}'s timeline. Real send happens on Replit.`
+          : `Sent to ${item.lead.email}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["today-focus"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Could not send", description: error.message, variant: "destructive" });
+    },
+  });
 
-function EmptyState({ message }: { message: string }) {
-    return (
-        <div className="p-8 text-center border-2 border-dashed border-border/50 rounded-lg">
-            <p className="text-muted-foreground">{message}</p>
+  return (
+    <div
+      className={cn(
+        "rounded-md border bg-card overflow-hidden",
+        item.preview ? "border-dashed border-border" : "border-border",
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between gap-4 p-4 text-left hover:bg-muted/30"
+      >
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold truncate">{item.lead.name}</h3>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground border border-border px-1.5 py-0.5 rounded">
+              {item.reason}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground truncate mt-0.5">
+            {item.lead.email || "No email"} · {item.draft.subject}
+          </p>
         </div>
-    )
+        <ChevronDown className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="border-t border-border p-4 space-y-3">
+          {item.lead.summary && (
+            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-4">
+              {item.lead.summary}
+            </p>
+          )}
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Subject</label>
+            <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Draft {item.draft.source === "closed-won" ? "· from Closed emails" : "· template"}
+            </label>
+            <Textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              className="min-h-[200px] resize-none font-mono text-sm"
+            />
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <button
+              type="button"
+              onClick={onOpenLead}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Open full card
+            </button>
+            <Button onClick={() => send.mutate()} disabled={send.isPending || !item.lead.email} className="gap-2">
+              {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {send.isPending ? "Sending…" : "Send"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

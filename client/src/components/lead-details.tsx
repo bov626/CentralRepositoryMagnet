@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, AlertCircle, PlayCircle, ExternalLink, CheckCircle2, Linkedin, X, Plus, Trash2, Archive, Check } from "lucide-react";
+import { Calendar, Clock, AlertCircle, PlayCircle, ExternalLink, CheckCircle2, Linkedin, X, Plus, Trash2, Archive, Check, RefreshCw, Mail } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "@/hooks/use-toast";
 
 interface LeadDetailsProps {
   leadId: string | null;
@@ -27,6 +29,7 @@ interface LeadDetailsProps {
 
 export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
   const { leads, updateLead, deleteLead, archiveLead } = useStore();
+  const queryClient = useQueryClient();
   const lead = leads.find((l) => l.id === leadId);
   const [notes, setNotes] = useState("");
   const [linkedInUrl, setLinkedInUrl] = useState("");
@@ -36,8 +39,11 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
   const [editableName, setEditableName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [pitchAmount, setPitchAmount] = useState("");
+  const [paymentPlan, setPaymentPlan] = useState<"upfront" | "fifty_fifty" | "">("");
+  const [amountPaid, setAmountPaid] = useState("");
   const [newActionItem, setNewActionItem] = useState("");
   const [completingItems, setCompletingItems] = useState<Set<number>>(new Set());
+  const [syncing, setSyncing] = useState(false);
 
   // Only sync state when opening a different lead (not on every lead update)
   useEffect(() => {
@@ -45,6 +51,8 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
       setNotes(lead.summary || "");
       setLinkedInUrl(lead.linkedIn || "");
       setPitchAmount(lead.pitchAmount || "");
+      setPaymentPlan((lead.paymentPlan as "upfront" | "fifty_fifty") || "");
+      setAmountPaid(lead.amountPaid ? String(lead.amountPaid) : "");
       // Parse date in local timezone to avoid off-by-one day issues
       if (lead.nextFollowUp) {
         const date = new Date(lead.nextFollowUp);
@@ -111,17 +119,69 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
     updateLead(lead.id, { pitchAmount: pitchAmount || null });
   };
 
+  const handleSavePayment = (plan: "upfront" | "fifty_fifty" | "", paid: string) => {
+    if (!lead) return;
+    updateLead(lead.id, {
+      paymentPlan: plan || null,
+      amountPaid: paid ? Number(paid) : 0,
+    });
+  };
+
   const handleAddActionItem = () => {
     if (!lead || !newActionItem.trim()) return;
     const updatedItems = [...(lead.actionItems || []), newActionItem.trim()];
-    updateLead(lead.id, { actionItems: updatedItems });
+    const dates = [...(lead.actionItemDates || [])];
+    while (dates.length < (lead.actionItems || []).length) dates.push(null);
+    const needsDate = !lead.nextFollowUp && dates.every((d) => !d);
+    const due = needsDate
+      ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+    updateLead(lead.id, { actionItems: updatedItems, actionItemDates: [...dates, due] });
     setNewActionItem("");
   };
 
   const handleRemoveActionItem = (index: number) => {
     if (!lead) return;
     const updatedItems = (lead.actionItems || []).filter((_, i) => i !== index);
-    updateLead(lead.id, { actionItems: updatedItems });
+    const updatedDates = (lead.actionItemDates || []).filter((_, i) => i !== index);
+    updateLead(lead.id, { actionItems: updatedItems, actionItemDates: updatedDates });
+  };
+
+  const handleActionItemDate = (index: number, value: string) => {
+    if (!lead) return;
+    const dates = [...(lead.actionItemDates || [])];
+    while (dates.length < (lead.actionItems || []).length) dates.push(null);
+    if (value) {
+      const [year, month, day] = value.split("-").map(Number);
+      dates[index] = new Date(year, month - 1, day, 12, 0, 0).toISOString();
+    } else {
+      dates[index] = null;
+    }
+    updateLead(lead.id, { actionItemDates: dates });
+  };
+
+  const handleSyncEmails = async () => {
+    if (!lead?.email) {
+      toast({ title: "No email", description: "Add an email on this lead first.", variant: "destructive" });
+      return;
+    }
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/email/sync/${lead.id}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sync failed");
+      await queryClient.invalidateQueries({ queryKey: ["leads"] });
+      toast({
+        title: data.mocked ? "Loaded sample emails" : "Emails synced",
+        description: data.mocked
+          ? "Gmail isn't connected locally. Sample threads are on the timeline so you can try the UI. Real search runs on Replit."
+          : `Added ${data.added} new thread${data.added === 1 ? "" : "s"}.`,
+      });
+    } catch (error: any) {
+      toast({ title: "Sync failed", description: error.message, variant: "destructive" });
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleCompleteActionItem = (index: number, itemText: string) => {
@@ -133,10 +193,12 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
     // After animation, remove item and add to history
     setTimeout(() => {
       const updatedItems = (lead.actionItems || []).filter((_, i) => i !== index);
+      const updatedDates = (lead.actionItemDates || []).filter((_, i) => i !== index);
       const existingHistory = Array.isArray(lead.history) ? lead.history : [];
       
       updateLead(lead.id, { 
         actionItems: updatedItems,
+        actionItemDates: updatedDates,
         history: [...existingHistory, {
           date: new Date().toISOString(),
           action: `Completed: ${itemText}`
@@ -338,6 +400,11 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                         placeholder="Paste Fathom summary here..."
                     />
                 </div>
+                {lead.auditPdfUrl && (
+                  <a href={lead.auditPdfUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
+                    Open audit PDF
+                  </a>
+                )}
             </section>
 
             <Separator />
@@ -351,10 +418,33 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                     value={pitchAmount}
                     onChange={(e) => setPitchAmount(e.target.value)}
                     onBlur={handleSavePitchAmount}
-                    placeholder="e.g. $6,000, 50/50 blend"
+                    placeholder="e.g. $8,000 list, $7k upfront, or $4k+$4k"
                     className="bg-muted/30 border-border/50"
                     data-testid="input-pitch-amount"
                 />
+                <div className="flex gap-2">
+                    <select
+                      value={paymentPlan}
+                      onChange={(e) => {
+                        const plan = e.target.value as "upfront" | "fifty_fifty" | "";
+                        setPaymentPlan(plan);
+                        handleSavePayment(plan, amountPaid);
+                      }}
+                      className="flex-1 bg-muted/30 border border-border/50 rounded-md px-3 py-2 text-sm"
+                    >
+                      <option value="">Payment plan</option>
+                      <option value="fifty_fifty">50/50 — $4k + $4k</option>
+                      <option value="upfront">Paid in full — $7k</option>
+                    </select>
+                    <Input
+                      type="number"
+                      value={amountPaid}
+                      onChange={(e) => setAmountPaid(e.target.value)}
+                      onBlur={() => handleSavePayment(paymentPlan, amountPaid)}
+                      placeholder="Paid $"
+                      className="w-28 bg-muted/30 border-border/50"
+                    />
+                </div>
             </section>
 
             <Separator />
@@ -392,6 +482,17 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                             <span className={`text-sm flex-1 transition-all duration-300 ${
                               isCompleting ? 'line-through text-green-400' : 'text-red-200'
                             }`}>{item}</span>
+                            <input
+                              type="date"
+                              value={
+                                lead.actionItemDates?.[index]
+                                  ? format(new Date(lead.actionItemDates[index] as string), "yyyy-MM-dd")
+                                  : ""
+                              }
+                              onChange={(e) => handleActionItemDate(index, e.target.value)}
+                              className="bg-transparent border border-border/50 rounded px-1 py-0.5 text-xs text-muted-foreground"
+                              title="Due date"
+                            />
                             <button 
                                 onClick={() => handleRemoveActionItem(index)}
                                 className="text-muted-foreground hover:text-red-400 transition-colors"
@@ -428,12 +529,46 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
             
             {/* History Log */}
             <section className="space-y-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Activity History</h3>
+                <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Activity History</h3>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1.5"
+                      onClick={handleSyncEmails}
+                      disabled={syncing}
+                    >
+                      <RefreshCw className={`h-3 w-3 ${syncing ? "animate-spin" : ""}`} />
+                      {syncing ? "Syncing…" : "Sync emails"}
+                    </Button>
+                </div>
                 <div className="space-y-4 border-l-2 border-muted pl-4 ml-1">
-                    {(lead.history as Array<{date: string; action: string}>).slice().reverse().map((item, i) => (
+                    {(lead.history as Array<{
+                      date: string;
+                      action: string;
+                      type?: string;
+                      subject?: string;
+                      summary?: string;
+                      direction?: string;
+                    }>).slice().reverse().map((item, i) => (
                         <div key={i} className="relative">
-                            <div className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-muted border-2 border-background" />
-                            <p className="text-sm text-foreground">{item.action}</p>
+                            <div className={`absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-background ${
+                              item.type === "email" ? "bg-primary" : "bg-muted"
+                            }`} />
+                            {item.type === "email" ? (
+                              <div className="space-y-0.5">
+                                <p className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                                  <Mail className="h-3 w-3" />
+                                  {item.direction === "in" ? "Received" : "Sent"}
+                                </p>
+                                <p className="text-sm font-medium text-foreground">{item.subject || item.action}</p>
+                                {item.summary && (
+                                  <p className="text-sm text-muted-foreground leading-relaxed">{item.summary}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-foreground">{item.action}</p>
+                            )}
                             <p className="text-xs text-muted-foreground">{format(new Date(item.date), "MMM d, h:mm a")}</p>
                         </div>
                     ))}

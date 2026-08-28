@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useStore } from "@/lib/data";
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Send, Loader2, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -73,6 +74,7 @@ Let me know if you have any questions.
 
 export function ComposeEmailModal() {
   const { emailingLead, setEmailingLead } = useStore();
+  const queryClient = useQueryClient();
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -103,7 +105,7 @@ export function ComposeEmailModal() {
   };
 
   const handleSend = async () => {
-    if (!recipientEmail) {
+    if (!recipientEmail || !emailingLead) {
       toast({
         title: "Missing Email",
         description: "Please enter a recipient email address",
@@ -121,6 +123,7 @@ export function ComposeEmailModal() {
           to: recipientEmail,
           subject,
           body,
+          leadId: emailingLead.id,
         }),
       });
 
@@ -131,9 +134,13 @@ export function ComposeEmailModal() {
       }
 
       toast({
-        title: "Email Sent",
-        description: `Sent to ${recipientEmail}`,
+        title: data.mocked ? "Logged (not sent)" : "Email Sent",
+        description: data.mocked
+          ? `Saved to the timeline. Real send happens on Replit.`
+          : `Sent to ${recipientEmail}`,
       });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["today-focus"] });
       setEmailingLead(null);
     } catch (error: any) {
       toast({

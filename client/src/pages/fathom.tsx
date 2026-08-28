@@ -160,7 +160,7 @@ export default function FathomPage() {
               Fathom Meetings
             </h1>
             <p className="text-muted-foreground">
-              Import meeting notes directly into your pipeline
+              Calls import into the board automatically. This list is just a log.
             </p>
           </div>
           <button

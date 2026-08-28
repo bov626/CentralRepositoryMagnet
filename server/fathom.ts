@@ -154,6 +154,7 @@ export function extractLeadDataFromMeeting(meeting: FathomMeeting): {
   actionItems: string[];
   recordingLink: string;
   nextFollowUp: string | null;
+  cadenceAnchor: string;
 } {
   // Find external attendee - check is_external flag first, then fall back to anyone who isn't the recorder
   const recorderEmail = meeting.recorded_by?.email?.toLowerCase();
@@ -205,14 +206,9 @@ export function extractLeadDataFromMeeting(meeting: FathomMeeting): {
   }
   
   const actionItems = meeting.action_items?.map(item => item.description) || [];
-  
-  // Set follow-up date: if there are action items, set follow-up for 3 days from now
-  let nextFollowUp: string | null = null;
-  if (meeting.action_items && meeting.action_items.length > 0) {
-    const followUpDate = new Date();
-    followUpDate.setDate(followUpDate.getDate() + 3);
-    nextFollowUp = followUpDate.toISOString();
-  }
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
   
   return {
     name,
@@ -221,7 +217,8 @@ export function extractLeadDataFromMeeting(meeting: FathomMeeting): {
     summary,
     actionItems,
     recordingLink: meeting.url,
-    nextFollowUp,
+    nextFollowUp: today.toISOString(),
+    cadenceAnchor: now.toISOString(),
   };
 }
 

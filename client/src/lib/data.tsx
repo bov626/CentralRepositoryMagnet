@@ -8,12 +8,11 @@ export type JumpseatStage =
   | "backlog"
   | "pitch-call"
   | "decision-pending"
-  | "nudge-scheduled"
   | "future-client"
   | "closed"
   | "disqualified";
 
-export type CommunityStage = "backlog" | "to-pitch" | "would-buy";
+export type CommunityStage = "backlog" | "to-pitch" | "would-buy" | "bought";
 
 // NEW: Applier hiring stages
 export type ApplierStage = "interview" | "to_hire" | "onboarded";
@@ -36,17 +35,37 @@ export interface Lead {
   stage: string;
   onboardingStage?: OnboardingStage | null;
   nextFollowUp?: string | null; // ISO Date
-  actionNeeded: boolean;
+  actionNeeded?: boolean;
 
   // Details
   summary?: string | null;
   keyTakeaways?: string[] | null;
+  pitchAmount?: string | null;
+  paymentPlan?: "upfront" | "fifty_fifty" | null;
+  amountPaid?: number | null;
+  source?: string | null;
+  auditPdfUrl?: string | null;
+  granolaNoteId?: string | null;
+  boughtAt?: string | null;
   blocker?: string | null;
   decisionTrigger?: string | null;
   followUpAngle?: string | null;
   recordingLink?: string | null;
   calendarEventId?: string | null;
   fathomRecordingId?: number | null;
+  actionItems?: string[] | null;
+  actionItemDates?: Array<string | null> | null;
+  cadenceAnchor?: string | null;
+  emailThreads?: Array<{
+    gmailThreadId: string;
+    gmailMessageId: string;
+    subject: string;
+    summary: string;
+    date: string;
+    from: string;
+    to: string;
+    direction: "in" | "out";
+  }> | null;
   coverLetterIdeas?: string | null;
   onboardingNotes?: string | null;
   resumePathA?: string | null;
@@ -218,6 +237,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (stage === "closed" && !lead.onboardingStage) {
         updates.onboardingStage = "call-1";
       }
+      if (stage === "bought" && pipeline === "community") {
+        updates.boughtAt = new Date().toISOString();
+      }
 
       const res = await fetch(`/api/leads/${id}`, {
         method: "PATCH",
@@ -247,6 +269,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 stage === "closed" && !lead.onboardingStage
                   ? ("call-1" as OnboardingStage)
                   : lead.onboardingStage,
+              boughtAt:
+                stage === "bought" && pipeline === "community"
+                  ? new Date().toISOString()
+                  : lead.boughtAt,
             };
           }
           return lead;

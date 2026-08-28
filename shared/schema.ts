@@ -24,6 +24,9 @@ export const leads = pgTable("leads", {
   keyTakeaways: text("key_takeaways").array().default(sql`ARRAY[]::text[]`),
   pitchAmount: text("pitch_amount"),
   actionItems: text("action_items").array().default(sql`ARRAY[]::text[]`),
+  actionItemDates: jsonb("action_item_dates").notNull().default(sql`'[]'::jsonb`), // Array of ISO date strings or null, aligned with actionItems
+  cadenceAnchor: timestamp("cadence_anchor"), // Last sales call; drives same-day / day-3 / day-7
+  emailThreads: jsonb("email_threads").notNull().default(sql`'[]'::jsonb`), // Cached Gmail threads
   followUpAngle: text("follow_up_angle"),
   recordingLink: text("recording_link"),
   calendarEventId: text("calendar_event_id"), // Google Calendar event ID for deduplication
@@ -35,6 +38,12 @@ export const leads = pgTable("leads", {
   coverLetterPathA: text("cover_letter_path_a"), // Object storage path for cover letter A
   coverLetterPathB: text("cover_letter_path_b"), // Object storage path for cover letter B
   archived: boolean("archived").notNull().default(false), // Hide from Kanban without deleting
+  source: text("source"), // audit | fathom | calendar | skool | manual
+  auditPdfUrl: text("audit_pdf_url"),
+  granolaNoteId: text("granola_note_id"),
+  paymentPlan: text("payment_plan"), // upfront | fifty_fifty
+  amountPaid: integer("amount_paid").notNull().default(0), // dollars collected
+  boughtAt: timestamp("bought_at"), // when they landed in Community Bought
   history: jsonb("history").notNull().default(sql`'[]'::jsonb`), // Array of {date: string, action: string}
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

@@ -29,6 +29,18 @@ function CalendarAutoSync() {
       .catch(err => {
         console.log("Calendar sync skipped:", err.message);
       });
+
+    fetch("/api/fathom/auto-import", { method: "POST" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.imported > 0) {
+          qc.invalidateQueries({ queryKey: ["leads"] });
+          console.log(`Auto-imported ${data.imported} Fathom calls`);
+        }
+      })
+      .catch(err => {
+        console.log("Fathom auto-import skipped:", err.message);
+      });
   }, []);
   
   return null;

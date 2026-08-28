@@ -34,10 +34,9 @@ import { Input } from "@/components/ui/input";
 
 // Column Definitions
 const JUMPSEAT_COLUMNS: { id: JumpseatStage; title: string }[] = [
-  { id: "backlog", title: "Backlog" },
+  { id: "backlog", title: "New Lead" },
   { id: "pitch-call", title: "Pitch Call" },
   { id: "decision-pending", title: "Decision Pending" },
-  { id: "nudge-scheduled", title: "Nudge Scheduled" },
   { id: "future-client", title: "Future Client" },
   { id: "closed", title: "Closed" },
   { id: "disqualified", title: "Disqualified" },
@@ -47,6 +46,7 @@ const COMMUNITY_COLUMNS: { id: CommunityStage; title: string }[] = [
   { id: "backlog", title: "Backlog" },
   { id: "to-pitch", title: "To Pitch" },
   { id: "would-buy", title: "Would Buy" },
+  { id: "bought", title: "Bought" },
 ];
 
 const APPLIER_COLUMNS: { id: ApplierStage; title: string }[] = [
@@ -406,7 +406,10 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
                   id={col.id}
                   title={col.title}
                   leads={filteredLeads.filter(
-                    (l) => l.pipeline === "jumpseat" && l.stage === col.id,
+                    (l) =>
+                      l.pipeline === "jumpseat" &&
+                      (l.stage === col.id ||
+                        (col.id === "future-client" && l.stage === "nudge-scheduled")),
                   )}
                   onLeadClick={onLeadClick}
                   showGhost={overColumnId === col.id && activeId !== null}

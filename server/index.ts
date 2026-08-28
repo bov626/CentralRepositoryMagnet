@@ -3,6 +3,8 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedProductionDatabase } from "./seed-data";
+import { startEmailJobs } from "./jobs";
+import { migrateNudgeScheduled } from "./lead-intake";
 
 const app = express();
 const httpServer = createServer(app);
@@ -65,6 +67,12 @@ app.use((req, res, next) => {
   
   // Seed production database if empty
   await seedProductionDatabase();
+  try {
+    const moved = await migrateNudgeScheduled();
+    if (moved) console.log(`[startup] moved ${moved} Nudge Scheduled cards to Future Client`);
+  } catch (error) {
+    console.error("[startup] nudge migration skipped", error);
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -97,6 +105,7 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      startEmailJobs();
     },
   );
 })();

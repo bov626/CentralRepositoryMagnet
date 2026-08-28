@@ -49,3 +49,41 @@ Provide a concise 2-4 sentence summary focusing ONLY on the client. Start direct
     return meetingSummary;
   }
 }
+
+export async function classifyCallIntent(summary: string): Promise<"this_cohort" | "later" | "unclear"> {
+  const text = (summary || "").toLowerCase();
+  if (!text) return "unclear";
+  if (/(not this cohort|next cohort|when i.?m ready|maybe next year|later this year|not right now|can.?t do this cohort)/i.test(text)) {
+    return "later";
+  }
+  if (/(this cohort|ready to go|ready to start|let.?s do it|in this round)/i.test(text)) {
+    return "this_cohort";
+  }
+
+  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY && !process.env.OPENAI_API_KEY) {
+    return "unclear";
+  }
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "Classify sales-call intent. Reply with only one word: this_cohort, later, or unclear.",
+        },
+        {
+          role: "user",
+          content: summary.slice(0, 2000),
+        },
+      ],
+      max_completion_tokens: 10,
+    });
+    const raw = (response.choices[0]?.message?.content || "").trim().toLowerCase();
+    if (raw.includes("later")) return "later";
+    if (raw.includes("this_cohort") || raw.includes("this cohort")) return "this_cohort";
+    return "unclear";
+  } catch {
+    return "unclear";
+  }
+}

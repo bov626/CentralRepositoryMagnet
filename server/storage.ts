@@ -13,6 +13,7 @@ export interface IStorage {
   getLead(id: string): Promise<Lead | undefined>;
   getLeadByEmail(email: string): Promise<Lead | undefined>;
   getLeadByCalendarEventId(calendarEventId: string): Promise<Lead | undefined>;
+  getLeadByFathomRecordingId(recordingId: number): Promise<Lead | undefined>;
   createLead(lead: InsertLead): Promise<Lead>;
   updateLead(id: string, lead: Partial<InsertLead>): Promise<Lead | undefined>;
   deleteLead(id: string): Promise<boolean>;
@@ -63,6 +64,11 @@ export class DatabaseStorage implements IStorage {
 
   async getLeadByCalendarEventId(calendarEventId: string): Promise<Lead | undefined> {
     const [lead] = await db.select().from(leads).where(eq(leads.calendarEventId, calendarEventId));
+    return lead;
+  }
+
+  async getLeadByFathomRecordingId(recordingId: number): Promise<Lead | undefined> {
+    const [lead] = await db.select().from(leads).where(eq(leads.fathomRecordingId, recordingId));
     return lead;
   }
 
