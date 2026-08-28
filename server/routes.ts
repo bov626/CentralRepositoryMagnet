@@ -313,13 +313,14 @@ export async function registerRoutes(
   app.post("/api/leads/audit", async (req, res) => {
     try {
       if (!webhookAllowed(req)) return res.status(401).json({ error: "Unauthorized" });
-      const { name, email, linkedIn, summary, pdfUrl, pdf_url } = req.body || {};
-      if (!name) return res.status(400).json({ error: "name is required" });
+      const { name, email, linkedIn, summary, pdfUrl, pdf_url, first_name, last_name, job_title } = req.body || {};
+      const fullName = String(name || [first_name, last_name].filter(Boolean).join(" ")).trim();
+      if (!fullName) return res.status(400).json({ error: "name is required" });
       const result = await ingestAuditLead({
-        name,
+        name: fullName,
         email,
         linkedIn,
-        summary,
+        summary: summary || (job_title ? `Overemployed Risk Audit — ${job_title}` : undefined),
         pdfUrl: pdfUrl || pdf_url,
       });
       res.status(result.created ? 201 : 200).json(result);
