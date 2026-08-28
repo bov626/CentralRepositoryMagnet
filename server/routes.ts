@@ -624,8 +624,10 @@ export async function registerRoutes(
   app.post("/api/jobs/nightly", async (req, res) => {
     try {
       if (!webhookAllowed(req)) return res.status(401).json({ error: "Unauthorized" });
-      const result = await runNightlyJobs();
-      res.json(result);
+      res.json({ started: true });
+      runNightlyJobs().catch((error) => {
+        console.error("[jobs] nightly webhook failed", error);
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to run nightly jobs" });
     }
