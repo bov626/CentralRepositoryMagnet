@@ -87,3 +87,69 @@ export async function classifyCallIntent(summary: string): Promise<"this_cohort"
     return "unclear";
   }
 }
+
+export async function summarizeNextStep(input: {
+  name: string;
+  stage?: string | null;
+  summary?: string | null;
+  threads: Array<{ subject: string; summary: string; direction: string; date: string }>;
+}): Promise<string> {
+  const last = [...input.threads].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).at(-1);
+  const fallback = (() => {
+    if (input.stage === "backlog") {
+      return "No pitch call yet. Get them on a call before sending a close email.";
+    }
+    if (last?.direction === "in") {
+      return `They emailed last (${last.subject}). Reply and push the sale forward.`;
+    }
+    if (input.stage === "pitch-call") {
+      return "Call happened. Send the service outline and ask how they want to move forward.";
+    }
+    if (input.stage === "decision-pending") {
+      return "They're deciding this cohort. Short bump: one slot left, refund if an offer lands.";
+    }
+    if (input.stage === "future-client") {
+      return "Not this cohort. Don't pitch. Check in only if a 3/6/9/12-month date is due.";
+    }
+    if (last?.direction === "out") {
+      return `You last wrote “${last.subject}”. Waiting on them — bump only if a follow-up date is due.`;
+    }
+    return "Read the latest thread and pick the next sales ask.";
+  })();
+
+  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY && !process.env.OPENAI_API_KEY) {
+    return fallback;
+  }
+
+  const threadBlock = [...input.threads]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 8)
+    .map((t) => `${t.direction === "in" ? "THEY" : "YOU"} (${t.date.slice(0, 10)}): ${t.subject}\n${t.summary}`)
+    .join("\n\n");
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You help Wilson close Jumpseat (second-income / J2) sales. Reply with 1-2 short sentences. First sentence is the next action he should take. No greeting, no markdown.",
+        },
+        {
+          role: "user",
+          content: `Lead: ${input.name}
+Stage: ${input.stage || "unknown"}
+Call notes: ${(input.summary || "none").slice(0, 800)}
+
+Recent email:
+${threadBlock || "none"}`,
+        },
+      ],
+      max_completion_tokens: 120,
+    });
+    return response.choices[0]?.message?.content?.trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}

@@ -542,6 +542,12 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                       {syncing ? "Syncing…" : "Sync emails"}
                     </Button>
                 </div>
+                {lead.followUpAngle && (
+                  <div className="rounded-md border border-primary/40 bg-primary/10 p-3">
+                    <p className="text-[10px] uppercase tracking-widest text-primary mb-1">Next step</p>
+                    <p className="text-sm text-foreground leading-relaxed">{lead.followUpAngle}</p>
+                  </div>
+                )}
                 <div className="space-y-4 border-l-2 border-muted pl-4 ml-1">
                     {(lead.history as Array<{
                       date: string;

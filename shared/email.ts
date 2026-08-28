@@ -74,6 +74,7 @@ export function noonIso(date: Date): string {
 }
 
 type FollowUpLead = {
+  pipeline?: string | null;
   stage?: string | null;
   archived?: boolean | null;
   nextFollowUp?: string | Date | null;
@@ -141,6 +142,9 @@ const SHORT_CADENCE: Array<{ days: number; cadence: CadenceKind; reason: string 
 
 export function dueToday(lead: FollowUpLead, now = new Date()): DueToday {
   if (lead.archived) return { due: false, reason: "", cadence: null };
+  if (lead.pipeline && lead.pipeline !== "jumpseat") {
+    return { due: false, reason: "", cadence: null };
+  }
   if (lead.stage === "closed" || lead.stage === "disqualified") {
     return { due: false, reason: "", cadence: null };
   }

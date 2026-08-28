@@ -234,6 +234,18 @@ export async function ingestSkoolMember(input: {
 
   if (existing) {
     const history = historyOf(existing);
+    if (existing.pipeline === "jumpseat" || existing.pipeline === "appliers") {
+      const tags = Array.from(new Set([...(existing.tags || []), "skool"]));
+      const updated = await storage.updateLead(existing.id, {
+        tags,
+        source: existing.source || "skool",
+        history: [...history, {
+          date: new Date().toISOString(),
+          action: paid ? "Also a paid Skool member (stays on sales board)" : "Also joined Skool (stays on sales board)",
+        }],
+      });
+      return { lead: updated!, created: false };
+    }
     const updates: Partial<InsertLead> = {
       pipeline: "community",
       stage: existing.stage === "bought" ? "bought" : stage,
@@ -245,8 +257,6 @@ export async function ingestSkoolMember(input: {
     };
     if (paid && existing.stage !== "bought") {
       updates.boughtAt = new Date();
-      updates.cadenceAnchor = new Date();
-      updates.nextFollowUp = new Date();
     }
     const updated = await storage.updateLead(existing.id, updates);
     return { lead: updated!, created: false };
@@ -260,10 +270,8 @@ export async function ingestSkoolMember(input: {
     stage,
     source: "skool",
     boughtAt: paid ? new Date() : null,
-    cadenceAnchor: paid ? new Date() : new Date(),
-    nextFollowUp: new Date(),
     summary: paid ? "Paid Skool member." : "Joined Skool. Not marked paid yet.",
-    actionItems: paid ? ["Send community onboarding email"] : ["Send welcome / follow-up"],
+    actionItems: [],
     history: [{
       date: new Date().toISOString(),
       action: paid ? "Created from Skool (Bought)" : "Created from Skool",

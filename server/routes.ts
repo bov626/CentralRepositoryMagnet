@@ -547,7 +547,7 @@ export async function registerRoutes(
 
       if (due.length === 0 && process.env.NODE_ENV !== "production") {
         const previewLeads = allLeads
-          .filter((l) => !l.archived && l.email && l.stage !== "closed" && l.stage !== "disqualified")
+          .filter((l) => !l.archived && l.email && l.pipeline === "jumpseat" && l.stage !== "closed" && l.stage !== "disqualified")
           .slice(0, 3);
         for (const lead of previewLeads) {
           const draft = await draftEmailForLead(lead, allLeads, "same-day");

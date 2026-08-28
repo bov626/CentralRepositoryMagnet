@@ -19,6 +19,7 @@ type TodayItem = {
     company?: string | null;
     stage: string;
     summary?: string | null;
+    followUpAngle?: string | null;
   };
   reason: string;
   cadence: string | null;
@@ -152,7 +153,7 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
             </span>
           </div>
           <p className="text-sm text-muted-foreground truncate mt-0.5">
-            {item.lead.email || "No email"} · {item.draft.subject}
+            {item.lead.followUpAngle || item.lead.email || "No email"}
           </p>
         </div>
         <ChevronDown className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
@@ -160,6 +161,9 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
 
       {open && (
         <div className="border-t border-border p-4 space-y-3">
+          {item.lead.followUpAngle && (
+            <p className="text-sm text-foreground leading-relaxed">{item.lead.followUpAngle}</p>
+          )}
           {item.lead.summary && (
             <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-4">
               {item.lead.summary}

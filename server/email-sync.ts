@@ -6,6 +6,7 @@ import {
   type HistoryItem,
 } from "@shared/email";
 import { isGmailConfigured, searchThreadsForLead } from "./gmail";
+import { summarizeNextStep } from "./ai-summarize";
 import type { Lead } from "@shared/schema";
 
 export type SyncResult = {
@@ -56,9 +57,22 @@ export async function syncLeadEmails(leadId: string): Promise<SyncResult> {
     ...added.map(emailHistoryItem),
   ];
 
+  const followUpAngle = await summarizeNextStep({
+    name: lead.name,
+    stage: lead.stage,
+    summary: lead.summary,
+    threads: merged.map((t) => ({
+      subject: t.subject,
+      summary: t.summary,
+      direction: t.direction,
+      date: t.date,
+    })),
+  });
+
   const updated = await storage.updateLead(leadId, {
     emailThreads: merged,
     history,
+    followUpAngle,
   });
 
   return {
