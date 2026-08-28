@@ -195,17 +195,23 @@ export async function ingestAuditLead(input: {
   const auditBlock = input.summary
     ? `Overemployed Risk Audit\n${input.summary}`
     : "Completed the Overemployed Risk Audit. No sales call yet.";
+  const nextStep = input.pdfUrl
+    ? "Audit PDF is ready. Email them today, attach/link the audit, and get a pitch call on the books."
+    : "They finished the Overemployed Risk Audit. Email them today and get a pitch call on the books.";
 
   if (existing) {
     const history = historyOf(existing);
     const summary = existing.summary
       ? `${existing.summary}\n\n--- Audit ---\n${auditBlock}`
       : auditBlock;
+    const frozen = frozenStage(existing);
     const updated = await storage.updateLead(existing.id, {
       linkedIn: input.linkedIn || existing.linkedIn,
       auditPdfUrl: input.pdfUrl || existing.auditPdfUrl,
       source: existing.source || "audit",
       summary,
+      followUpAngle: frozen ? existing.followUpAngle : nextStep,
+      nextFollowUp: frozen ? existing.nextFollowUp : new Date(),
       history: [...history, { date: new Date().toISOString(), action: "Audit received" }],
     });
     return { lead: updated!, created: false };
@@ -221,7 +227,9 @@ export async function ingestAuditLead(input: {
     source: "audit",
     auditPdfUrl: input.pdfUrl || null,
     summary: auditBlock,
-    actionItems: [],
+    followUpAngle: nextStep,
+    nextFollowUp: new Date(),
+    actionItems: ["Email audit follow-up and book a pitch call"],
     history: [{ date: new Date().toISOString(), action: "Created from Overemployed Risk Audit" }],
   });
   return { lead, created: true };

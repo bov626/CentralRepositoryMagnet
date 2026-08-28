@@ -76,6 +76,7 @@ export function noonIso(date: Date): string {
 type FollowUpLead = {
   pipeline?: string | null;
   stage?: string | null;
+  source?: string | null;
   archived?: boolean | null;
   nextFollowUp?: string | Date | null;
   actionItemDates?: unknown;
@@ -152,6 +153,14 @@ export function dueToday(lead: FollowUpLead, now = new Date()): DueToday {
   const follow = effectiveFollowUp(lead);
   if (follow && isSameDay(follow, now)) {
     return { due: true, reason: "Follow-up date", cadence: "follow-up-date" };
+  }
+
+  if (
+    lead.source === "audit" &&
+    lead.stage === "backlog" &&
+    outboundEmailDates(lead).length === 0
+  ) {
+    return { due: true, reason: "Audit follow-up", cadence: "follow-up-date" };
   }
 
   const anchor = parseDate(lead.cadenceAnchor);
