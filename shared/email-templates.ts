@@ -84,7 +84,6 @@ export function fillTemplate(body: string, name: string): string {
 }
 
 export function templateForCadence(cadence: string | null, pipeline?: string | null): TemplateKey {
-  if (pipeline === "community") return "community-welcome";
   if (cadence === "same-day") return "same-day";
   if (cadence === "day-3") return "day-3";
   if (cadence === "day-7") return "day-7";

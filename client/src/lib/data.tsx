@@ -239,6 +239,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       if (stage === "bought" && pipeline === "community") {
         updates.boughtAt = new Date().toISOString();
+        updates.nextFollowUp = null;
+        updates.cadenceAnchor = null;
       }
 
       const res = await fetch(`/api/leads/${id}`, {
@@ -273,6 +275,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 stage === "bought" && pipeline === "community"
                   ? new Date().toISOString()
                   : lead.boughtAt,
+              nextFollowUp:
+                stage === "bought" && pipeline === "community"
+                  ? null
+                  : lead.nextFollowUp,
             };
           }
           return lead;

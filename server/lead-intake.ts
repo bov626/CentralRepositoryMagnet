@@ -18,11 +18,16 @@ function historyOf(lead: Lead): HistoryItem[] {
 }
 
 function frozenStage(lead: Lead): boolean {
-  return lead.stage === "closed" || lead.stage === "disqualified";
+  return lead.stage === "closed" || lead.stage === "disqualified" || lead.stage === "bought";
 }
 
 function stageAfterCall(existing: Lead | null, intent: Intent): string {
   if (existing && frozenStage(existing)) return existing.stage;
+  if (existing?.pipeline === "community") {
+    if (intent === "this_cohort") return "would-buy";
+    if (intent === "later") return existing.stage;
+    return "to-pitch";
+  }
   if (intent === "later") return "future-client";
   if (intent === "this_cohort") return "decision-pending";
   return "pitch-call";
@@ -257,6 +262,8 @@ export async function ingestSkoolMember(input: {
     };
     if (paid && existing.stage !== "bought") {
       updates.boughtAt = new Date();
+      updates.nextFollowUp = null;
+      updates.cadenceAnchor = null;
     }
     const updated = await storage.updateLead(existing.id, updates);
     return { lead: updated!, created: false };

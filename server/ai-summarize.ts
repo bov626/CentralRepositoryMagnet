@@ -96,6 +96,9 @@ export async function summarizeNextStep(input: {
 }): Promise<string> {
   const last = [...input.threads].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).at(-1);
   const fallback = (() => {
+    if (input.stage === "bought") {
+      return "Bought. No sales follow-up.";
+    }
     if (input.stage === "backlog") {
       return "No pitch call yet. Get them on a call before sending a close email.";
     }

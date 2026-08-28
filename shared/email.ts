@@ -142,10 +142,10 @@ const SHORT_CADENCE: Array<{ days: number; cadence: CadenceKind; reason: string 
 
 export function dueToday(lead: FollowUpLead, now = new Date()): DueToday {
   if (lead.archived) return { due: false, reason: "", cadence: null };
-  if (lead.pipeline && lead.pipeline !== "jumpseat") {
+  if (lead.pipeline === "appliers") {
     return { due: false, reason: "", cadence: null };
   }
-  if (lead.stage === "closed" || lead.stage === "disqualified") {
+  if (lead.stage === "bought" || lead.stage === "closed" || lead.stage === "disqualified") {
     return { due: false, reason: "", cadence: null };
   }
 

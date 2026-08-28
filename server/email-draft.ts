@@ -60,15 +60,6 @@ export async function draftEmailForLead(
   cadence: CadenceKind | null,
 ): Promise<{ subject: string; body: string; source: "closed-won" | "template" }> {
   const fallback = fallbackDraft(lead, cadence);
-  const key = templateForCadence(cadence, lead.pipeline);
-  if (lead.pipeline === "community") {
-    const template = EMAIL_TEMPLATES[key];
-    return {
-      subject: template.subject,
-      body: fillTemplate(template.body, lead.name),
-      source: "template",
-    };
-  }
   const examples = pickExamples(closedOutboundExamples(allLeads), cadence);
 
   if (examples.length === 0) {

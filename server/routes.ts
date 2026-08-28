@@ -547,7 +547,11 @@ export async function registerRoutes(
 
       if (due.length === 0 && process.env.NODE_ENV !== "production") {
         const previewLeads = allLeads
-          .filter((l) => !l.archived && l.email && l.pipeline === "jumpseat" && l.stage !== "closed" && l.stage !== "disqualified")
+          .filter((l) => {
+            if (l.archived || !l.email) return false;
+            if (l.stage === "closed" || l.stage === "disqualified" || l.stage === "bought") return false;
+            return l.pipeline === "jumpseat" || l.pipeline === "community";
+          })
           .slice(0, 3);
         for (const lead of previewLeads) {
           const draft = await draftEmailForLead(lead, allLeads, "same-day");
