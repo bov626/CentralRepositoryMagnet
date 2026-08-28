@@ -135,7 +135,7 @@ export type GmailSearchHit = {
   snippet: string;
 };
 
-export async function getMessage(id: string): Promise<GmailSearchHit> {
+export async function getMessage(id: string): Promise<GmailSearchHit | null> {
   try {
     const gmail = await getUncachableGmailClient();
     const result = await gmail.users.messages.get({
@@ -144,6 +144,10 @@ export async function getMessage(id: string): Promise<GmailSearchHit> {
       format: "metadata",
       metadataHeaders: ["Subject", "From", "To", "Date"],
     });
+
+    if (result.data.labelIds?.includes("DRAFT")) {
+      return null;
+    }
 
     const headers = result.data.payload?.headers;
     const internal = result.data.internalDate
@@ -185,7 +189,8 @@ export async function searchEmails(
     const messages: GmailSearchHit[] = [];
     for (const item of ids) {
       if (!item.id) continue;
-      messages.push(await getMessage(item.id));
+      const message = await getMessage(item.id);
+      if (message) messages.push(message);
     }
     return messages;
   } catch (error: any) {
@@ -199,7 +204,7 @@ export async function searchEmails(
 }
 
 export async function searchThreadsForLead(leadEmail: string): Promise<EmailThread[]> {
-  const hits = await searchEmails(`${leadEmail} -in:spam -in:trash`, 40);
+  const hits = await searchEmails(`${leadEmail} -in:spam -in:trash -in:drafts -is:draft`, 40);
   const byThread = new Map<string, EmailThread>();
 
   for (const hit of hits) {
