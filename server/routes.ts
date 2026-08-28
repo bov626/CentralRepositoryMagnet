@@ -165,12 +165,16 @@ export async function registerRoutes(
       const updates = { ...req.body };
       if (updates.nextFollowUp !== undefined) {
         updates.nextFollowUp = updates.nextFollowUp ? new Date(updates.nextFollowUp) : null;
+        if (updates.nextFollowUp) updates.queueDismissedAt = null;
       }
       if (updates.cadenceAnchor !== undefined) {
         updates.cadenceAnchor = updates.cadenceAnchor ? new Date(updates.cadenceAnchor) : null;
       }
       if (updates.boughtAt !== undefined) {
         updates.boughtAt = updates.boughtAt ? new Date(updates.boughtAt) : null;
+      }
+      if (updates.queueDismissedAt !== undefined) {
+        updates.queueDismissedAt = updates.queueDismissedAt ? new Date(updates.queueDismissedAt) : null;
       }
       
       const updatedLead = await storage.updateLead(req.params.id, updates);
@@ -181,6 +185,26 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating lead:", error);
       res.status(500).json({ error: "Failed to update lead" });
+    }
+  });
+
+  app.post("/api/leads/:id/dismiss-today", async (req, res) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) return res.status(404).json({ error: "Lead not found" });
+      const history = Array.isArray(lead.history) ? lead.history : [];
+      const updated = await storage.updateLead(lead.id, {
+        nextFollowUp: null,
+        queueDismissedAt: new Date(),
+        history: [
+          ...history,
+          { date: new Date().toISOString(), action: "Dismissed from Today's Focus" },
+        ],
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error dismissing lead from Today:", error);
+      res.status(500).json({ error: "Failed to dismiss from Today" });
     }
   });
 

@@ -82,6 +82,7 @@ type FollowUpLead = {
   nextFollowUp?: string | Date | null;
   actionItemDates?: unknown;
   cadenceAnchor?: string | Date | null;
+  queueDismissedAt?: string | Date | null;
   createdAt?: string | Date | null;
   emailThreads?: unknown;
   history?: unknown;
@@ -156,10 +157,14 @@ export function dueToday(lead: FollowUpLead, now = new Date()): DueToday {
     return { due: true, reason: "Follow-up date", cadence: "follow-up-date" };
   }
 
-  const fromAudit =
-    lead.source === "audit" || (Array.isArray(lead.tags) && lead.tags.includes("audit"));
-  if (fromAudit && lead.stage === "backlog" && outboundEmailDates(lead).length === 0) {
-    return { due: true, reason: "Audit follow-up", cadence: "follow-up-date" };
+  const dismissed = !!parseDate(lead.queueDismissedAt);
+
+  if (!dismissed) {
+    const fromAudit =
+      lead.source === "audit" || (Array.isArray(lead.tags) && lead.tags.includes("audit"));
+    if (fromAudit && lead.stage === "backlog" && outboundEmailDates(lead).length === 0) {
+      return { due: true, reason: "Audit follow-up", cadence: "follow-up-date" };
+    }
   }
 
   const anchor = parseDate(lead.cadenceAnchor);
@@ -170,6 +175,10 @@ export function dueToday(lead: FollowUpLead, now = new Date()): DueToday {
       if (step.days > 0 && emailedWithinOneDay(lead, when)) continue;
       return { due: true, reason: step.reason, cadence: step.cadence };
     }
+  }
+
+  if (dismissed) {
+    return { due: false, reason: "", cadence: null };
   }
 
   const created = parseDate(lead.createdAt);

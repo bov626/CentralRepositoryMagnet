@@ -121,6 +121,7 @@ export async function ingestFathomMeetingData(meeting: FathomMeeting): Promise<{
         ...newActionItems.map(() => leadData.nextFollowUp),
       ],
       stage: nextStage,
+      queueDismissedAt: null,
       history,
     });
     return { lead: updated!, created: false, moved };
@@ -212,6 +213,7 @@ export async function ingestAuditLead(input: {
       summary,
       followUpAngle: frozen ? existing.followUpAngle : nextStep,
       nextFollowUp: frozen ? existing.nextFollowUp : new Date(),
+      queueDismissedAt: frozen ? existing.queueDismissedAt : null,
       history: [...history, { date: new Date().toISOString(), action: "Audit received" }],
     });
     return { lead: updated!, created: false };

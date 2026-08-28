@@ -44,6 +44,7 @@ export const leads = pgTable("leads", {
   paymentPlan: text("payment_plan"), // upfront | fifty_fifty
   amountPaid: integer("amount_paid").notNull().default(0), // dollars collected
   boughtAt: timestamp("bought_at"), // when they landed in Community Bought
+  queueDismissedAt: timestamp("queue_dismissed_at"), // X on Today — off auto-queue until a date or call
   history: jsonb("history").notNull().default(sql`'[]'::jsonb`), // Array of {date: string, action: string}
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

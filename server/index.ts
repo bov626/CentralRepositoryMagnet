@@ -5,6 +5,8 @@ import { createServer } from "http";
 import { seedProductionDatabase } from "./seed-data";
 import { startEmailJobs } from "./jobs";
 import { migrateNudgeScheduled } from "./lead-intake";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 const app = express();
 const httpServer = createServer(app);
@@ -67,6 +69,11 @@ app.use((req, res, next) => {
   
   // Seed production database if empty
   await seedProductionDatabase();
+  try {
+    await db.execute(sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS queue_dismissed_at timestamp`);
+  } catch (error) {
+    console.error("[startup] queue_dismissed_at column skipped", error);
+  }
   try {
     const moved = await migrateNudgeScheduled();
     if (moved) console.log(`[startup] moved ${moved} Nudge Scheduled cards to Future Client`);

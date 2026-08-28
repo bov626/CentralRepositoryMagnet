@@ -2,7 +2,7 @@ import Layout from "@/components/layout";
 import { LeadDetails } from "@/components/lead-details";
 import { useState } from "react";
 import { format } from "date-fns";
-import { Send, Loader2, ChevronDown } from "lucide-react";
+import { Send, Loader2, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -133,6 +133,22 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
     },
   });
 
+  const dismiss = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/leads/${item.lead.id}/dismiss-today`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to dismiss");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["today-focus"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Could not remove", description: error.message, variant: "destructive" });
+    },
+  });
+
   return (
     <div
       className={cn(
@@ -140,24 +156,36 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
         item.preview ? "border-dashed border-border" : "border-border",
       )}
     >
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between gap-4 p-4 text-left hover:bg-muted/30"
-      >
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold truncate">{item.lead.name}</h3>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground border border-border px-1.5 py-0.5 rounded">
-              {item.reason}
-            </span>
+      <div className="flex items-stretch">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="min-w-0 flex-1 flex items-center justify-between gap-4 p-4 text-left hover:bg-muted/30"
+        >
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold truncate">{item.lead.name}</h3>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground border border-border px-1.5 py-0.5 rounded">
+                {item.reason}
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground truncate mt-0.5">
+              {item.lead.followUpAngle || item.lead.email || "No email"}
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground truncate mt-0.5">
-            {item.lead.followUpAngle || item.lead.email || "No email"}
-          </p>
-        </div>
-        <ChevronDown className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
-      </button>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
+        </button>
+        <button
+          type="button"
+          onClick={() => dismiss.mutate()}
+          disabled={dismiss.isPending || !!item.preview}
+          title="Remove from Today"
+          aria-label={`Remove ${item.lead.name} from Today`}
+          className="shrink-0 px-3 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 disabled:opacity-40"
+        >
+          {dismiss.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+        </button>
+      </div>
 
       {open && (
         <div className="border-t border-border p-4 space-y-3">
