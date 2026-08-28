@@ -237,6 +237,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // If moving to "closed", automatically add to onboarding at "call-1"
       if (stage === "closed" && !lead.onboardingStage) {
         updates.onboardingStage = "call-1";
+        updates.nextFollowUp = null;
+        updates.cadenceAnchor = null;
       }
       if (stage === "bought" && pipeline === "community") {
         updates.boughtAt = new Date().toISOString();
@@ -277,7 +279,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   ? new Date().toISOString()
                   : lead.boughtAt,
               nextFollowUp:
-                stage === "bought" && pipeline === "community"
+                stage === "closed" || (stage === "bought" && pipeline === "community")
                   ? null
                   : lead.nextFollowUp,
             };

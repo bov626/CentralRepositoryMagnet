@@ -1,4 +1,4 @@
-import { dueToday } from "@shared/email";
+import { dueToday, finishedDealEmails } from "@shared/email";
 import { sendEmail } from "./gmail";
 import { syncAllLeadEmails } from "./email-sync";
 import { autoImportFathomCalls, moveGhostedAfterCadence } from "./lead-intake";
@@ -28,6 +28,7 @@ function denverNowParts(now = new Date()) {
 function appUrl(): string {
   const explicit = process.env.APP_URL;
   if (explicit) return explicit.replace(/\/$/, "");
+  if (process.env.NODE_ENV === "production") return "https://jumpseatboarding.com";
   if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
   if (process.env.REPLIT_INTERNAL_APP_DOMAIN) {
     return `https://${process.env.REPLIT_INTERNAL_APP_DOMAIN}`;
@@ -40,7 +41,8 @@ let lastFocusDay = "";
 
 export async function sendSalesFocusEmail(): Promise<{ sent: boolean; count: number }> {
   const leads = await storage.getAllLeads();
-  const due = leads.filter((lead) => dueToday(lead).due);
+  const finishedEmails = finishedDealEmails(leads);
+  const due = leads.filter((lead) => dueToday(lead, new Date(), finishedEmails).due);
   if (due.length === 0) {
     return { sent: false, count: 0 };
   }

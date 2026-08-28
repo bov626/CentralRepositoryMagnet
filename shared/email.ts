@@ -79,6 +79,7 @@ type FollowUpLead = {
   source?: string | null;
   tags?: string[] | null;
   archived?: boolean | null;
+  email?: string | null;
   nextFollowUp?: string | Date | null;
   actionItemDates?: unknown;
   cadenceAnchor?: string | Date | null;
@@ -143,12 +144,31 @@ const SHORT_CADENCE: Array<{ days: number; cadence: CadenceKind; reason: string 
   { days: 7, cadence: "day-7", reason: "Day 7 bump" },
 ];
 
-export function dueToday(lead: FollowUpLead, now = new Date()): DueToday {
+export function isFinishedStage(stage?: string | null): boolean {
+  const value = String(stage || "").trim().toLowerCase();
+  return value === "closed" || value === "bought" || value === "disqualified";
+}
+
+export function finishedDealEmails(leads: FollowUpLead[]): Set<string> {
+  const emails = new Set<string>();
+  for (const lead of leads) {
+    if (!isFinishedStage(lead.stage)) continue;
+    const email = String(lead.email || "").trim().toLowerCase();
+    if (email) emails.add(email);
+  }
+  return emails;
+}
+
+export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: Set<string>): DueToday {
   if (lead.archived) return { due: false, reason: "", cadence: null };
   if (lead.pipeline === "appliers") {
     return { due: false, reason: "", cadence: null };
   }
-  if (lead.stage === "bought" || lead.stage === "closed" || lead.stage === "disqualified") {
+  if (isFinishedStage(lead.stage)) {
+    return { due: false, reason: "", cadence: null };
+  }
+  const email = String(lead.email || "").trim().toLowerCase();
+  if (email && finishedEmails?.has(email)) {
     return { due: false, reason: "", cadence: null };
   }
 

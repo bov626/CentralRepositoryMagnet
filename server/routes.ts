@@ -9,7 +9,7 @@ import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
 import { recordOutboundEmail, syncAllLeadEmails, syncLeadEmails } from "./email-sync";
 import { draftEmailForLead } from "./email-draft";
 import { runNightlyJobs, sendSalesFocusEmail } from "./jobs";
-import { dueToday, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
+import { dueToday, finishedDealEmails, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
 import { buildMoneyView } from "@shared/money";
 import { isStripeConfigured, jumpseatPaidHistory } from "./stripe";
 import {
@@ -561,9 +561,10 @@ export async function registerRoutes(
   app.get("/api/today-focus", async (req, res) => {
     try {
       const allLeads = await storage.getAllLeads();
+      const finishedEmails = finishedDealEmails(allLeads);
       const due = [];
       for (const lead of allLeads) {
-        const info = dueToday(lead);
+        const info = dueToday(lead, new Date(), finishedEmails);
         if (!info.due) continue;
         const draft = await draftEmailForLead(lead, allLeads, info.cadence);
         due.push({
