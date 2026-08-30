@@ -168,6 +168,11 @@ export default function TodayPage() {
   );
 }
 
+function gmailSearchUrl(email: string) {
+  const query = `(from:${email} OR to:${email}) -in:drafts`;
+  return `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(query)}`;
+}
+
 function AuditCallRow({
   lead,
   onOpenLead,
@@ -210,6 +215,16 @@ function AuditCallRow({
             className="text-xs text-primary hover:underline mt-2 inline-block"
           >
             Open their PDF
+          </a>
+        )}
+        {lead.email && (
+          <a
+            href={gmailSearchUrl(lead.email)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-muted-foreground hover:text-foreground mt-2 ml-3 inline-block"
+          >
+            Open in Gmail
           </a>
         )}
       </div>
@@ -338,14 +353,28 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
               className="min-h-[200px] resize-none font-mono text-sm"
             />
           </div>
-          <div className="flex items-center justify-between pt-1">
-            <button
-              type="button"
-              onClick={onOpenLead}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Open full card
-            </button>
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <div className="flex items-center gap-3">
+              {item.lead.email ? (
+                <a
+                  href={gmailSearchUrl(item.lead.email)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Open in Gmail
+                </a>
+              ) : (
+                <span className="text-xs text-muted-foreground">No email</span>
+              )}
+              <button
+                type="button"
+                onClick={onOpenLead}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                CRM card
+              </button>
+            </div>
             <Button onClick={() => send.mutate()} disabled={send.isPending || !item.lead.email} className="gap-2">
               {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {send.isPending ? "Sending…" : "Send"}
