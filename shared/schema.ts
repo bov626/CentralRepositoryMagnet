@@ -45,6 +45,7 @@ export const leads = pgTable("leads", {
   amountPaid: integer("amount_paid").notNull().default(0), // dollars collected
   boughtAt: timestamp("bought_at"), // when they landed in Community Bought
   queueDismissedAt: timestamp("queue_dismissed_at"), // X on Today — off auto-queue until a date or call
+  auditFeedbackAt: timestamp("audit_feedback_at"), // called the audit completer for feedback
   history: jsonb("history").notNull().default(sql`'[]'::jsonb`), // Array of {date: string, action: string}
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

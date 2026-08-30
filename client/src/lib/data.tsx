@@ -47,6 +47,7 @@ export interface Lead {
   auditPdfUrl?: string | null;
   granolaNoteId?: string | null;
   queueDismissedAt?: string | null;
+  auditFeedbackAt?: string | null;
   boughtAt?: string | null;
   blocker?: string | null;
   decisionTrigger?: string | null;

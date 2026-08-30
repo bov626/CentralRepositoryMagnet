@@ -1,4 +1,4 @@
-import { dueToday, finishedDealEmails } from "@shared/email";
+import { dueToday, finishedDealEmails, needsAuditCall } from "@shared/email";
 import { sendEmail } from "./gmail";
 import { syncAllLeadEmails } from "./email-sync";
 import { autoImportFathomCalls, moveGhostedAfterCadence } from "./lead-intake";
@@ -43,20 +43,27 @@ export async function sendSalesFocusEmail(): Promise<{ sent: boolean; count: num
   const leads = await storage.getAllLeads();
   const finishedEmails = finishedDealEmails(leads);
   const due = leads.filter((lead) => dueToday(lead, new Date(), finishedEmails).due);
-  if (due.length === 0) {
+  const audits = leads.filter((lead) => needsAuditCall(lead));
+  if (due.length === 0 && audits.length === 0) {
     return { sent: false, count: 0 };
   }
 
-  const names = due.map((l) => l.name).join("\n- ");
-  const body = `You have ${due.length} follow-up${due.length === 1 ? "" : "s"} today.
-
-- ${names}
+  const followNames = due.map((l) => l.name).join("\n- ");
+  const auditNames = audits.map((l) => l.name).join("\n- ");
+  const parts = [];
+  if (due.length) {
+    parts.push(`You have ${due.length} follow-up${due.length === 1 ? "" : "s"} today.\n\n- ${followNames}`);
+  }
+  if (audits.length) {
+    parts.push(`Call ${audits.length} audit completer${audits.length === 1 ? "" : "s"} for feedback.\n\n- ${auditNames}`);
+  }
+  const body = `${parts.join("\n\n")}
 
 Open Today's Focus:
 ${appUrl()}/today`;
 
   await sendEmail("wyedoyoudothis@gmail.com", "Sales Focus Email", body);
-  return { sent: true, count: due.length };
+  return { sent: true, count: due.length + audits.length };
 }
 
 export async function runNightlyJobs() {

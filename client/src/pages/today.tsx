@@ -2,7 +2,7 @@ import Layout from "@/components/layout";
 import { LeadDetails } from "@/components/lead-details";
 import { useState } from "react";
 import { format } from "date-fns";
-import { Send, Loader2, ChevronDown, X } from "lucide-react";
+import { Send, Loader2, ChevronDown, X, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,15 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { SalesPulseCard, type MoneyView } from "@/components/sales-pulse-card";
 import { CallMetric, type CallStats } from "@/components/call-metric";
+
+type AuditCall = {
+  id: string;
+  name: string;
+  email: string | null;
+  summary?: string | null;
+  followUpAngle?: string | null;
+  auditPdfUrl?: string | null;
+};
 
 type TodayItem = {
   lead: {
@@ -40,6 +49,7 @@ export default function TodayPage() {
     count: number;
     items: TodayItem[];
     calls?: CallStats;
+    auditCalls?: AuditCall[];
     money?: MoneyView;
   }>({
     queryKey: ["today-focus"],
@@ -51,6 +61,7 @@ export default function TodayPage() {
   });
 
   const items = data?.items || [];
+  const auditCalls = data?.auditCalls || [];
 
   return (
     <Layout>
@@ -108,6 +119,23 @@ export default function TodayPage() {
           </section>
         )}
 
+        {auditCalls.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              Audit calls · ask for feedback ({auditCalls.length})
+            </h2>
+            <div className="space-y-2">
+              {auditCalls.map((lead) => (
+                <AuditCallRow
+                  key={lead.id}
+                  lead={lead}
+                  onOpenLead={() => setSelectedLeadId(lead.id)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
         <div className="space-y-3">
           <h2 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Follow-ups</h2>
           {isLoading ? (
@@ -130,6 +158,59 @@ export default function TodayPage() {
 
       <LeadDetails leadId={selectedLeadId} onClose={() => setSelectedLeadId(null)} />
     </Layout>
+  );
+}
+
+function AuditCallRow({
+  lead,
+  onOpenLead,
+}: {
+  lead: AuditCall;
+  onOpenLead: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const called = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/leads/${lead.id}/audit-called`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to mark called");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["today-focus"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Could not mark called", description: error.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="rounded-md border border-border bg-card p-4 flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <button type="button" onClick={onOpenLead} className="text-left">
+          <p className="font-semibold truncate">{lead.name}</p>
+          <p className="text-sm text-muted-foreground truncate mt-0.5">{lead.email || "No email"}</p>
+        </button>
+        <p className="text-sm text-foreground mt-2">
+          Call them. Ask what was useful and what was missing. Then we redo the audit.
+        </p>
+        {lead.auditPdfUrl && (
+          <a
+            href={lead.auditPdfUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-primary hover:underline mt-2 inline-block"
+          >
+            Open their PDF
+          </a>
+        )}
+      </div>
+      <Button onClick={() => called.mutate()} disabled={called.isPending} className="gap-2 shrink-0">
+        {called.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+        Called
+      </Button>
+    </div>
   );
 }
 

@@ -9,7 +9,7 @@ import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
 import { recordOutboundEmail, syncAllLeadEmails, syncLeadEmails } from "./email-sync";
 import { draftEmailForLead } from "./email-draft";
 import { runNightlyJobs, sendSalesFocusEmail } from "./jobs";
-import { dueToday, finishedDealEmails, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
+import { dueToday, finishedDealEmails, needsAuditCall, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
 import { buildMoneyView } from "@shared/money";
 import { isStripeConfigured, jumpseatPaidHistory } from "./stripe";
 import {
@@ -176,6 +176,9 @@ export async function registerRoutes(
       if (updates.queueDismissedAt !== undefined) {
         updates.queueDismissedAt = updates.queueDismissedAt ? new Date(updates.queueDismissedAt) : null;
       }
+      if (updates.auditFeedbackAt !== undefined) {
+        updates.auditFeedbackAt = updates.auditFeedbackAt ? new Date(updates.auditFeedbackAt) : null;
+      }
       
       const updatedLead = await storage.updateLead(req.params.id, updates);
       if (!updatedLead) {
@@ -205,6 +208,25 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error dismissing lead from Today:", error);
       res.status(500).json({ error: "Failed to dismiss from Today" });
+    }
+  });
+
+  app.post("/api/leads/:id/audit-called", async (req, res) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) return res.status(404).json({ error: "Lead not found" });
+      const history = Array.isArray(lead.history) ? lead.history : [];
+      const updated = await storage.updateLead(lead.id, {
+        auditFeedbackAt: new Date(),
+        history: [
+          ...history,
+          { date: new Date().toISOString(), action: "Called for Overemployed Risk Audit feedback" },
+        ],
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error marking audit call:", error);
+      res.status(500).json({ error: "Failed to mark audit call" });
     }
   });
 
@@ -643,10 +665,22 @@ export async function registerRoutes(
         console.error("Calendar calls for Today failed", error);
       }
 
+      const auditCalls = allLeads
+        .filter((lead) => needsAuditCall(lead))
+        .map((lead) => ({
+          id: lead.id,
+          name: lead.name,
+          email: lead.email,
+          summary: lead.summary,
+          followUpAngle: lead.followUpAngle,
+          auditPdfUrl: lead.auditPdfUrl,
+        }));
+
       res.json({
         count: due.length,
         items: due,
         calls,
+        auditCalls,
         money: buildMoneyView(allLeads, stripeHistory),
         stripe: { configured: isStripeConfigured() && stripeHistory.configured },
       });

@@ -84,6 +84,7 @@ type FollowUpLead = {
   actionItemDates?: unknown;
   cadenceAnchor?: string | Date | null;
   queueDismissedAt?: string | Date | null;
+  auditFeedbackAt?: string | Date | null;
   createdAt?: string | Date | null;
   emailThreads?: unknown;
   history?: unknown;
@@ -149,6 +150,17 @@ export function isFinishedStage(stage?: string | null): boolean {
   return value === "closed" || value === "bought" || value === "disqualified";
 }
 
+export function isAuditLead(lead: FollowUpLead): boolean {
+  return lead.source === "audit" || (Array.isArray(lead.tags) && lead.tags.includes("audit"));
+}
+
+export function needsAuditCall(lead: FollowUpLead): boolean {
+  if (lead.archived || lead.pipeline === "appliers") return false;
+  if (isFinishedStage(lead.stage)) return false;
+  if (!isAuditLead(lead)) return false;
+  return !parseDate(lead.auditFeedbackAt);
+}
+
 export function finishedDealEmails(leads: FollowUpLead[]): Set<string> {
   const emails = new Set<string>();
   for (const lead of leads) {
@@ -171,6 +183,9 @@ export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: 
   if (email && finishedEmails?.has(email)) {
     return { due: false, reason: "", cadence: null };
   }
+  if (needsAuditCall(lead)) {
+    return { due: false, reason: "", cadence: null };
+  }
 
   const follow = effectiveFollowUp(lead);
   if (follow && isSameDay(follow, now)) {
@@ -178,14 +193,6 @@ export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: 
   }
 
   const dismissed = !!parseDate(lead.queueDismissedAt);
-
-  if (!dismissed) {
-    const fromAudit =
-      lead.source === "audit" || (Array.isArray(lead.tags) && lead.tags.includes("audit"));
-    if (fromAudit && lead.stage === "backlog" && outboundEmailDates(lead).length === 0) {
-      return { due: true, reason: "Audit follow-up", cadence: "follow-up-date" };
-    }
-  }
 
   const anchor = parseDate(lead.cadenceAnchor);
   if (anchor) {

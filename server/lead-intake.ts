@@ -196,9 +196,7 @@ export async function ingestAuditLead(input: {
   const auditBlock = input.summary
     ? `Overemployed Risk Audit\n${input.summary}`
     : "Completed the Overemployed Risk Audit. No sales call yet.";
-  const nextStep = input.pdfUrl
-    ? "Audit PDF is ready. Email them today, attach/link the audit, and get a pitch call on the books."
-    : "They finished the Overemployed Risk Audit. Email them today and get a pitch call on the books.";
+  const nextStep = "Call them. Ask what was useful and what was missing in the Overemployed Risk Audit. Then redo the report from that feedback.";
 
   if (existing) {
     const history = historyOf(existing);
@@ -212,8 +210,8 @@ export async function ingestAuditLead(input: {
       source: existing.source || "audit",
       summary,
       followUpAngle: frozen ? existing.followUpAngle : nextStep,
-      nextFollowUp: frozen ? existing.nextFollowUp : new Date(),
-      queueDismissedAt: frozen ? existing.queueDismissedAt : null,
+      nextFollowUp: frozen ? existing.nextFollowUp : null,
+      auditFeedbackAt: frozen ? existing.auditFeedbackAt : null,
       history: [...history, { date: new Date().toISOString(), action: "Audit received" }],
     });
     return { lead: updated!, created: false };
@@ -230,8 +228,8 @@ export async function ingestAuditLead(input: {
     auditPdfUrl: input.pdfUrl || null,
     summary: auditBlock,
     followUpAngle: nextStep,
-    nextFollowUp: new Date(),
-    actionItems: ["Email audit follow-up and book a pitch call"],
+    nextFollowUp: null,
+    actionItems: ["Call for audit feedback"],
     history: [{ date: new Date().toISOString(), action: "Created from Overemployed Risk Audit" }],
   });
   return { lead, created: true };
