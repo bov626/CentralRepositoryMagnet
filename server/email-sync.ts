@@ -95,6 +95,14 @@ export async function syncLeadEmails(leadId: string): Promise<SyncResult> {
   };
 }
 
+let syncRunning = false;
+let lastFullSyncAt = 0;
+const SYNC_EVERY_MS = 6 * 60 * 60 * 1000;
+
+export function emailSyncStatus() {
+  return { running: syncRunning, lastAt: lastFullSyncAt || null };
+}
+
 export async function syncAllLeadEmails(): Promise<{ synced: number; failed: number; mocked: boolean }> {
   const gmailReady = await isGmailConfigured();
   const leads = await storage.getAllLeads();
@@ -113,7 +121,22 @@ export async function syncAllLeadEmails(): Promise<{ synced: number; failed: num
     }
   }
 
+  lastFullSyncAt = Date.now();
   return { synced, failed, mocked: !gmailReady };
+}
+
+export async function ensureEmailSync(force = false): Promise<void> {
+  if (syncRunning) return;
+  if (!force && lastFullSyncAt && Date.now() - lastFullSyncAt < SYNC_EVERY_MS) return;
+  syncRunning = true;
+  try {
+    const result = await syncAllLeadEmails();
+    console.log("[jobs] email sync", result);
+  } catch (error) {
+    console.error("[jobs] email sync failed", error);
+  } finally {
+    syncRunning = false;
+  }
 }
 
 export async function recordOutboundEmail(

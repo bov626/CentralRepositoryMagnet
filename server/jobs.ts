@@ -1,6 +1,6 @@
 import { dueToday, finishedDealEmails, needsAuditCall } from "@shared/email";
 import { sendEmail } from "./gmail";
-import { syncAllLeadEmails } from "./email-sync";
+import { ensureEmailSync } from "./email-sync";
 import { autoImportFathomCalls, moveGhostedAfterCadence } from "./lead-intake";
 import { storage } from "./storage";
 
@@ -67,10 +67,10 @@ ${appUrl()}/today`;
 }
 
 export async function runNightlyJobs() {
-  const email = await syncAllLeadEmails();
+  await ensureEmailSync(true);
   const fathom = await autoImportFathomCalls();
   const ghosted = await moveGhostedAfterCadence();
-  return { email, fathom, ghosted };
+  return { fathom, ghosted };
 }
 
 export function startEmailJobs() {

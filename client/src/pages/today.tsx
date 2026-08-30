@@ -75,9 +75,16 @@ export default function TodayPage() {
             <p className="text-muted-foreground mt-2">
               {isLoading
                 ? "Loading queue…"
-                : items.length === 0
-                  ? "Nobody to email today."
-                  : `${items.length} ${items.length === 1 ? "person" : "people"} to email. Open, edit, send.`}
+                : [
+                    items.length
+                      ? `${items.length} ${items.length === 1 ? "follow-up" : "follow-ups"}`
+                      : null,
+                    auditCalls.length
+                      ? `${auditCalls.length} audit ${auditCalls.length === 1 ? "call" : "calls"}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Nobody to email today."}
             </p>
           </div>
           {data?.money && <SalesPulseCard money={data.money} />}

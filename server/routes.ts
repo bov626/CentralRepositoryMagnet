@@ -6,7 +6,7 @@ import { z } from "zod";
 import { getUpcomingEvents, createEvent, denverWeekBounds, listSalesCallsBetween } from "./google-calendar";
 import { listMeetings, isFathomConfigured } from "./fathom";
 import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
-import { recordOutboundEmail, syncAllLeadEmails, syncLeadEmails } from "./email-sync";
+import { ensureEmailSync, recordOutboundEmail, syncAllLeadEmails, syncLeadEmails } from "./email-sync";
 import { draftEmailForLead } from "./email-draft";
 import { runNightlyJobs, sendSalesFocusEmail } from "./jobs";
 import { dueToday, finishedDealEmails, needsAuditCall, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
@@ -675,6 +675,8 @@ export async function registerRoutes(
           followUpAngle: lead.followUpAngle,
           auditPdfUrl: lead.auditPdfUrl,
         }));
+
+      void ensureEmailSync();
 
       res.json({
         count: due.length,

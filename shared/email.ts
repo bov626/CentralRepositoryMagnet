@@ -132,6 +132,10 @@ export function emailedWithinOneDay(lead: FollowUpLead, milestone: Date): boolea
   return outboundEmailDates(lead).some((sent) => Math.abs(daysApart(sent, milestone)) <= 1);
 }
 
+function emailedOnOrAfter(lead: FollowUpLead, milestone: Date): boolean {
+  return outboundEmailDates(lead).some((sent) => daysApart(sent, milestone) >= -1);
+}
+
 const CHECK_INS: Array<{ months: number; cadence: CadenceKind; reason: string }> = [
   { months: 3, cadence: "check-in-3", reason: "3-month check-in" },
   { months: 6, cadence: "check-in-6", reason: "6-month check-in" },
@@ -188,8 +192,12 @@ export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: 
   }
 
   const follow = effectiveFollowUp(lead);
-  if (follow && isSameDay(follow, now)) {
-    return { due: true, reason: "Follow-up date", cadence: "follow-up-date" };
+  if (follow && daysApart(follow, now) <= 0) {
+    return {
+      due: true,
+      reason: isSameDay(follow, now) ? "Follow-up date" : "Overdue",
+      cadence: "follow-up-date",
+    };
   }
 
   const dismissed = !!parseDate(lead.queueDismissedAt);
@@ -198,9 +206,13 @@ export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: 
   if (anchor) {
     for (const step of SHORT_CADENCE) {
       const when = addDays(anchor, step.days);
-      if (!isSameDay(when, now)) continue;
-      if (step.days > 0 && emailedWithinOneDay(lead, when)) continue;
-      return { due: true, reason: step.reason, cadence: step.cadence };
+      if (daysApart(when, now) > 0) continue;
+      if (emailedOnOrAfter(lead, when)) continue;
+      return {
+        due: true,
+        reason: isSameDay(when, now) ? step.reason : `${step.reason} (overdue)`,
+        cadence: step.cadence,
+      };
     }
   }
 
@@ -212,8 +224,9 @@ export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: 
   if (created) {
     for (const check of CHECK_INS) {
       const when = addMonths(created, check.months);
-      if (!isSameDay(when, now)) continue;
-      if (emailedWithinOneDay(lead, when)) continue;
+      const age = daysApart(now, when);
+      if (age < 0 || age > 14) continue;
+      if (emailedOnOrAfter(lead, when)) continue;
       return { due: true, reason: check.reason, cadence: check.cadence };
     }
   }
