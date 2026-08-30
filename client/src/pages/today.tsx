@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { SalesPulseCard, type MoneyView } from "@/components/sales-pulse-card";
+import { CallMetric, type CallStats } from "@/components/call-metric";
 
 type TodayItem = {
   lead: {
@@ -38,6 +39,7 @@ export default function TodayPage() {
   const { data, isLoading } = useQuery<{
     count: number;
     items: TodayItem[];
+    calls?: CallStats;
     money?: MoneyView;
   }>({
     queryKey: ["today-focus"],
@@ -67,10 +69,47 @@ export default function TodayPage() {
                   : `${items.length} ${items.length === 1 ? "person" : "people"} to email. Open, edit, send.`}
             </p>
           </div>
-          {data?.money && <SalesPulseCard money={data.money} />}
+          <div className="flex flex-wrap items-stretch gap-3">
+            {data?.calls && <CallMetric calls={data.calls} />}
+            {data?.money && <SalesPulseCard money={data.money} />}
+          </div>
         </header>
 
+        {data?.calls?.configured && data.calls.todayEvents.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Calls today</h2>
+            <div className="space-y-2">
+              {data.calls.todayEvents.map((event) => {
+                const who = event.attendees
+                  .map((a) => a.name || a.email)
+                  .filter(Boolean)
+                  .join(", ");
+                return (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => event.leadId && setSelectedLeadId(event.leadId)}
+                    className={cn(
+                      "w-full flex items-center gap-4 rounded-md border border-border bg-card px-4 py-3 text-left",
+                      event.leadId && "hover:bg-muted/30",
+                    )}
+                  >
+                    <span className="text-sm font-semibold tabular-nums shrink-0 w-16">
+                      {format(new Date(event.start), "h:mm a")}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="font-medium truncate block">{who || event.title}</span>
+                      {who && <span className="text-sm text-muted-foreground truncate block">{event.title}</span>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         <div className="space-y-3">
+          <h2 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Follow-ups</h2>
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Loading…</div>
           ) : items.length > 0 ? (

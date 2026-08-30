@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeadSchema, insertBlockerSchema, insertOnboardingSubmissionSchema } from "@shared/schema";
 import { z } from "zod";
-import { getUpcomingEvents, createEvent } from "./google-calendar";
+import { getUpcomingEvents, createEvent, denverWeekBounds, listSalesCallsBetween } from "./google-calendar";
 import { listMeetings, isFathomConfigured } from "./fathom";
 import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
 import { recordOutboundEmail, syncAllLeadEmails, syncLeadEmails } from "./email-sync";
@@ -601,9 +601,52 @@ export async function registerRoutes(
       } catch (error) {
         console.error("Stripe month total failed", error);
       }
+
+      const leadsByEmail = new Map(
+        allLeads
+          .filter((lead) => lead.email)
+          .map((lead) => [lead.email!.trim().toLowerCase(), lead.id]),
+      );
+      let calls = {
+        configured: false,
+        today: 0,
+        week: 0,
+        todayEvents: [] as Array<{
+          id: string;
+          title: string;
+          start: string;
+          attendees: Array<{ name?: string | null; email?: string | null }>;
+          leadId?: string | null;
+        }>,
+      };
+      try {
+        const bounds = denverWeekBounds();
+        const weekCalls = await listSalesCallsBetween(bounds.start, bounds.end);
+        const todayEvents = weekCalls
+          .filter((event) => {
+            const start = new Date(event.start).getTime();
+            return start >= bounds.todayStart.getTime() && start < bounds.todayEnd.getTime();
+          })
+          .map((event) => {
+            const match = event.attendees
+              .map((a) => a.email?.trim().toLowerCase())
+              .find((email) => email && leadsByEmail.has(email));
+            return { ...event, leadId: match ? leadsByEmail.get(match) || null : null };
+          });
+        calls = {
+          configured: true,
+          today: todayEvents.length,
+          week: weekCalls.length,
+          todayEvents,
+        };
+      } catch (error) {
+        console.error("Calendar calls for Today failed", error);
+      }
+
       res.json({
         count: due.length,
         items: due,
+        calls,
         money: buildMoneyView(allLeads, stripeHistory),
         stripe: { configured: isStripeConfigured() && stripeHistory.configured },
       });
