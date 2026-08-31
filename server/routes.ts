@@ -579,7 +579,13 @@ export async function registerRoutes(
       res.json(result);
     } catch (error: any) {
       const message = error.message || "Failed to sync email";
-      const status = message.includes("no email") ? 400 : message.includes("not found") ? 404 : 500;
+      const status = message.includes("no email")
+        ? 400
+        : message.includes("not found")
+          ? 404
+          : message.includes("Gmail not connected")
+            ? 503
+            : 500;
       res.status(status).json({ error: message });
     }
   });

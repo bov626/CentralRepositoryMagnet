@@ -265,39 +265,38 @@ export function emailHistoryItem(thread: EmailThread): HistoryItem {
   };
 }
 
-export function mockThreadsForLead(name: string, email: string): EmailThread[] {
-  const first = name.split(" ")[0] || name;
-  const now = Date.now();
-  return [
-    {
-      gmailThreadId: `mock-${email}-1`,
-      gmailMessageId: `mock-${email}-1`,
-      subject: "Service Agreement",
-      summary: `After our call, sent ${first} the service outline and asked how they'd like to move forward.`,
-      date: new Date(now - 4 * 24 * 60 * 60 * 1000).toISOString(),
-      from: "wyedoyoudothis@gmail.com",
-      to: email,
-      direction: "out",
-    },
-    {
-      gmailThreadId: `mock-${email}-2`,
-      gmailMessageId: `mock-${email}-2`,
-      subject: "Re: Service Agreement",
-      summary: `${first} said they're still in interviews and will decide this week.`,
-      date: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      from: email,
-      to: "wyedoyoudothis@gmail.com",
-      direction: "in",
-    },
-    {
-      gmailThreadId: `mock-${email}-3`,
-      gmailMessageId: `mock-${email}-3`,
-      subject: "Following up",
-      summary: `Bumped ${first} — one slot left, refund if an offer lands.`,
-      date: new Date(now - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      from: "wyedoyoudothis@gmail.com",
-      to: email,
-      direction: "out",
-    },
-  ];
+const FAKE_SAMPLE_SUMMARIES = [
+  "one slot left, refund if an offer lands",
+  "still in interviews and will decide this week",
+  "the service outline and asked how they'd like to move forward",
+];
+
+export function isFakeSampleEmail(item: {
+  gmailThreadId?: string | null;
+  gmailMessageId?: string | null;
+  summary?: string | null;
+}): boolean {
+  const id = `${item.gmailThreadId || ""}${item.gmailMessageId || ""}`;
+  if (id.startsWith("mock-") || id.includes("mock-")) return true;
+  const summary = (item.summary || "").toLowerCase();
+  return FAKE_SAMPLE_SUMMARIES.some((needle) => summary.includes(needle));
+}
+
+export function isCalendarNotification(item: { from?: string | null; subject?: string | null }): boolean {
+  const from = (item.from || "").toLowerCase();
+  const subject = (item.subject || "").toLowerCase();
+  if (
+    from.includes("calendly") ||
+    from.includes("calendar-notification") ||
+    from.includes("noreply@google.com")
+  ) {
+    return true;
+  }
+  return /^(new event|updated|canceled|cancelled|invitation):/i.test(subject);
+}
+
+export function isEmailHistoryItem(item: HistoryItem): boolean {
+  if (item.type === "email") return true;
+  if (item.gmailThreadId) return true;
+  return /^(sent|received):/i.test(item.action || "");
 }

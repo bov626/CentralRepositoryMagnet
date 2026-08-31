@@ -177,9 +177,9 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
       if (!res.ok) throw new Error(data.error || "Sync failed");
       await queryClient.invalidateQueries({ queryKey: ["leads"] });
       toast({
-        title: data.mocked ? "Loaded sample emails" : "Emails synced",
+        title: data.mocked ? "Gmail not connected" : "Emails synced",
         description: data.mocked
-          ? "Gmail isn't connected locally. Sample threads are on the timeline so you can try the UI. Real search runs on Replit."
+          ? "Nothing was added. Connect Gmail on Replit and sync again."
           : `Added ${data.added} new thread${data.added === 1 ? "" : "s"}.`,
       });
     } catch (error: any) {

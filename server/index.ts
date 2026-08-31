@@ -6,6 +6,7 @@ import { seedProductionDatabase } from "./seed-data";
 import { startEmailJobs } from "./jobs";
 import { migrateNudgeScheduled } from "./lead-intake";
 import { ensureLeadColumns } from "./ensure-schema";
+import { purgeFakeSampleEmails } from "./email-sync";
 
 const app = express();
 const httpServer = createServer(app);
@@ -65,6 +66,11 @@ app.use((req, res, next) => {
 
 (async () => {
   await ensureLeadColumns();
+  try {
+    await purgeFakeSampleEmails();
+  } catch (error) {
+    console.error("[startup] sample email purge skipped", error);
+  }
   await registerRoutes(httpServer, app);
   
   // Seed production database if empty

@@ -1,7 +1,9 @@
 import { storage } from "./storage";
 import {
   emailHistoryItem,
-  mockThreadsForLead,
+  isCalendarNotification,
+  isEmailHistoryItem,
+  isFakeSampleEmail,
   type EmailThread,
   type HistoryItem,
 } from "@shared/email";
@@ -109,46 +111,37 @@ export async function syncLeadEmails(
   }
 
   const gmailReady = await isGmailConfigured();
-  let incoming: EmailThread[] = [];
-  let draftThreadIds = new Set<string>();
-  if (gmailReady) {
-    const found = await searchThreadsForLead(lead.email);
-    incoming = found.threads;
-    draftThreadIds = new Set(found.draftThreadIds);
-  } else {
-    incoming = mockThreadsForLead(lead.name, lead.email);
+  if (!gmailReady) {
+    const existing = Array.isArray(lead.emailThreads)
+      ? (lead.emailThreads as EmailThread[]).filter((thread) => !isFakeSampleEmail(thread))
+      : [];
+    const existingHistory = Array.isArray(lead.history)
+      ? (lead.history as HistoryItem[]).filter((item) => !isFakeSampleEmail(item))
+      : [];
+    await storage.updateLead(leadId, {
+      emailThreads: existing,
+      history: existingHistory,
+    });
+    throw new Error("Gmail not connected — refusing to write email history");
   }
 
-  const existing = Array.isArray(lead.emailThreads)
-    ? (lead.emailThreads as EmailThread[])
-    : [];
-  const existingHistory = Array.isArray(lead.history)
-    ? (lead.history as HistoryItem[])
-    : [];
-
-  const incomingThreadIds = new Set(incoming.map((t) => t.gmailThreadId));
+  const found = await searchThreadsForLead(lead.email);
+  const incoming = found.threads.filter(
+    (thread) => !isFakeSampleEmail(thread) && !isCalendarNotification(thread),
+  );
+  const existing = Array.isArray(lead.emailThreads) ? (lead.emailThreads as EmailThread[]) : [];
   const existingIds = new Set(existing.map((t) => t.gmailMessageId));
-  const kept = existing.filter((thread) => {
-    if (draftThreadIds.has(thread.gmailThreadId) && !incomingThreadIds.has(thread.gmailThreadId)) {
-      return false;
-    }
-    return !incomingThreadIds.has(thread.gmailThreadId);
-  });
   const added = incoming.filter((thread) => !existingIds.has(thread.gmailMessageId));
   const newEmail = added.some((thread) => thread.direction === "in");
   const newFacts = added.length > 0;
   const prior = (lead.nextStepManual || lead.followUpAngle || "").trim();
-  const merged = [...kept, ...incoming].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-  );
 
+  const crmHistory = (Array.isArray(lead.history) ? (lead.history as HistoryItem[]) : []).filter(
+    (item) => !isEmailHistoryItem(item) && !isFakeSampleEmail(item),
+  );
   const history = [
-    ...existingHistory.filter((item) => {
-      if (!item.gmailThreadId) return true;
-      if (!draftThreadIds.has(item.gmailThreadId)) return true;
-      return incomingThreadIds.has(item.gmailThreadId);
-    }),
-    ...added.map((thread) =>
+    ...crmHistory,
+    ...incoming.map((thread) =>
       emailHistoryItem({ ...thread, summary: thread.summary.slice(0, 280) }),
     ),
   ];
@@ -160,13 +153,13 @@ export async function syncLeadEmails(
 
   let guessed = lead.nextStepAi || prior;
   if (newFacts || !prior) {
-    guessed = await guessNextStep(lead, merged, taught, { newEmail });
+    guessed = await guessNextStep(lead, incoming, taught, { newEmail });
   }
 
   const live = newFacts || !lead.nextStepManual ? guessed : prior;
 
   const updated = await storage.updateLead(leadId, {
-    emailThreads: merged,
+    emailThreads: incoming,
     history,
     nextStepAi: guessed || null,
     followUpAngle: live || guessed,
@@ -176,7 +169,7 @@ export async function syncLeadEmails(
   return {
     lead: updated!,
     added: added.length,
-    mocked: !gmailReady,
+    mocked: false,
   };
 }
 
@@ -196,6 +189,29 @@ async function refreshNotesOnly(lead: Lead, taught: TaughtExample[]): Promise<vo
 
 export function emailSyncStatus() {
   return { ...status, lastAt: status.lastAt || null };
+}
+
+export async function purgeFakeSampleEmails(): Promise<number> {
+  const leads = await storage.getAllLeads();
+  let cleaned = 0;
+  for (const lead of leads) {
+    const threads = Array.isArray(lead.emailThreads) ? (lead.emailThreads as EmailThread[]) : [];
+    const history = Array.isArray(lead.history) ? (lead.history as HistoryItem[]) : [];
+    const nextThreads = threads.filter(
+      (thread) => !isFakeSampleEmail(thread) && !isCalendarNotification(thread),
+    );
+    const nextHistory = history.filter(
+      (item) => !isFakeSampleEmail(item) && !isCalendarNotification(item),
+    );
+    if (nextThreads.length === threads.length && nextHistory.length === history.length) continue;
+    await storage.updateLead(lead.id, {
+      emailThreads: nextThreads,
+      history: nextHistory,
+    });
+    cleaned++;
+  }
+  if (cleaned) console.log(`[startup] removed untrusted emails from ${cleaned} cards`);
+  return cleaned;
 }
 
 export async function syncAllLeadEmails(_force = false): Promise<{
