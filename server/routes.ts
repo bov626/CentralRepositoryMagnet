@@ -127,9 +127,9 @@ export async function registerRoutes(
     try {
       const allLeads = await storage.getAllLeads();
       res.json(allLeads);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching leads:", error);
-      res.status(500).json({ error: "Failed to fetch leads" });
+      res.status(500).json({ error: error.message || "Failed to fetch leads" });
     }
   });
 
