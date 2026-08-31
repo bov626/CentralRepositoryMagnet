@@ -62,8 +62,14 @@ function taughtFrom(leads: Lead[], exceptId?: string): TaughtExample[] {
     }));
 }
 
-async function guessNextStep(lead: Lead, threads: EmailThread[], examples: TaughtExample[]): Promise<string> {
+async function guessNextStep(
+  lead: Lead,
+  threads: EmailThread[],
+  examples: TaughtExample[],
+  opts: { newEmail?: boolean } = {},
+): Promise<string> {
   const history = Array.isArray(lead.history) ? (lead.history as HistoryItem[]) : [];
+  const prior = (lead.nextStepManual || lead.followUpAngle || "").trim();
   return summarizeNextStep({
     name: lead.name,
     pipeline: lead.pipeline,
@@ -85,6 +91,8 @@ async function guessNextStep(lead: Lead, threads: EmailThread[], examples: Taugh
       date: t.date,
     })),
     examples: examples.map(({ guessed, actual }) => ({ guessed, actual })),
+    priorNextStep: prior || null,
+    newEmail: !!opts.newEmail,
   });
 }
 
@@ -127,6 +135,9 @@ export async function syncLeadEmails(
     return !incomingThreadIds.has(thread.gmailThreadId);
   });
   const added = incoming.filter((thread) => !existingIds.has(thread.gmailMessageId));
+  const newEmail = added.some((thread) => thread.direction === "in");
+  const newFacts = added.length > 0;
+  const prior = (lead.nextStepManual || lead.followUpAngle || "").trim();
   const merged = [...kept, ...incoming].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   );
@@ -147,13 +158,18 @@ export async function syncLeadEmails(
     ? examples.map((e, i) => ({ id: String(i), ...e }))
     : taughtFrom(allLeads || [], leadId);
 
-  const guessed = await guessNextStep(lead, merged, taught);
+  let guessed = lead.nextStepAi || prior;
+  if (newFacts || !prior) {
+    guessed = await guessNextStep(lead, merged, taught, { newEmail });
+  }
+
+  const live = newFacts || !lead.nextStepManual ? guessed : prior;
 
   const updated = await storage.updateLead(leadId, {
     emailThreads: merged,
     history,
-    nextStepAi: guessed,
-    followUpAngle: lead.nextStepManual || guessed,
+    nextStepAi: guessed || null,
+    followUpAngle: live || guessed,
     nextStepAiAt: new Date(),
   });
 
@@ -165,11 +181,15 @@ export async function syncLeadEmails(
 }
 
 async function refreshNotesOnly(lead: Lead, taught: TaughtExample[]): Promise<void> {
+  const prior = (lead.nextStepManual || lead.followUpAngle || "").trim();
+  if (prior && lead.nextStepManual) {
+    return;
+  }
   const threads = Array.isArray(lead.emailThreads) ? (lead.emailThreads as EmailThread[]) : [];
   const guessed = await guessNextStep(lead, threads, taught.filter((e) => e.id !== lead.id));
   await storage.updateLead(lead.id, {
     nextStepAi: guessed,
-    followUpAngle: lead.nextStepManual || guessed,
+    followUpAngle: guessed,
     nextStepAiAt: new Date(),
   });
 }

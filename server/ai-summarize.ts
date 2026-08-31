@@ -109,9 +109,18 @@ export async function summarizeNextStep(input: {
   history?: Array<{ date?: string; action?: string }>;
   threads: Array<{ subject: string; summary: string; direction: string; date: string }>;
   examples?: Array<{ guessed: string; actual: string }>;
+  priorNextStep?: string | null;
+  newEmail?: boolean;
 }): Promise<string> {
   const last = [...input.threads].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).at(-1);
+  const prior = (input.priorNextStep || "").trim();
   const fallback = (() => {
+    if (input.newEmail && last?.direction === "in") {
+      return `They emailed last (${last.subject}). Reply to that — don't keep the old next step.`;
+    }
+    if (prior && !input.newEmail) {
+      return prior;
+    }
     if (input.stage === "bought") {
       return "Bought. No sales follow-up.";
     }
@@ -173,7 +182,7 @@ export async function summarizeNextStep(input: {
         ? String(input.cadenceAnchor).slice(0, 10)
         : "none";
 
-  const userContent = `${exampleBlock ? `Wilson's corrections — match this judgment, not generic CRM advice:\n${exampleBlock}\n\n` : ""}Lead: ${input.name}
+  const userContent = `${exampleBlock ? `Wilson's corrections — match this judgment, not generic CRM advice:\n${exampleBlock}\n\n` : ""}${prior ? `Wilson's last next step for THIS person:\n${prior}\n${input.newEmail ? "New email arrived after that. Revise if the thread changed what he should do. Keep it if the new mail doesn't change the action.\n\n" : "No new email since then. Keep this action unless the notes clearly show he already did it.\n\n"}` : ""}Lead: ${input.name}
 Offer: ${input.pipeline === "community" ? "Skool community" : "Jumpseat agency"}
 Stage: ${input.stage || "unknown"}
 Source: ${input.source || "unknown"}
@@ -205,6 +214,7 @@ Rules:
 - Future Client: not this cohort. Do not pitch. Check-in only if a 3/6/9/12 date is due.
 - Never invent a meeting, payment, or promise that is not in the notes or email.
 - Match Wilson's corrections when they exist. His actual next step beats a textbook sales move.
+- His last next step for this person is a starting point, not a lock. A new email from them can change it. If nothing new happened, keep his action.
 - No greeting, no markdown, no bullet list.`;
 
   for (const model of NEXT_STEP_MODELS) {

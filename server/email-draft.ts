@@ -61,8 +61,9 @@ export async function draftEmailForLead(
 ): Promise<{ subject: string; body: string; source: "closed-won" | "template" }> {
   const fallback = fallbackDraft(lead, cadence);
   const examples = pickExamples(closedOutboundExamples(allLeads), cadence);
+  const nextStep = (lead.followUpAngle || lead.nextStepManual || "").trim();
 
-  if (examples.length === 0) {
+  if (examples.length === 0 && !nextStep) {
     return { ...fallback, source: "template" };
   }
 
@@ -75,11 +76,11 @@ export async function draftEmailForLead(
     const prompt = `Write a follow-up email from Wilson (sign off "– W.W.") to ${lead.name} (${firstName(lead.name)}).
 
 Cadence: ${cadence || "follow-up"}
-Personalize the first 1-3 lines from this client context:
+${nextStep ? `Wilson's next step for this person (the email must serve this, not a generic bump):\n${nextStep}\n` : ""}Personalize the first 1-3 lines from this client context:
 ${personal || "No extra notes."}
 
 The middle should follow the tone and structure of these emails that already closed deals (do not copy Stripe, payment, or onboarding emails):
-${exampleBlock}
+${exampleBlock || "No closed examples. Write a short sales email that does the next step."}
 
 Return ONLY:
 SUBJECT: <subject line>

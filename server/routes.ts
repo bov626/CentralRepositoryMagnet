@@ -219,15 +219,25 @@ export async function registerRoutes(
       const actual = String(req.body?.actual || "").trim();
       if (!actual) return res.status(400).json({ error: "actual is required" });
       const history = Array.isArray(lead.history) ? lead.history : [];
-      const updated = await storage.updateLead(lead.id, {
-        nextStepManual: actual,
+      const guessed = lead.nextStepAi || lead.followUpAngle;
+      const payload = {
         followUpAngle: actual,
-        nextStepAi: lead.nextStepAi || lead.followUpAngle,
         history: [
           ...history,
           { date: new Date().toISOString(), action: `Next step set: ${actual}` },
         ],
-      });
+      };
+      let updated;
+      try {
+        updated = await storage.updateLead(lead.id, {
+          ...payload,
+          nextStepManual: actual,
+          nextStepAi: guessed,
+        });
+      } catch (error) {
+        console.error("next_step columns missing, saving followUpAngle only", error);
+        updated = await storage.updateLead(lead.id, payload);
+      }
       res.json(updated);
     } catch (error) {
       console.error("Error saving next step:", error);

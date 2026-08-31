@@ -396,6 +396,9 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                         </button>
                     )}
                 </div>
+                <div className="mt-4">
+                  <NextStepTeach lead={lead} />
+                </div>
             </div>
         </div>
 
@@ -558,7 +561,6 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                       {syncing ? "Syncing…" : "Sync emails"}
                     </Button>
                 </div>
-                <NextStepTeach lead={lead} />
                 <div className="space-y-4 border-l-2 border-muted pl-4 ml-1">
                     {(lead.history as Array<{
                       date: string;

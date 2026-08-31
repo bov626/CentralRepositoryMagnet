@@ -44,6 +44,7 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
   const isDueToday = lead.nextFollowUp && isToday(new Date(lead.nextFollowUp));
   const jobTitle = jobTitleFromLead(lead);
   const auditScore = auditScoreFromLead(lead);
+  const nextStep = (lead.followUpAngle || lead.nextStepManual || "").trim();
 
   const handleEmailClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
@@ -91,6 +92,9 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
         <p className="text-xs text-muted-foreground truncate mb-2">
           {[jobTitle, auditScore != null ? `${auditScore}/100` : null].filter(Boolean).join(" · ")}
         </p>
+      )}
+      {nextStep && (
+        <p className="text-xs text-foreground/80 leading-snug line-clamp-2 mb-2">{nextStep}</p>
       )}
 
       <div className="flex flex-wrap gap-1 mb-3">

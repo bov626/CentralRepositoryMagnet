@@ -329,7 +329,7 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
               </span>
             </div>
             <p className="text-sm text-muted-foreground truncate mt-0.5">
-              {item.lead.followUpAngle || item.lead.email || "No email"}
+              {item.lead.followUpAngle || item.lead.nextStepManual || item.lead.email || "No email"}
             </p>
           </div>
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />

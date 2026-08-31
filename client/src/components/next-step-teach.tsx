@@ -11,15 +11,21 @@ type LeadLike = {
   nextStepManual?: string | null;
 };
 
+function seedText(lead: LeadLike): string {
+  return (lead.followUpAngle || lead.nextStepManual || lead.nextStepAi || "").trim();
+}
+
 export function NextStepTeach({ lead }: { lead: LeadLike }) {
   const queryClient = useQueryClient();
   const guessed = (lead.nextStepAi || lead.followUpAngle || "").trim();
   const saved = (lead.nextStepManual || "").trim();
-  const [actual, setActual] = useState(saved);
+  const live = seedText(lead);
+  const moved = !!(saved && live && saved !== live);
+  const [actual, setActual] = useState(() => seedText(lead));
 
   useEffect(() => {
-    setActual(saved);
-  }, [lead.id, saved]);
+    setActual(seedText(lead));
+  }, [lead.id]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -33,8 +39,28 @@ export function NextStepTeach({ lead }: { lead: LeadLike }) {
       return data;
     },
     onSuccess: () => {
+      const next = actual.trim();
+      queryClient.setQueryData(["leads"], (old: Array<LeadLike> | undefined) =>
+        old?.map((row) =>
+          row.id === lead.id
+            ? { ...row, nextStepManual: next, followUpAngle: next }
+            : row,
+        ),
+      );
+      queryClient.setQueryData(["today-focus"], (old: { items?: Array<{ lead: LeadLike }> } | undefined) => {
+        if (!old?.items) return old;
+        return {
+          ...old,
+          items: old.items.map((row) =>
+            row.lead.id === lead.id
+              ? { ...row, lead: { ...row.lead, nextStepManual: next, followUpAngle: next } }
+              : row,
+          ),
+        };
+      });
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       queryClient.invalidateQueries({ queryKey: ["today-focus"] });
+      toast({ title: "Next step saved" });
     },
     onError: (error: Error) => {
       toast({ title: "Could not save next step", description: error.message, variant: "destructive" });
@@ -44,7 +70,13 @@ export function NextStepTeach({ lead }: { lead: LeadLike }) {
   return (
     <div className="rounded-md border border-primary/40 bg-primary/10 p-3 space-y-2">
       <p className="text-[10px] uppercase tracking-widest text-primary">Next step</p>
-      {guessed && guessed !== saved && (
+      {moved && (
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">You said: </span>
+          {saved}
+        </p>
+      )}
+      {!moved && guessed && guessed !== saved && guessed !== actual.trim() && (
         <p className="text-sm text-muted-foreground leading-relaxed">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Guessed: </span>
           {guessed}
@@ -53,10 +85,11 @@ export function NextStepTeach({ lead }: { lead: LeadLike }) {
       <Textarea
         value={actual}
         onChange={(e) => setActual(e.target.value)}
-        placeholder="What you would actually do"
+        placeholder="What you would actually do next"
         className="min-h-[72px] bg-background/60 text-sm"
       />
       <Button
+        type="button"
         size="sm"
         onClick={() => save.mutate()}
         disabled={save.isPending || !actual.trim()}
