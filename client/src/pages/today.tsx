@@ -87,7 +87,7 @@ export default function TodayPage() {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-8">
         <header className="border-b border-border/60 pb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">
@@ -119,38 +119,12 @@ export default function TodayPage() {
         </header>
 
         {data?.calls && (
-          <section className="space-y-3">
-            <h2 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Daily focus</h2>
-            <CallMetric calls={data.calls} />
-            {data.calls.configured && data.calls.todayEvents.length > 0 && (
-              <div className="space-y-2">
-                {data.calls.todayEvents.map((event) => {
-                  const who = event.attendees
-                    .map((a) => a.name || a.email)
-                    .filter(Boolean)
-                    .join(", ");
-                  return (
-                    <button
-                      key={event.id}
-                      type="button"
-                      onClick={() => event.leadId && setSelectedLeadId(event.leadId)}
-                      className={cn(
-                        "w-full flex items-center gap-4 rounded-md border border-border bg-card px-4 py-3 text-left",
-                        event.leadId && "hover:bg-muted/30",
-                      )}
-                    >
-                      <span className="text-sm font-semibold tabular-nums shrink-0 w-16">
-                        {format(new Date(event.start), "h:mm a")}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="font-medium truncate block">{who || event.title}</span>
-                        {who && <span className="text-sm text-muted-foreground truncate block">{event.title}</span>}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+          <section className="space-y-2">
+            <h2 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Calls</h2>
+            <CallMetric
+              calls={data.calls}
+              onOpenLead={(leadId) => setSelectedLeadId(leadId)}
+            />
           </section>
         )}
 
@@ -321,6 +295,11 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
       return data;
     },
     onSuccess: () => {
+      queryClient.setQueryData(["today-focus"], (current: { items?: TodayItem[]; count?: number } | undefined) => {
+        if (!current?.items) return current;
+        const items = current.items.filter((row) => row.lead.id !== item.lead.id);
+        return { ...current, items, count: items.length };
+      });
       queryClient.invalidateQueries({ queryKey: ["today-focus"] });
       queryClient.invalidateQueries({ queryKey: ["leads"] });
     },

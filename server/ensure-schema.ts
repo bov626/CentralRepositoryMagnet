@@ -29,4 +29,17 @@ export async function ensureLeadColumns(): Promise<void> {
       console.error(`[startup] add column ${column.name} skipped`, error);
     }
   }
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS dismissed_calendar_events (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        event_id text NOT NULL UNIQUE,
+        recurring_event_id text,
+        title text,
+        dismissed_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+  } catch (error) {
+    console.error("[startup] dismissed_calendar_events table skipped", error);
+  }
 }

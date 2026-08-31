@@ -78,6 +78,14 @@ export const onboardingSubmissions = pgTable("onboarding_submissions", {
   submittedAt: timestamp("submitted_at").notNull().defaultNow(),
 });
 
+export const dismissedCalendarEvents = pgTable("dismissed_calendar_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: text("event_id").notNull().unique(),
+  recurringEventId: text("recurring_event_id"),
+  title: text("title"),
+  dismissedAt: timestamp("dismissed_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,

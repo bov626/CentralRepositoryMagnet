@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeadSchema, insertBlockerSchema, insertOnboardingSubmissionSchema } from "@shared/schema";
 import { z } from "zod";
-import { getUpcomingEvents, createEvent, denverWeekBounds, listSalesCallsBetween } from "./google-calendar";
+import { getUpcomingEvents, createEvent, denverWeekBounds, denverWeekDays, denverDayKey, listSalesCallsBetween } from "./google-calendar";
 import { listMeetings, isFathomConfigured } from "./fathom";
 import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
 import { ensureEmailSync, emailSyncStatus, recordOutboundEmail, syncLeadEmails } from "./email-sync";
@@ -251,6 +251,22 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error marking audit call:", error);
       res.status(500).json({ error: "Failed to mark audit call" });
+    }
+  });
+
+  app.post("/api/calls/dismiss", async (req, res) => {
+    try {
+      const eventId = String(req.body?.eventId || "").trim();
+      if (!eventId) return res.status(400).json({ error: "eventId is required" });
+      await storage.dismissCalendarEvent({
+        eventId,
+        recurringEventId: req.body?.recurringEventId ? String(req.body.recurringEventId) : null,
+        title: req.body?.title ? String(req.body.title) : null,
+      });
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error dismissing call:", error);
+      res.status(500).json({ error: "Failed to dismiss call" });
     }
   });
 
@@ -672,39 +688,65 @@ export async function registerRoutes(
       const leadsByEmail = new Map(
         allLeads
           .filter((lead) => lead.email)
-          .map((lead) => [lead.email!.trim().toLowerCase(), lead.id]),
+          .map((lead) => [
+            lead.email!.trim().toLowerCase(),
+            { id: lead.id, name: lead.name },
+          ]),
       );
       let calls = {
         configured: false,
         today: 0,
         week: 0,
-        todayEvents: [] as Array<{
+        days: denverWeekDays(),
+        weekEvents: [] as Array<{
           id: string;
           title: string;
           start: string;
+          dayKey: string;
+          recurringEventId?: string | null;
           attendees: Array<{ name?: string | null; email?: string | null }>;
           leadId?: string | null;
+          leadName?: string | null;
         }>,
       };
       try {
         const bounds = denverWeekBounds();
-        const weekCalls = await listSalesCallsBetween(bounds.start, bounds.end);
-        const todayEvents = weekCalls
+        let dismissed: Array<{ eventId: string; recurringEventId: string | null }> = [];
+        try {
+          dismissed = await storage.getDismissedCalendarEvents();
+        } catch (error) {
+          console.error("Dismissed calls table not ready", error);
+        }
+        const dismissedIds = new Set(dismissed.map((row) => row.eventId));
+        const dismissedSeries = new Set(
+          dismissed.map((row) => row.recurringEventId).filter((id): id is string => !!id),
+        );
+        const weekEvents = (await listSalesCallsBetween(bounds.start, bounds.end))
           .filter((event) => {
-            const start = new Date(event.start).getTime();
-            return start >= bounds.todayStart.getTime() && start < bounds.todayEnd.getTime();
+            if (dismissedIds.has(event.id)) return false;
+            if (event.recurringEventId && dismissedSeries.has(event.recurringEventId)) return false;
+            if (event.recurringEventId && dismissedIds.has(event.recurringEventId)) return false;
+            return true;
           })
           .map((event) => {
             const match = event.attendees
               .map((a) => a.email?.trim().toLowerCase())
               .find((email) => email && leadsByEmail.has(email));
-            return { ...event, leadId: match ? leadsByEmail.get(match) || null : null };
+            const lead = match ? leadsByEmail.get(match) : undefined;
+            return {
+              ...event,
+              dayKey: denverDayKey(new Date(event.start)),
+              leadId: lead?.id || null,
+              leadName: lead?.name || null,
+            };
           });
+        const todayKey = denverWeekDays().find((d) => d.isToday)?.key;
         calls = {
           configured: true,
-          today: todayEvents.length,
-          week: weekCalls.length,
-          todayEvents,
+          today: weekEvents.filter((event) => event.dayKey === todayKey).length,
+          week: weekEvents.length,
+          days: denverWeekDays(),
+          weekEvents,
         };
       } catch (error) {
         console.error("Calendar calls for Today failed", error);
@@ -722,8 +764,6 @@ export async function registerRoutes(
           jobTitle: lead.jobTitle,
           auditScore: lead.auditScore,
         }));
-
-      void ensureEmailSync();
 
       res.json({
         count: due.length,

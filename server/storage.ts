@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { type User, type InsertUser, type Lead, type InsertLead, type Blocker, type InsertBlocker, type OnboardingSubmission, type InsertOnboardingSubmission, users, leads, blockers, onboardingSubmissions } from "@shared/schema";
+import { type User, type InsertUser, type Lead, type InsertLead, type Blocker, type InsertBlocker, type OnboardingSubmission, type InsertOnboardingSubmission, users, leads, blockers, onboardingSubmissions, dismissedCalendarEvents } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
@@ -28,6 +28,8 @@ export interface IStorage {
   // Onboarding submission methods
   getAllOnboardingSubmissions(): Promise<OnboardingSubmission[]>;
   createOnboardingSubmission(submission: InsertOnboardingSubmission): Promise<OnboardingSubmission>;
+  getDismissedCalendarEvents(): Promise<Array<{ eventId: string; recurringEventId: string | null }>>;
+  dismissCalendarEvent(input: { eventId: string; recurringEventId?: string | null; title?: string | null }): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -128,6 +130,29 @@ export class DatabaseStorage implements IStorage {
   async createOnboardingSubmission(insertSubmission: InsertOnboardingSubmission): Promise<OnboardingSubmission> {
     const [submission] = await db.insert(onboardingSubmissions).values(insertSubmission).returning();
     return submission;
+  }
+
+  async getDismissedCalendarEvents(): Promise<Array<{ eventId: string; recurringEventId: string | null }>> {
+    const rows = await db.select().from(dismissedCalendarEvents);
+    return rows.map((row) => ({
+      eventId: row.eventId,
+      recurringEventId: row.recurringEventId,
+    }));
+  }
+
+  async dismissCalendarEvent(input: {
+    eventId: string;
+    recurringEventId?: string | null;
+    title?: string | null;
+  }): Promise<void> {
+    await db
+      .insert(dismissedCalendarEvents)
+      .values({
+        eventId: input.eventId,
+        recurringEventId: input.recurringEventId || null,
+        title: input.title || null,
+      })
+      .onConflictDoNothing();
   }
 }
 

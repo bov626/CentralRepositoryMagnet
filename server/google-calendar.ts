@@ -52,6 +52,19 @@ export async function getGoogleCalendarClient() {
 
 const DENVER = "America/Denver";
 
+const WILSON_EMAILS = new Set([
+  "wyedoyoudothis@gmail.com",
+  "wwhunsinger@gmail.com",
+]);
+
+function normalizeEmail(email?: string | null): string {
+  return (email || "").trim().toLowerCase();
+}
+
+export function isWilsonEmail(email?: string | null): boolean {
+  return WILSON_EMAILS.has(normalizeEmail(email));
+}
+
 function zoneOffsetMs(date: Date, timeZone: string): number {
   const tz = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -106,17 +119,42 @@ export function denverWeekBounds(now = new Date()): { start: Date; end: Date; to
   return { start, end, todayStart, todayEnd };
 }
 
-function isSalesCall(event: { status?: string | null; start?: { dateTime?: string | null; date?: string | null }; attendees?: Array<{ self?: boolean | null; organizer?: boolean | null }> | null }): boolean {
+export function denverDayKey(date: Date): string {
+  const ymd = denverYmd(date);
+  return `${ymd.year}-${String(ymd.month).padStart(2, "0")}-${String(ymd.day).padStart(2, "0")}`;
+}
+
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+export function denverWeekDays(now = new Date()): Array<{
+  key: string;
+  label: string;
+  day: number;
+  isToday: boolean;
+}> {
+  const { start, todayStart } = denverWeekBounds(now);
+  const todayKey = denverDayKey(todayStart);
+  return WEEKDAY_LABELS.map((label, i) => {
+    const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+    const ymd = denverYmd(d);
+    const key = denverDayKey(d);
+    return { key, label, day: ymd.day, isToday: key === todayKey };
+  });
+}
+
+function isTimedMeeting(event: {
+  status?: string | null;
+  start?: { dateTime?: string | null; date?: string | null };
+}): boolean {
   if (event.status === "cancelled") return false;
-  if (!event.start?.dateTime) return false;
-  const attendees = event.attendees || [];
-  return attendees.some((a) => !a.self && !a.organizer) || attendees.length > 1;
+  return !!event.start?.dateTime;
 }
 
 export type SalesCall = {
   id: string;
   title: string;
   start: string;
+  recurringEventId?: string | null;
   attendees: Array<{ name?: string | null; email?: string | null }>;
 };
 
@@ -132,15 +170,17 @@ export async function listSalesCallsBetween(start: Date, end: Date): Promise<Sal
   });
 
   return (response.data.items || [])
-    .filter((event) => isSalesCall(event))
+    .filter((event) => isTimedMeeting(event))
     .map((event) => ({
       id: event.id || `${event.start?.dateTime}-${event.summary}`,
       title: event.summary || "Call",
       start: event.start?.dateTime || "",
+      recurringEventId: event.recurringEventId || null,
       attendees: (event.attendees || [])
-        .filter((a) => !a.self)
+        .filter((a) => !a.self && !isWilsonEmail(a.email))
         .map((a) => ({ name: a.displayName || null, email: a.email || null })),
-    }));
+    }))
+    .filter((event) => event.attendees.length > 0);
 }
 
 export async function getUpcomingEvents(maxResults: number = 20) {

@@ -7,6 +7,7 @@ import {
 } from "@shared/email";
 import { isGmailConfigured, searchThreadsForLead } from "./gmail";
 import { summarizeNextStep } from "./ai-summarize";
+import { denverDayKey } from "./google-calendar";
 import type { Lead } from "@shared/schema";
 
 export type SyncResult = {
@@ -18,7 +19,6 @@ export type SyncResult = {
 type TaughtExample = { id: string; guessed: string; actual: string };
 
 const DEAD_STAGES = new Set(["closed", "disqualified", "bought"]);
-const FRESH_GUESS_MS = 18 * 60 * 60 * 1000;
 
 type SyncStatus = {
   running: boolean;
@@ -45,10 +45,9 @@ function isSalesCard(lead: Lead): boolean {
   return true;
 }
 
-function recentlyGuessed(lead: Lead, force: boolean): boolean {
-  if (force) return false;
+function guessedToday(lead: Lead): boolean {
   if (!lead.nextStepAiAt) return false;
-  return Date.now() - new Date(lead.nextStepAiAt).getTime() < FRESH_GUESS_MS;
+  return denverDayKey(new Date(lead.nextStepAiAt)) === denverDayKey(new Date());
 }
 
 function taughtFrom(leads: Lead[], exceptId?: string): TaughtExample[] {
@@ -179,7 +178,7 @@ export function emailSyncStatus() {
   return { ...status, lastAt: status.lastAt || null };
 }
 
-export async function syncAllLeadEmails(force = false): Promise<{
+export async function syncAllLeadEmails(_force = false): Promise<{
   synced: number;
   failed: number;
   mocked: boolean;
@@ -188,7 +187,7 @@ export async function syncAllLeadEmails(force = false): Promise<{
   const leads = await storage.getAllLeads();
   const queue = leads
     .filter(isSalesCard)
-    .filter((lead) => !recentlyGuessed(lead, force))
+    .filter((lead) => !guessedToday(lead))
     .sort((a, b) => {
       const aAt = a.nextStepAiAt ? new Date(a.nextStepAiAt).getTime() : 0;
       const bAt = b.nextStepAiAt ? new Date(b.nextStepAiAt).getTime() : 0;
@@ -234,7 +233,7 @@ export async function syncAllLeadEmails(force = false): Promise<{
 
 export async function ensureEmailSync(force = false): Promise<void> {
   if (status.running) return;
-  if (!force && status.lastAt && Date.now() - status.lastAt < 6 * 60 * 60 * 1000) return;
+  if (status.lastAt && denverDayKey(new Date(status.lastAt)) === denverDayKey(new Date())) return;
   status.running = true;
   try {
     const result = await syncAllLeadEmails(force);

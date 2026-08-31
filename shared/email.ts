@@ -191,6 +191,10 @@ export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: 
     return { due: false, reason: "", cadence: null };
   }
 
+  if (parseDate(lead.queueDismissedAt)) {
+    return { due: false, reason: "", cadence: null };
+  }
+
   const follow = effectiveFollowUp(lead);
   if (follow && daysApart(follow, now) <= 0) {
     return {
@@ -199,8 +203,6 @@ export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: 
       cadence: "follow-up-date",
     };
   }
-
-  const dismissed = !!parseDate(lead.queueDismissedAt);
 
   const anchor = parseDate(lead.cadenceAnchor);
   if (anchor) {
@@ -214,10 +216,6 @@ export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: 
         cadence: step.cadence,
       };
     }
-  }
-
-  if (dismissed) {
-    return { due: false, reason: "", cadence: null };
   }
 
   const created = parseDate(lead.createdAt);
