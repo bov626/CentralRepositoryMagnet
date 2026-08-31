@@ -6,10 +6,11 @@ import { z } from "zod";
 import { getUpcomingEvents, createEvent, denverWeekBounds, listSalesCallsBetween } from "./google-calendar";
 import { listMeetings, isFathomConfigured } from "./fathom";
 import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
-import { ensureEmailSync, recordOutboundEmail, syncAllLeadEmails, syncLeadEmails } from "./email-sync";
+import { ensureEmailSync, emailSyncStatus, recordOutboundEmail, syncLeadEmails } from "./email-sync";
 import { draftEmailForLead } from "./email-draft";
 import { runNightlyJobs, sendSalesFocusEmail } from "./jobs";
 import { dueToday, finishedDealEmails, needsAuditCall, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
+import { parseAuditScore } from "@shared/audit";
 import { buildMoneyView } from "@shared/money";
 import { isStripeConfigured, jumpseatPaidHistory } from "./stripe";
 import {
@@ -211,6 +212,29 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/leads/:id/next-step", async (req, res) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) return res.status(404).json({ error: "Lead not found" });
+      const actual = String(req.body?.actual || "").trim();
+      if (!actual) return res.status(400).json({ error: "actual is required" });
+      const history = Array.isArray(lead.history) ? lead.history : [];
+      const updated = await storage.updateLead(lead.id, {
+        nextStepManual: actual,
+        followUpAngle: actual,
+        nextStepAi: lead.nextStepAi || lead.followUpAngle,
+        history: [
+          ...history,
+          { date: new Date().toISOString(), action: `Next step set: ${actual}` },
+        ],
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error saving next step:", error);
+      res.status(500).json({ error: "Failed to save next step" });
+    }
+  });
+
   app.post("/api/leads/:id/audit-called", async (req, res) => {
     try {
       const lead = await storage.getLead(req.params.id);
@@ -359,15 +383,32 @@ export async function registerRoutes(
   app.post("/api/leads/audit", async (req, res) => {
     try {
       if (!webhookAllowed(req)) return res.status(401).json({ error: "Unauthorized" });
-      const { name, email, linkedIn, summary, pdfUrl, pdf_url, first_name, last_name, job_title } = req.body || {};
+      const {
+        name,
+        email,
+        linkedIn,
+        summary,
+        pdfUrl,
+        pdf_url,
+        first_name,
+        last_name,
+        job_title,
+        jobTitle,
+        score,
+        audit_score,
+        readiness_score,
+        risk_score,
+      } = req.body || {};
       const fullName = String(name || [first_name, last_name].filter(Boolean).join(" ")).trim();
       if (!fullName) return res.status(400).json({ error: "name is required" });
       const result = await ingestAuditLead({
         name: fullName,
         email,
         linkedIn,
-        summary: summary || (job_title ? `Overemployed Risk Audit — ${job_title}` : undefined),
+        summary,
         pdfUrl: pdfUrl || pdf_url,
+        jobTitle: jobTitle || job_title,
+        auditScore: parseAuditScore(score ?? audit_score ?? readiness_score ?? risk_score),
       });
       res.status(result.created ? 201 : 200).json(result);
     } catch (error: any) {
@@ -502,6 +543,10 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/email/sync-status", (_req, res) => {
+    res.json(emailSyncStatus());
+  });
+
   app.post("/api/email/sync/:leadId", async (req, res) => {
     try {
       const result = await syncLeadEmails(req.params.leadId);
@@ -520,8 +565,8 @@ export async function registerRoutes(
       if (process.env.NODE_ENV === "production" && secret && provided !== secret) {
         return res.status(401).json({ error: "Unauthorized" });
       }
-      const result = await syncAllLeadEmails();
-      res.json(result);
+      void ensureEmailSync(true);
+      res.json({ started: true, ...emailSyncStatus() });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to sync all email" });
     }
@@ -674,6 +719,8 @@ export async function registerRoutes(
           summary: lead.summary,
           followUpAngle: lead.followUpAngle,
           auditPdfUrl: lead.auditPdfUrl,
+          jobTitle: lead.jobTitle,
+          auditScore: lead.auditScore,
         }));
 
       void ensureEmailSync();

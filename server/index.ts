@@ -71,7 +71,11 @@ app.use((req, res, next) => {
   await seedProductionDatabase();
   try {
     await db.execute(sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS queue_dismissed_at timestamp`);
-    await db.execute(sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS audit_feedback_at timestamp`);
+    await db.execute(sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_step_ai text`);
+    await db.execute(sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_step_manual text`);
+    await db.execute(sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_step_ai_at timestamp`);
+    await db.execute(sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS job_title text`);
+    await db.execute(sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS audit_score integer`);
   } catch (error) {
     console.error("[startup] queue_dismissed_at column skipped", error);
   }

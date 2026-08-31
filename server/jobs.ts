@@ -67,9 +67,9 @@ ${appUrl()}/today`;
 }
 
 export async function runNightlyJobs() {
-  await ensureEmailSync(true);
   const fathom = await autoImportFathomCalls();
   const ghosted = await moveGhostedAfterCadence();
+  await ensureEmailSync(true);
   return { fathom, ghosted };
 }
 

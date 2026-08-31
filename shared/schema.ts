@@ -28,6 +28,9 @@ export const leads = pgTable("leads", {
   cadenceAnchor: timestamp("cadence_anchor"), // Last sales call; drives same-day / day-3 / day-7
   emailThreads: jsonb("email_threads").notNull().default(sql`'[]'::jsonb`), // Cached Gmail threads
   followUpAngle: text("follow_up_angle"),
+  nextStepAi: text("next_step_ai"),
+  nextStepManual: text("next_step_manual"),
+  nextStepAiAt: timestamp("next_step_ai_at"),
   recordingLink: text("recording_link"),
   calendarEventId: text("calendar_event_id"), // Google Calendar event ID for deduplication
   fathomRecordingId: integer("fathom_recording_id"), // Fathom recording ID for tracking enrichment
@@ -40,6 +43,8 @@ export const leads = pgTable("leads", {
   archived: boolean("archived").notNull().default(false), // Hide from Kanban without deleting
   source: text("source"), // audit | fathom | calendar | skool | manual
   auditPdfUrl: text("audit_pdf_url"),
+  jobTitle: text("job_title"),
+  auditScore: integer("audit_score"),
   granolaNoteId: text("granola_note_id"),
   paymentPlan: text("payment_plan"), // upfront | fifty_fifty
   amountPaid: integer("amount_paid").notNull().default(0), // dollars collected

@@ -45,6 +45,8 @@ export interface Lead {
   amountPaid?: number | null;
   source?: string | null;
   auditPdfUrl?: string | null;
+  jobTitle?: string | null;
+  auditScore?: number | null;
   granolaNoteId?: string | null;
   queueDismissedAt?: string | null;
   auditFeedbackAt?: string | null;
@@ -52,6 +54,9 @@ export interface Lead {
   blocker?: string | null;
   decisionTrigger?: string | null;
   followUpAngle?: string | null;
+  nextStepAi?: string | null;
+  nextStepManual?: string | null;
+  nextStepAiAt?: string | null;
   recordingLink?: string | null;
   calendarEventId?: string | null;
   fathomRecordingId?: number | null;

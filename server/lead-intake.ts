@@ -190,12 +190,18 @@ export async function ingestAuditLead(input: {
   linkedIn?: string;
   summary?: string;
   pdfUrl?: string;
+  jobTitle?: string;
+  auditScore?: number | null;
 }): Promise<{ lead: Lead; created: boolean }> {
   const email = input.email?.trim() || null;
   const existing = email ? await storage.getLeadByEmail(email) : undefined;
+  const jobTitle = input.jobTitle?.trim() || null;
+  const auditScore = input.auditScore ?? null;
   const auditBlock = input.summary
     ? `Overemployed Risk Audit\n${input.summary}`
-    : "Completed the Overemployed Risk Audit. No sales call yet.";
+    : jobTitle
+      ? `Overemployed Risk Audit — ${jobTitle}`
+      : "Completed the Overemployed Risk Audit. No sales call yet.";
   const nextStep = "Call them. Ask what was useful and what was missing in the Overemployed Risk Audit. Then redo the report from that feedback.";
 
   if (existing) {
@@ -207,9 +213,11 @@ export async function ingestAuditLead(input: {
     const updated = await storage.updateLead(existing.id, {
       linkedIn: input.linkedIn || existing.linkedIn,
       auditPdfUrl: input.pdfUrl || existing.auditPdfUrl,
+      jobTitle: jobTitle || existing.jobTitle,
+      auditScore: auditScore ?? existing.auditScore,
       source: existing.source || "audit",
       summary,
-      followUpAngle: frozen ? existing.followUpAngle : nextStep,
+      followUpAngle: frozen || existing.nextStepManual ? existing.followUpAngle : nextStep,
       nextFollowUp: frozen ? existing.nextFollowUp : null,
       auditFeedbackAt: frozen ? existing.auditFeedbackAt : null,
       history: [...history, { date: new Date().toISOString(), action: "Audit received" }],
@@ -226,6 +234,8 @@ export async function ingestAuditLead(input: {
     stage: "backlog",
     source: "audit",
     auditPdfUrl: input.pdfUrl || null,
+    jobTitle,
+    auditScore,
     summary: auditBlock,
     followUpAngle: nextStep,
     nextFollowUp: null,

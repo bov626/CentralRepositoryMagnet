@@ -21,6 +21,8 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+import { NextStepTeach } from "@/components/next-step-teach";
+import { auditScoreFromLead, jobTitleFromLead } from "@shared/audit";
 
 interface LeadDetailsProps {
   leadId: string | null;
@@ -83,6 +85,9 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
   };
 
   if (!lead) return null;
+
+  const jobTitle = jobTitleFromLead(lead);
+  const auditScore = auditScoreFromLead(lead);
 
   const handleSaveName = () => {
     if (editableName.trim() && editableName !== lead.name) {
@@ -270,6 +275,22 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                         {lead.email}
                       </a>
                     )}
+                    {(jobTitle || auditScore != null || lead.auditPdfUrl) && (
+                      <div className="mt-2 space-y-0.5">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Overemployed Risk Audit</p>
+                        {jobTitle && (
+                          <p className="text-sm text-foreground">{jobTitle}</p>
+                        )}
+                        {auditScore != null && (
+                          <p className="text-sm text-foreground">Score {auditScore}/100</p>
+                        )}
+                        {lead.auditPdfUrl && (
+                          <a href={lead.auditPdfUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                            Open PDF <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    )}
                                     </div>
                 <div className="flex gap-2 items-center">
                     {hasActionNeeded && (
@@ -400,11 +421,6 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                         placeholder="Paste Fathom summary here..."
                     />
                 </div>
-                {lead.auditPdfUrl && (
-                  <a href={lead.auditPdfUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
-                    Open audit PDF
-                  </a>
-                )}
             </section>
 
             <Separator />
@@ -542,12 +558,7 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                       {syncing ? "Syncing…" : "Sync emails"}
                     </Button>
                 </div>
-                {lead.followUpAngle && (
-                  <div className="rounded-md border border-primary/40 bg-primary/10 p-3">
-                    <p className="text-[10px] uppercase tracking-widest text-primary mb-1">Next step</p>
-                    <p className="text-sm text-foreground leading-relaxed">{lead.followUpAngle}</p>
-                  </div>
-                )}
+                <NextStepTeach lead={lead} />
                 <div className="space-y-4 border-l-2 border-muted pl-4 ml-1">
                     {(lead.history as Array<{
                       date: string;
@@ -569,7 +580,7 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                                 </p>
                                 <p className="text-sm font-medium text-foreground">{item.subject || item.action}</p>
                                 {item.summary && (
-                                  <p className="text-sm text-muted-foreground leading-relaxed">{item.summary}</p>
+                                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">{item.summary}</p>
                                 )}
                               </div>
                             ) : (

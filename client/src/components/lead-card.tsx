@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Clock, AlertCircle, Mail, Video } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
+import { auditScoreFromLead, jobTitleFromLead } from "@shared/audit";
 
 const animateLayoutChanges: AnimateLayoutChanges = (args) => 
   defaultAnimateLayoutChanges({ ...args, wasDragging: true });
@@ -41,6 +42,8 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
 
   const isOverdue = lead.nextFollowUp && isPast(new Date(lead.nextFollowUp)) && !isToday(new Date(lead.nextFollowUp));
   const isDueToday = lead.nextFollowUp && isToday(new Date(lead.nextFollowUp));
+  const jobTitle = jobTitleFromLead(lead);
+  const auditScore = auditScoreFromLead(lead);
 
   const handleEmailClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
@@ -84,6 +87,11 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
            <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse shrink-0 ml-1" title="Action Needed" />
         )}
       </div>
+      {(jobTitle || auditScore != null) && (
+        <p className="text-xs text-muted-foreground truncate mb-2">
+          {[jobTitle, auditScore != null ? `${auditScore}/100` : null].filter(Boolean).join(" · ")}
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-1 mb-3">
         {lead.tags.slice(0, 4).map((tag) => (

@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { SalesPulseCard, type MoneyView } from "@/components/sales-pulse-card";
 import { CallMetric, type CallStats } from "@/components/call-metric";
+import { NextStepTeach } from "@/components/next-step-teach";
+import { auditScoreFromLead, jobTitleFromLead } from "@shared/audit";
 
 type AuditCall = {
   id: string;
@@ -19,6 +21,8 @@ type AuditCall = {
   summary?: string | null;
   followUpAngle?: string | null;
   auditPdfUrl?: string | null;
+  jobTitle?: string | null;
+  auditScore?: number | null;
 };
 
 type TodayItem = {
@@ -30,6 +34,8 @@ type TodayItem = {
     stage: string;
     summary?: string | null;
     followUpAngle?: string | null;
+    nextStepAi?: string | null;
+    nextStepManual?: string | null;
   };
   reason: string;
   cadence: string | null;
@@ -60,6 +66,22 @@ export default function TodayPage() {
     },
   });
 
+  const { data: syncStatus } = useQuery<{
+    running: boolean;
+    done: number;
+    total: number;
+    failed: number;
+    current: string | null;
+  }>({
+    queryKey: ["sync-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/email/sync-status");
+      if (!res.ok) throw new Error("Failed to load sync status");
+      return res.json();
+    },
+    refetchInterval: 4000,
+  });
+
   const items = data?.items || [];
   const auditCalls = data?.auditCalls || [];
 
@@ -86,6 +108,12 @@ export default function TodayPage() {
                     .filter(Boolean)
                     .join(" · ") || "Nobody to email today."}
             </p>
+            {syncStatus?.running && (
+              <p className="text-sm text-primary mt-2">
+                Reading every card for next steps — {syncStatus.done} / {syncStatus.total}
+                {syncStatus.current ? ` · ${syncStatus.current}` : ""}. This can take a while.
+              </p>
+            )}
           </div>
           {data?.money && <SalesPulseCard money={data.money} />}
         </header>
@@ -204,6 +232,16 @@ function AuditCallRow({
           <p className="font-semibold truncate">{lead.name}</p>
           <p className="text-sm text-muted-foreground truncate mt-0.5">{lead.email || "No email"}</p>
         </button>
+        {(jobTitleFromLead(lead) || auditScoreFromLead(lead) != null) && (
+          <p className="text-sm text-foreground mt-1">
+            {[
+              jobTitleFromLead(lead),
+              auditScoreFromLead(lead) != null ? `Score ${auditScoreFromLead(lead)}/100` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
         <p className="text-sm text-foreground mt-2">
           Call them. Ask what was useful and what was missing. Then we redo the audit.
         </p>
@@ -331,9 +369,7 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
 
       {open && (
         <div className="border-t border-border p-4 space-y-3">
-          {item.lead.followUpAngle && (
-            <p className="text-sm text-foreground leading-relaxed">{item.lead.followUpAngle}</p>
-          )}
+          <NextStepTeach lead={item.lead} />
           {item.lead.summary && (
             <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-4">
               {item.lead.summary}

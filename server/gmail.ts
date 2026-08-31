@@ -82,6 +82,54 @@ function directionFor(from: string, leadEmail: string): "in" | "out" {
   return from.toLowerCase().includes(leadEmail.toLowerCase()) ? "in" : "out";
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function decodeBody(data?: string | null): string {
+  if (!data) return "";
+  return Buffer.from(data.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+}
+
+function collectBodies(payload: any): { plain: string; html: string } {
+  if (!payload) return { plain: "", html: "" };
+  const mime = String(payload.mimeType || "");
+  const body = decodeBody(payload.body?.data);
+  let plain = mime.startsWith("text/plain") ? body : "";
+  let html = mime.startsWith("text/html") ? body : "";
+  for (const part of payload.parts || []) {
+    const inner = collectBodies(part);
+    if (inner.plain) plain += (plain ? "\n" : "") + inner.plain;
+    if (inner.html) html += inner.html;
+  }
+  return { plain, html };
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function messageText(payload: any, snippet: string): string {
+  const bodies = collectBodies(payload);
+  const text = (bodies.plain || htmlToText(bodies.html) || snippet || "").trim();
+  return text.slice(0, 4000);
+}
+
 export async function sendEmail(
   to: string,
   subject: string,
@@ -173,6 +221,43 @@ export async function getMessage(id: string): Promise<GmailSearchHit | null> {
   }
 }
 
+export async function getMessageFull(id: string): Promise<GmailSearchHit | null> {
+  try {
+    const gmail = await getUncachableGmailClient();
+    const result = await gmail.users.messages.get({
+      userId: "me",
+      id,
+      format: "full",
+    });
+
+    if (result.data.labelIds?.includes("DRAFT")) {
+      return null;
+    }
+
+    const headers = result.data.payload?.headers;
+    const internal = result.data.internalDate
+      ? new Date(Number(result.data.internalDate)).toISOString()
+      : new Date().toISOString();
+
+    return {
+      id: result.data.id || id,
+      threadId: result.data.threadId || id,
+      subject: headerOf(headers, "Subject") || "(no subject)",
+      from: headerOf(headers, "From"),
+      to: headerOf(headers, "To"),
+      date: internal,
+      snippet: messageText(result.data.payload, result.data.snippet || ""),
+    };
+  } catch (error: any) {
+    if (isInsufficientPermission(error)) {
+      throw new Error(
+        "Gmail token is missing read access. Reconnect Gmail with send, receive, and manage permissions.",
+      );
+    }
+    throw error;
+  }
+}
+
 export async function searchEmails(
   query: string,
   maxResults = 50,
@@ -207,27 +292,40 @@ export async function searchThreadsForLead(leadEmail: string): Promise<{
   threads: EmailThread[];
   draftThreadIds: string[];
 }> {
-  const hits = await searchEmails(`${leadEmail} -in:spam -in:trash -in:drafts -is:draft`, 40);
-  const byThread = new Map<string, EmailThread>();
+  const gmail = await getUncachableGmailClient();
+  const query = `${leadEmail} -in:spam -in:trash -in:drafts -is:draft`;
+  const ids: string[] = [];
+  let pageToken: string | undefined;
+  do {
+    const listed = await gmail.users.messages.list({
+      userId: "me",
+      q: query,
+      maxResults: 50,
+      pageToken,
+    });
+    for (const item of listed.data.messages || []) {
+      if (item.id) ids.push(item.id);
+    }
+    pageToken = listed.data.nextPageToken || undefined;
+  } while (pageToken && ids.length < 100);
 
-  for (const hit of hits) {
-    const existing = byThread.get(hit.threadId);
-    const thread: EmailThread = {
+  const threads: EmailThread[] = [];
+  for (const id of ids.slice(0, 100)) {
+    const hit = await getMessageFull(id);
+    await sleep(120);
+    if (!hit) continue;
+    threads.push({
       gmailThreadId: hit.threadId,
       gmailMessageId: hit.id,
       subject: hit.subject,
-      summary: hit.snippet.slice(0, 280),
+      summary: hit.snippet,
       date: hit.date,
       from: hit.from,
       to: hit.to,
       direction: directionFor(hit.from, leadEmail),
-    };
-    if (!existing || new Date(thread.date) > new Date(existing.date)) {
-      byThread.set(hit.threadId, thread);
-    }
+    });
   }
 
-  const gmail = await getUncachableGmailClient();
   const drafts = await gmail.users.messages.list({
     userId: "me",
     q: `${leadEmail} in:drafts`,
@@ -242,9 +340,7 @@ export async function searchThreadsForLead(leadEmail: string): Promise<{
   );
 
   return {
-    threads: Array.from(byThread.values()).sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    ),
+    threads: threads.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
     draftThreadIds,
   };
 }

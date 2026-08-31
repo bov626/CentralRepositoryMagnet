@@ -6,6 +6,8 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
 });
 
+const NEXT_STEP_MODELS = ["gpt-4o", "gpt-4o-mini"];
+
 export async function summarizeClientNeeds(meetingSummary: string, actionItems: string[]): Promise<string> {
   const prompt = `You are analyzing a sales call summary. Extract ONLY information about the CLIENT/PROSPECT - their needs, goals, pain points, situation, and responses. 
 
@@ -29,9 +31,8 @@ ${actionItems.length > 0 ? `Action Items:\n${actionItems.join('\n')}` : ''}
 Provide a concise 2-4 sentence summary focusing ONLY on the client. Start directly with the client's name or situation, no intro phrases.`;
 
   try {
-    // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // Using mini for cost efficiency on simple summarization
+      model: "gpt-4o-mini",
       messages: [
         { 
           role: "system", 
@@ -45,7 +46,6 @@ Provide a concise 2-4 sentence summary focusing ONLY on the client. Start direct
     return response.choices[0]?.message?.content?.trim() || meetingSummary;
   } catch (error: any) {
     console.error("AI summarization error:", error);
-    // Fall back to original summary if AI fails
     return meetingSummary;
   }
 }
@@ -88,11 +88,27 @@ export async function classifyCallIntent(summary: string): Promise<"this_cohort"
   }
 }
 
+function clip(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max)}\n…`;
+}
+
 export async function summarizeNextStep(input: {
   name: string;
+  pipeline?: string | null;
   stage?: string | null;
+  source?: string | null;
+  tags?: string[] | null;
+  jobTitle?: string | null;
+  auditScore?: number | null;
   summary?: string | null;
+  keyTakeaways?: string[] | null;
+  actionItems?: string[] | null;
+  nextFollowUp?: string | Date | null;
+  cadenceAnchor?: string | Date | null;
+  history?: Array<{ date?: string; action?: string }>;
   threads: Array<{ subject: string; summary: string; direction: string; date: string }>;
+  examples?: Array<{ guessed: string; actual: string }>;
 }): Promise<string> {
   const last = [...input.threads].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).at(-1);
   const fallback = (() => {
@@ -124,35 +140,88 @@ export async function summarizeNextStep(input: {
     return fallback;
   }
 
-  const threadBlock = [...input.threads]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 8)
-    .map((t) => `${t.direction === "in" ? "THEY" : "YOU"} (${t.date.slice(0, 10)}): ${t.subject}\n${t.summary}`)
+  const threadBlock = clip(
+    [...input.threads]
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map((t) => `${t.direction === "in" ? "THEY" : "YOU"} (${String(t.date).slice(0, 10)}): ${t.subject}\n${t.summary}`)
+      .join("\n\n"),
+    24000,
+  );
+
+  const exampleBlock = (input.examples || [])
+    .filter((e) => e.guessed && e.actual)
+    .slice(-40)
+    .map((e) => `Guessed: ${e.guessed}\nWilson would: ${e.actual}`)
     .join("\n\n");
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You help Wilson close Jumpseat (second-income / J2) sales. Reply with 1-2 short sentences. First sentence is the next action he should take. No greeting, no markdown.",
-        },
-        {
-          role: "user",
-          content: `Lead: ${input.name}
-Stage: ${input.stage || "unknown"}
-Call notes: ${(input.summary || "none").slice(0, 800)}
+  const historyBlock = (input.history || [])
+    .slice(-20)
+    .map((h) => `${String(h.date || "").slice(0, 10)} ${h.action || ""}`.trim())
+    .filter(Boolean)
+    .join("\n");
 
-Recent email:
-${threadBlock || "none"}`,
-        },
-      ],
-      max_completion_tokens: 120,
-    });
-    return response.choices[0]?.message?.content?.trim() || fallback;
-  } catch {
-    return fallback;
+  const followUp =
+    input.nextFollowUp instanceof Date
+      ? input.nextFollowUp.toISOString().slice(0, 10)
+      : input.nextFollowUp
+        ? String(input.nextFollowUp).slice(0, 10)
+        : "none";
+  const callDate =
+    input.cadenceAnchor instanceof Date
+      ? input.cadenceAnchor.toISOString().slice(0, 10)
+      : input.cadenceAnchor
+        ? String(input.cadenceAnchor).slice(0, 10)
+        : "none";
+
+  const userContent = `${exampleBlock ? `Wilson's corrections — match this judgment, not generic CRM advice:\n${exampleBlock}\n\n` : ""}Lead: ${input.name}
+Offer: ${input.pipeline === "community" ? "Skool community" : "Jumpseat agency"}
+Stage: ${input.stage || "unknown"}
+Source: ${input.source || "unknown"}
+Tags: ${(input.tags || []).join(", ") || "none"}
+Job title: ${input.jobTitle || "unknown"}
+OE audit score: ${input.auditScore != null ? `${input.auditScore}/100` : "none"}
+Last sales call: ${callDate}
+Follow-up date on the card: ${followUp}
+Open action items: ${(input.actionItems || []).filter(Boolean).join("; ") || "none"}
+Takeaways: ${(input.keyTakeaways || []).filter(Boolean).join("; ") || "none"}
+
+Call / card notes:
+${clip(input.summary || "none", 6000)}
+
+CRM history:
+${historyBlock || "none"}
+
+Email (oldest to newest, full text when available):
+${threadBlock || "none"}`;
+
+  const system = `You are Wilson's sales brain for Jumpseat (J2 / second-income agency) and Skool (community, not Stripe). He will grind every card. Be specific enough that he can act without re-reading the thread.
+
+Rules:
+- First sentence is the next action. Then 1-3 sentences of why, citing what they said or what he promised.
+- Do not write generic "follow up" or "nurture the relationship." Name the email, call, or wait.
+- Who spoke last matters. If he is waiting on them and nothing is due, say wait. If they asked something unanswered, answer that.
+- Jumpseat vs Skool: do not mix offers. Closed/bought/disqualified: no chase.
+- Audits with no pitch call: call for feedback on the report before a close email.
+- Future Client: not this cohort. Do not pitch. Check-in only if a 3/6/9/12 date is due.
+- Never invent a meeting, payment, or promise that is not in the notes or email.
+- Match Wilson's corrections when they exist. His actual next step beats a textbook sales move.
+- No greeting, no markdown, no bullet list.`;
+
+  for (const model of NEXT_STEP_MODELS) {
+    try {
+      const response = await openai.chat.completions.create({
+        model,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: userContent },
+        ],
+        max_completion_tokens: 280,
+      });
+      const text = response.choices[0]?.message?.content?.trim();
+      if (text) return text;
+    } catch (error) {
+      console.error(`[next-step] ${model} failed`, error);
+    }
   }
+  return fallback;
 }
