@@ -23,6 +23,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { NextStepTeach } from "@/components/next-step-teach";
 import { auditScoreFromLead, jobTitleFromLead } from "@shared/audit";
+import { RoastResumeLink } from "@/components/roast-resume-link";
 
 interface LeadDetailsProps {
   leadId: string | null;
@@ -274,6 +275,11 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                       <a href={`mailto:${lead.email}`} className="text-muted-foreground hover:text-primary text-sm">
                         {lead.email}
                       </a>
+                    )}
+                    {lead.email && (
+                      <div className="mt-1">
+                        <RoastResumeLink email={lead.email} />
+                      </div>
                     )}
                     {(jobTitle || auditScore != null || lead.auditPdfUrl) && (
                       <div className="mt-2 space-y-0.5">

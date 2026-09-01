@@ -1,6 +1,6 @@
 import Layout from "@/components/layout";
 import { LeadDetails } from "@/components/lead-details";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Send, Loader2, ChevronDown, X, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ import { SalesPulseCard, type MoneyView } from "@/components/sales-pulse-card";
 import { CallMetric, type CallStats } from "@/components/call-metric";
 import { NextStepTeach } from "@/components/next-step-teach";
 import { auditScoreFromLead, jobTitleFromLead } from "@shared/audit";
+import { RoastResumeLink } from "@/components/roast-resume-link";
 
 type AuditCall = {
   id: string;
@@ -230,6 +231,11 @@ function AuditCallRow({
           </a>
         )}
         {lead.email && (
+          <div className="mt-2">
+            <RoastResumeLink email={lead.email} />
+          </div>
+        )}
+        {lead.email && (
           <a
             href={gmailSearchUrl(lead.email)}
             target="_blank"
@@ -253,6 +259,42 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState(item.draft.subject);
   const [body, setBody] = useState(item.draft.body);
+  const [draftSource, setDraftSource] = useState(item.draft.source);
+  const [drafting, setDrafting] = useState(false);
+  const [edited, setEdited] = useState(false);
+
+  useEffect(() => {
+    if (!open || edited || draftSource === "closed-won") return;
+    let cancelled = false;
+    setDrafting(true);
+    fetch(`/api/email/draft/${item.lead.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cadence: item.cadence }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Failed to draft");
+        return data as { subject: string; body: string; source?: "closed-won" | "template" };
+      })
+      .then((draft) => {
+        if (cancelled || edited) return;
+        setSubject(draft.subject);
+        setBody(draft.body);
+        setDraftSource(draft.source || "closed-won");
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          toast({ title: "Draft stayed on template", description: error.message, variant: "destructive" });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDrafting(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, item.lead.id, item.cadence]);
 
   const send = useMutation({
     mutationFn: async () => {
@@ -356,15 +398,24 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
           )}
           <div className="space-y-1">
             <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Subject</label>
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
+            <Input
+              value={subject}
+              onChange={(e) => {
+                setEdited(true);
+                setSubject(e.target.value);
+              }}
+            />
           </div>
           <div className="space-y-1">
             <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Draft {item.draft.source === "closed-won" ? "· from Closed emails" : "· template"}
+              Draft {drafting ? "· writing…" : draftSource === "closed-won" ? "· from Closed emails" : "· template"}
             </label>
             <Textarea
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(e) => {
+                setEdited(true);
+                setBody(e.target.value);
+              }}
               className="min-h-[200px] resize-none font-mono text-sm"
             />
           </div>
@@ -382,6 +433,7 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
               ) : (
                 <span className="text-xs text-muted-foreground">No email</span>
               )}
+              {item.lead.email && <RoastResumeLink email={item.lead.email} />}
               <button
                 type="button"
                 onClick={onOpenLead}

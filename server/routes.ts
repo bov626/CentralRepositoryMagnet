@@ -7,7 +7,7 @@ import { getUpcomingEvents, createEvent, denverWeekBounds, denverWeekDays, denve
 import { listMeetings, isFathomConfigured } from "./fathom";
 import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
 import { ensureEmailSync, emailSyncStatus, recordOutboundEmail, syncLeadEmails } from "./email-sync";
-import { draftEmailForLead } from "./email-draft";
+import { draftEmailForLead, templateDraftForLead } from "./email-draft";
 import { runNightlyJobs, sendSalesFocusEmail } from "./jobs";
 import { dueToday, finishedDealEmails, needsAuditCall, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
 import { parseAuditScore } from "@shared/audit";
@@ -19,6 +19,7 @@ import {
   ingestFathomMeeting,
   ingestSkoolMember,
 } from "./lead-intake";
+import { lookupRoastResume, isRoastConfigured } from "./roast-resume";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import crypto from "crypto";
 
@@ -52,6 +53,71 @@ function verifyToken(token: string, secret: string): { exp: number } | null {
     return payload;
   } catch {
     return null;
+  }
+}
+
+async function loadTodayCalls(
+  _allLeads: Awaited<ReturnType<typeof storage.getAllLeads>>,
+  leadsByEmail: Map<string, { id: string; name: string }>,
+) {
+  const empty = {
+    configured: false,
+    today: 0,
+    week: 0,
+    days: denverWeekDays(),
+    weekEvents: [] as Array<{
+      id: string;
+      title: string;
+      start: string;
+      dayKey: string;
+      recurringEventId?: string | null;
+      attendees: Array<{ name?: string | null; email?: string | null }>;
+      leadId?: string | null;
+      leadName?: string | null;
+    }>,
+  };
+  try {
+    const bounds = denverWeekBounds();
+    let dismissed: Array<{ eventId: string; recurringEventId: string | null }> = [];
+    try {
+      dismissed = await storage.getDismissedCalendarEvents();
+    } catch (error) {
+      console.error("Dismissed calls table not ready", error);
+    }
+    const dismissedIds = new Set(dismissed.map((row) => row.eventId));
+    const dismissedSeries = new Set(
+      dismissed.map((row) => row.recurringEventId).filter((id): id is string => !!id),
+    );
+    const weekEvents = (await listSalesCallsBetween(bounds.start, bounds.end))
+      .filter((event) => {
+        if (dismissedIds.has(event.id)) return false;
+        if (event.recurringEventId && dismissedSeries.has(event.recurringEventId)) return false;
+        if (event.recurringEventId && dismissedIds.has(event.recurringEventId)) return false;
+        return true;
+      })
+      .map((event) => {
+        const match = event.attendees
+          .map((a) => a.email?.trim().toLowerCase())
+          .find((email) => email && leadsByEmail.has(email));
+        const lead = match ? leadsByEmail.get(match) : undefined;
+        return {
+          ...event,
+          dayKey: denverDayKey(new Date(event.start)),
+          leadId: lead?.id || null,
+          leadName: lead?.name || null,
+        };
+      });
+    const todayKey = denverWeekDays().find((d) => d.isToday)?.key;
+    return {
+      configured: true,
+      today: weekEvents.filter((event) => event.dayKey === todayKey).length,
+      week: weekEvents.length,
+      days: denverWeekDays(),
+      weekEvents,
+    };
+  } catch (error) {
+    console.error("Calendar calls for Today failed", error);
+    return empty;
   }
 }
 
@@ -100,6 +166,18 @@ export async function registerRoutes(
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
+  });
+
+  app.get("/api/roast-resume", async (req, res) => {
+    try {
+      const email = String(req.query.email || "").trim();
+      if (!email) return res.json({ configured: isRoastConfigured(), found: false, url: null });
+      const hit = await lookupRoastResume(email);
+      res.json(hit);
+    } catch (error: any) {
+      console.error("Roast resume lookup failed", error);
+      res.json({ configured: isRoastConfigured(), found: false, url: null });
+    }
   });
 
   async function handleSkoolMember(req: any, res: any) {
@@ -665,12 +743,21 @@ export async function registerRoutes(
       for (const lead of allLeads) {
         const info = dueToday(lead, new Date(), finishedEmails);
         if (!info.due) continue;
-        const draft = await draftEmailForLead(lead, allLeads, info.cadence);
         due.push({
-          lead,
+          lead: {
+            id: lead.id,
+            name: lead.name,
+            email: lead.email,
+            company: lead.company,
+            stage: lead.stage,
+            summary: lead.summary,
+            followUpAngle: lead.followUpAngle,
+            nextStepAi: lead.nextStepAi,
+            nextStepManual: lead.nextStepManual,
+          },
           reason: info.reason,
           cadence: info.cadence,
-          draft,
+          draft: templateDraftForLead(lead, info.cadence),
           preview: false,
         });
       }
@@ -684,21 +771,24 @@ export async function registerRoutes(
           })
           .slice(0, 3);
         for (const lead of previewLeads) {
-          const draft = await draftEmailForLead(lead, allLeads, "same-day");
           due.push({
-            lead,
+            lead: {
+              id: lead.id,
+              name: lead.name,
+              email: lead.email,
+              company: lead.company,
+              stage: lead.stage,
+              summary: lead.summary,
+              followUpAngle: lead.followUpAngle,
+              nextStepAi: lead.nextStepAi,
+              nextStepManual: lead.nextStepManual,
+            },
             reason: "Localhost preview — not actually due. Set a follow-up date to test for real.",
             cadence: "same-day" as CadenceKind,
-            draft,
+            draft: templateDraftForLead(lead, "same-day"),
             preview: true,
           });
         }
-      }
-      let stripeHistory = { configured: false, thisMonth: 0, total: 0, byMonth: {} as Record<string, number> };
-      try {
-        stripeHistory = await jumpseatPaidHistory(12);
-      } catch (error) {
-        console.error("Stripe month total failed", error);
       }
 
       const leadsByEmail = new Map(
@@ -709,64 +799,14 @@ export async function registerRoutes(
             { id: lead.id, name: lead.name },
           ]),
       );
-      let calls = {
-        configured: false,
-        today: 0,
-        week: 0,
-        days: denverWeekDays(),
-        weekEvents: [] as Array<{
-          id: string;
-          title: string;
-          start: string;
-          dayKey: string;
-          recurringEventId?: string | null;
-          attendees: Array<{ name?: string | null; email?: string | null }>;
-          leadId?: string | null;
-          leadName?: string | null;
-        }>,
-      };
-      try {
-        const bounds = denverWeekBounds();
-        let dismissed: Array<{ eventId: string; recurringEventId: string | null }> = [];
-        try {
-          dismissed = await storage.getDismissedCalendarEvents();
-        } catch (error) {
-          console.error("Dismissed calls table not ready", error);
-        }
-        const dismissedIds = new Set(dismissed.map((row) => row.eventId));
-        const dismissedSeries = new Set(
-          dismissed.map((row) => row.recurringEventId).filter((id): id is string => !!id),
-        );
-        const weekEvents = (await listSalesCallsBetween(bounds.start, bounds.end))
-          .filter((event) => {
-            if (dismissedIds.has(event.id)) return false;
-            if (event.recurringEventId && dismissedSeries.has(event.recurringEventId)) return false;
-            if (event.recurringEventId && dismissedIds.has(event.recurringEventId)) return false;
-            return true;
-          })
-          .map((event) => {
-            const match = event.attendees
-              .map((a) => a.email?.trim().toLowerCase())
-              .find((email) => email && leadsByEmail.has(email));
-            const lead = match ? leadsByEmail.get(match) : undefined;
-            return {
-              ...event,
-              dayKey: denverDayKey(new Date(event.start)),
-              leadId: lead?.id || null,
-              leadName: lead?.name || null,
-            };
-          });
-        const todayKey = denverWeekDays().find((d) => d.isToday)?.key;
-        calls = {
-          configured: true,
-          today: weekEvents.filter((event) => event.dayKey === todayKey).length,
-          week: weekEvents.length,
-          days: denverWeekDays(),
-          weekEvents,
-        };
-      } catch (error) {
-        console.error("Calendar calls for Today failed", error);
-      }
+
+      const [stripeHistory, calls] = await Promise.all([
+        jumpseatPaidHistory(12).catch((error) => {
+          console.error("Stripe month total failed", error);
+          return { configured: false, thisMonth: 0, total: 0, byMonth: {} as Record<string, number> };
+        }),
+        loadTodayCalls(allLeads, leadsByEmail),
+      ]);
 
       const auditCalls = allLeads
         .filter((lead) => needsAuditCall(lead))

@@ -54,6 +54,13 @@ function fallbackDraft(lead: Lead, cadence: CadenceKind | null): { subject: stri
   };
 }
 
+export function templateDraftForLead(
+  lead: Lead,
+  cadence: CadenceKind | null,
+): { subject: string; body: string; source: "template" } {
+  return { ...fallbackDraft(lead, cadence), source: "template" };
+}
+
 export async function draftEmailForLead(
   lead: Lead,
   allLeads: Lead[],
