@@ -158,6 +158,35 @@ export type SalesCall = {
   attendees: Array<{ name?: string | null; email?: string | null }>;
 };
 
+export function matchCallsToLeads(
+  calls: SalesCall[],
+  leadsByEmail: Map<string, { id: string; name: string }>,
+): Array<SalesCall & { leadId: string | null; leadName: string | null; dayKey: string }> {
+  return calls.map((event) => {
+    const match = event.attendees
+      .map((a) => a.email?.trim().toLowerCase())
+      .find((email) => email && leadsByEmail.has(email));
+    const lead = match ? leadsByEmail.get(match) : undefined;
+    return {
+      ...event,
+      dayKey: denverDayKey(new Date(event.start)),
+      leadId: lead?.id || null,
+      leadName: lead?.name || null,
+    };
+  });
+}
+
+export async function listRecentMatchedCalls(
+  leadsByEmail: Map<string, { id: string; name: string }>,
+  now = new Date(),
+): Promise<Array<{ leadId: string; start: string }>> {
+  const lookback = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const calls = await listSalesCallsBetween(lookback, now);
+  return matchCallsToLeads(calls, leadsByEmail)
+    .filter((event): event is typeof event & { leadId: string } => !!event.leadId)
+    .map((event) => ({ leadId: event.leadId, start: event.start }));
+}
+
 export async function listSalesCallsBetween(start: Date, end: Date): Promise<SalesCall[]> {
   const calendar = await getGoogleCalendarClient();
   const response = await calendar.events.list({

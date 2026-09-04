@@ -3,9 +3,11 @@ import { CSS } from "@dnd-kit/utilities";
 import { Lead, useStore } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, AlertCircle, Mail, Video } from "lucide-react";
+import { Clock, Mail, Video } from "lucide-react";
+import { CopyLeadName, CopyableEmail } from "@/components/copy-lead-email";
 import { format, isPast, isToday } from "date-fns";
 import { auditScoreFromLead, jobTitleFromLead } from "@shared/audit";
+import { lastOutboundAt } from "@shared/email";
 
 const animateLayoutChanges: AnimateLayoutChanges = (args) => 
   defaultAnimateLayoutChanges({ ...args, wasDragging: true });
@@ -45,6 +47,7 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
   const jobTitle = jobTitleFromLead(lead);
   const auditScore = auditScoreFromLead(lead);
   const nextStep = (lead.followUpAngle || lead.nextStepManual || "").trim();
+  const lastOutbound = lastOutboundAt(lead);
 
   const handleEmailClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
@@ -72,9 +75,11 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
               <Video className="h-3 w-3 text-primary shrink-0" />
             </span>
           )}
-          <h4 className="font-semibold text-sm leading-tight text-card-foreground truncate">
-            {lead.name}
-          </h4>
+          <CopyLeadName
+            name={lead.name}
+            email={lead.email}
+            className="font-semibold text-sm leading-tight text-card-foreground"
+          />
           <button 
               onClick={handleEmailClick}
               className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-primary shrink-0"
@@ -88,6 +93,13 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
            <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse shrink-0 ml-1" title="Action Needed" />
         )}
       </div>
+      {lead.email && lead.email !== lead.name && (
+        <CopyableEmail
+          email={lead.email}
+          name={lead.name}
+          className="block text-xs text-muted-foreground mb-2 max-w-full"
+        />
+      )}
       {(jobTitle || auditScore != null) && (
         <p className="text-xs text-muted-foreground truncate mb-2">
           {[jobTitle, auditScore != null ? `${auditScore}/100` : null].filter(Boolean).join(" · ")}
@@ -111,6 +123,11 @@ export function LeadCard({ lead, onClick, isOverlay }: LeadCardProps) {
         )}
       </div>
 
+      {lead.stage === "followed-up" && lastOutbound && (
+        <p className="text-[10px] text-muted-foreground mb-2">
+          Emailed {format(lastOutbound, "MMM d")}
+        </p>
+      )}
       {lead.nextFollowUp && (
         <div className="flex items-center justify-between text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
            <div className="flex items-center gap-1">

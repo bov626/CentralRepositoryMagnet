@@ -10,6 +10,7 @@ import {
 import { isGmailConfigured, searchThreadsForLead } from "./gmail";
 import { summarizeNextStep } from "./ai-summarize";
 import { denverDayKey } from "./google-calendar";
+import { applyFollowedUpStage } from "./followed-up";
 import type { Lead } from "@shared/schema";
 
 export type SyncResult = {
@@ -132,7 +133,8 @@ export async function syncLeadEmails(
   const existing = Array.isArray(lead.emailThreads) ? (lead.emailThreads as EmailThread[]) : [];
   const existingIds = new Set(existing.map((t) => t.gmailMessageId));
   const added = incoming.filter((thread) => !existingIds.has(thread.gmailMessageId));
-  const newEmail = added.some((thread) => thread.direction === "in");
+  const theyWroteLast = incoming.length > 0 && [...incoming].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).at(-1)?.direction === "in";
+  const newEmail = added.some((thread) => thread.direction === "in") || theyWroteLast;
   const newFacts = added.length > 0;
   const prior = (lead.nextStepManual || lead.followUpAngle || "").trim();
 
@@ -152,19 +154,20 @@ export async function syncLeadEmails(
     : taughtFrom(allLeads || [], leadId);
 
   let guessed = lead.nextStepAi || prior;
-  if (newFacts || !prior) {
+  if (newFacts || !prior || theyWroteLast) {
     guessed = await guessNextStep(lead, incoming, taught, { newEmail });
   }
 
-  const live = newFacts || !lead.nextStepManual ? guessed : prior;
+  const live = theyWroteLast || newFacts || !lead.nextStepManual ? guessed : prior;
 
-  const updated = await storage.updateLead(leadId, {
+  const saved = await storage.updateLead(leadId, {
     emailThreads: incoming,
     history,
     nextStepAi: guessed || null,
     followUpAngle: live || guessed,
     nextStepAiAt: new Date(),
   });
+  const updated = saved ? await applyFollowedUpStage(saved) : saved;
 
   return {
     lead: updated!,
@@ -306,8 +309,9 @@ export async function recordOutboundEmail(
     : [];
   const history = Array.isArray(lead.history) ? (lead.history as HistoryItem[]) : [];
 
-  return storage.updateLead(leadId, {
+  const saved = await storage.updateLead(leadId, {
     emailThreads: [...existing, thread],
     history: [...history, emailHistoryItem(thread)],
   });
+  return saved ? applyFollowedUpStage(saved) : saved;
 }

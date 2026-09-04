@@ -6,6 +6,7 @@ export type PipelineType = "jumpseat" | "community" | "appliers";
 
 export type JumpseatStage =
   | "backlog"
+  | "followed-up"
   | "pitch-call"
   | "decision-pending"
   | "future-client"

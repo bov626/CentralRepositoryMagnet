@@ -14,6 +14,7 @@ import { CallMetric, type CallStats } from "@/components/call-metric";
 import { NextStepTeach } from "@/components/next-step-teach";
 import { auditScoreFromLead, jobTitleFromLead } from "@shared/audit";
 import { RoastResumeLink } from "@/components/roast-resume-link";
+import { CopyLeadName } from "@/components/copy-lead-email";
 
 type AuditCall = {
   id: string;
@@ -40,6 +41,7 @@ type TodayItem = {
   };
   reason: string;
   cadence: string | null;
+  priority?: number;
   preview?: boolean;
   draft: {
     subject: string;
@@ -84,6 +86,9 @@ export default function TodayPage() {
   });
 
   const items = data?.items || [];
+  const theyEmailed = items.filter((item) => item.priority === 0);
+  const afterCall = items.filter((item) => item.priority === 1);
+  const followUps = items.filter((item) => (item.priority ?? 2) > 1);
   const auditCalls = data?.auditCalls || [];
 
   return (
@@ -99,8 +104,14 @@ export default function TodayPage() {
               {isLoading
                 ? "Loading queue…"
                 : [
-                    items.length
-                      ? `${items.length} ${items.length === 1 ? "follow-up" : "follow-ups"}`
+                    theyEmailed.length
+                      ? `${theyEmailed.length} ${theyEmailed.length === 1 ? "reply owed" : "replies owed"}`
+                      : null,
+                    afterCall.length
+                      ? `${afterCall.length} after a call`
+                      : null,
+                    followUps.length
+                      ? `${followUps.length} ${followUps.length === 1 ? "follow-up" : "follow-ups"}`
                       : null,
                     auditCalls.length
                       ? `${auditCalls.length} audit ${auditCalls.length === 1 ? "call" : "calls"}`
@@ -129,6 +140,61 @@ export default function TodayPage() {
           </section>
         )}
 
+        {theyEmailed.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="text-xs uppercase tracking-[0.18em] text-red-400">
+              They emailed · no reply ({theyEmailed.length})
+            </h2>
+            <div className="space-y-3">
+              {theyEmailed.map((item) => (
+                <QueueRow
+                  key={item.lead.id}
+                  item={item}
+                  onOpenLead={() => setSelectedLeadId(item.lead.id)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {afterCall.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              After a call · no email ({afterCall.length})
+            </h2>
+            <div className="space-y-3">
+              {afterCall.map((item) => (
+                <QueueRow
+                  key={item.lead.id}
+                  item={item}
+                  onOpenLead={() => setSelectedLeadId(item.lead.id)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {(isLoading || followUps.length > 0 || (theyEmailed.length === 0 && afterCall.length === 0 && auditCalls.length === 0)) && (
+          <div className="space-y-3">
+            <h2 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Follow-ups</h2>
+            {isLoading ? (
+              <div className="p-8 text-center text-muted-foreground">Loading…</div>
+            ) : followUps.length > 0 ? (
+              followUps.map((item) => (
+                <QueueRow
+                  key={item.lead.id}
+                  item={item}
+                  onOpenLead={() => setSelectedLeadId(item.lead.id)}
+                />
+              ))
+            ) : (
+              <div className="p-10 text-center border border-dashed border-border/60 rounded-md">
+                <p className="text-muted-foreground">You're all caught up for today.</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {auditCalls.length > 0 && (
           <section className="space-y-2">
             <h2 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
@@ -145,25 +211,6 @@ export default function TodayPage() {
             </div>
           </section>
         )}
-
-        <div className="space-y-3">
-          <h2 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Follow-ups</h2>
-          {isLoading ? (
-            <div className="p-8 text-center text-muted-foreground">Loading…</div>
-          ) : items.length > 0 ? (
-            items.map((item) => (
-              <QueueRow
-                key={item.lead.id}
-                item={item}
-                onOpenLead={() => setSelectedLeadId(item.lead.id)}
-              />
-            ))
-          ) : (
-            <div className="p-10 text-center border border-dashed border-border/60 rounded-md">
-              <p className="text-muted-foreground">You're all caught up for today.</p>
-            </div>
-          )}
-        </div>
       </div>
 
       <LeadDetails leadId={selectedLeadId} onClose={() => setSelectedLeadId(null)} />
@@ -203,8 +250,8 @@ function AuditCallRow({
   return (
     <div className="rounded-md border border-border bg-card p-4 flex items-start justify-between gap-4">
       <div className="min-w-0">
+        <CopyLeadName name={lead.name} email={lead.email} className="block max-w-full" />
         <button type="button" onClick={onOpenLead} className="text-left">
-          <p className="font-semibold truncate">{lead.name}</p>
           <p className="text-sm text-muted-foreground truncate mt-0.5">{lead.email || "No email"}</p>
         </button>
         {(jobTitleFromLead(lead) || auditScoreFromLead(lead) != null) && (
@@ -358,14 +405,21 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
       )}
     >
       <div className="flex items-stretch">
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setOpen(!open)}
-          className="min-w-0 flex-1 flex items-center justify-between gap-4 p-4 text-left hover:bg-muted/30"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setOpen(!open);
+            }
+          }}
+          className="min-w-0 flex-1 flex items-center justify-between gap-4 p-4 text-left hover:bg-muted/30 cursor-pointer"
         >
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold truncate">{item.lead.name}</h3>
+              <CopyLeadName name={item.lead.name} email={item.lead.email} />
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground border border-border px-1.5 py-0.5 rounded">
                 {item.reason}
               </span>
@@ -375,7 +429,7 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
             </p>
           </div>
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
-        </button>
+        </div>
         <button
           type="button"
           onClick={() => dismiss.mutate()}

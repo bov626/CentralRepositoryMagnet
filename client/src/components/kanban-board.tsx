@@ -35,6 +35,7 @@ import { Input } from "@/components/ui/input";
 // Column Definitions
 const JUMPSEAT_COLUMNS: { id: JumpseatStage; title: string }[] = [
   { id: "backlog", title: "New Lead" },
+  { id: "followed-up", title: "Followed Up" },
   { id: "pitch-call", title: "Pitch Call" },
   { id: "decision-pending", title: "Decision Pending" },
   { id: "future-client", title: "Future Client" },
@@ -405,6 +406,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
                   key={col.id}
                   id={col.id}
                   title={col.title}
+                  hint={col.id === "followed-up" ? "You emailed last · last 30 days" : undefined}
                   leads={filteredLeads.filter(
                     (l) =>
                       l.pipeline === "jumpseat" &&
@@ -503,6 +505,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
 function KanbanColumn({
   id,
   title,
+  hint,
   leads,
   onLeadClick,
   showGhost,
@@ -512,6 +515,7 @@ function KanbanColumn({
 }: {
   id: string;
   title: string;
+  hint?: string;
   leads: Lead[];
   onLeadClick: (id: string) => void;
   showGhost?: boolean;
@@ -550,14 +554,17 @@ function KanbanColumn({
             : "border-zinc-700/50 bg-zinc-900/90",
         )}
       >
-        <h3
-          className={cn(
-            "font-medium text-sm uppercase tracking-wider",
-            isEmerald ? "text-emerald-400" : "text-muted-foreground",
-          )}
-        >
-          {title}
-        </h3>
+        <div className="min-w-0">
+          <h3
+            className={cn(
+              "font-medium text-sm uppercase tracking-wider",
+              isEmerald ? "text-emerald-400" : "text-muted-foreground",
+            )}
+          >
+            {title}
+          </h3>
+          {hint && <p className="text-[10px] text-muted-foreground/80 mt-0.5 truncate">{hint}</p>}
+        </div>
         <span
           className={cn(
             "text-xs font-mono px-1.5 py-0.5 rounded border",

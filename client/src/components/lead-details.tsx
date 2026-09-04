@@ -24,6 +24,7 @@ import { toast } from "@/hooks/use-toast";
 import { NextStepTeach } from "@/components/next-step-teach";
 import { auditScoreFromLead, jobTitleFromLead } from "@shared/audit";
 import { RoastResumeLink } from "@/components/roast-resume-link";
+import { CopyableEmail } from "@/components/copy-lead-email";
 
 interface LeadDetailsProps {
   leadId: string | null;
@@ -271,11 +272,11 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                         {lead.name}
                       </h2>
                     )}
-                    {lead.email && (
-                      <a href={`mailto:${lead.email}`} className="text-muted-foreground hover:text-primary text-sm">
-                        {lead.email}
-                      </a>
-                    )}
+                    <CopyableEmail
+                      email={lead.email}
+                      name={lead.name}
+                      className="block text-muted-foreground text-sm mt-0.5"
+                    />
                     {lead.email && (
                       <div className="mt-1">
                         <RoastResumeLink email={lead.email} />

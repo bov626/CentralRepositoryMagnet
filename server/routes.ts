@@ -3,13 +3,14 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeadSchema, insertBlockerSchema, insertOnboardingSubmissionSchema } from "@shared/schema";
 import { z } from "zod";
-import { getUpcomingEvents, createEvent, denverWeekBounds, denverWeekDays, denverDayKey, listSalesCallsBetween } from "./google-calendar";
+import { getUpcomingEvents, createEvent, denverWeekBounds, denverWeekDays, listSalesCallsBetween, matchCallsToLeads } from "./google-calendar";
 import { listMeetings, isFathomConfigured } from "./fathom";
 import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
 import { ensureEmailSync, emailSyncStatus, recordOutboundEmail, syncLeadEmails } from "./email-sync";
+import { applyFollowedUpStage } from "./followed-up";
 import { draftEmailForLead, templateDraftForLead } from "./email-draft";
 import { runNightlyJobs, sendSalesFocusEmail } from "./jobs";
-import { dueToday, finishedDealEmails, needsAuditCall, nextFollowUpAfterSend, type CadenceKind } from "@shared/email";
+import { autoFollowedUpStage, buildTodayQueue, dueToday, type CadenceKind } from "@shared/email";
 import { parseAuditScore } from "@shared/audit";
 import { buildMoneyView } from "@shared/money";
 import { isStripeConfigured, jumpseatPaidHistory } from "./stripe";
@@ -75,9 +76,13 @@ async function loadTodayCalls(
       leadId?: string | null;
       leadName?: string | null;
     }>,
+    recentPastCalls: [] as Array<{ leadId: string; start: string }>,
   };
   try {
-    const bounds = denverWeekBounds();
+    const now = new Date();
+    const bounds = denverWeekBounds(now);
+    const lookback = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const fetchStart = lookback.getTime() < bounds.start.getTime() ? lookback : bounds.start;
     let dismissed: Array<{ eventId: string; recurringEventId: string | null }> = [];
     try {
       dismissed = await storage.getDismissedCalendarEvents();
@@ -88,32 +93,32 @@ async function loadTodayCalls(
     const dismissedSeries = new Set(
       dismissed.map((row) => row.recurringEventId).filter((id): id is string => !!id),
     );
-    const weekEvents = (await listSalesCallsBetween(bounds.start, bounds.end))
+    const matched = matchCallsToLeads(await listSalesCallsBetween(fetchStart, bounds.end), leadsByEmail)
       .filter((event) => {
         if (dismissedIds.has(event.id)) return false;
         if (event.recurringEventId && dismissedSeries.has(event.recurringEventId)) return false;
         if (event.recurringEventId && dismissedIds.has(event.recurringEventId)) return false;
         return true;
-      })
-      .map((event) => {
-        const match = event.attendees
-          .map((a) => a.email?.trim().toLowerCase())
-          .find((email) => email && leadsByEmail.has(email));
-        const lead = match ? leadsByEmail.get(match) : undefined;
-        return {
-          ...event,
-          dayKey: denverDayKey(new Date(event.start)),
-          leadId: lead?.id || null,
-          leadName: lead?.name || null,
-        };
       });
-    const todayKey = denverWeekDays().find((d) => d.isToday)?.key;
+    const weekEvents = matched.filter((event) => {
+      const start = new Date(event.start);
+      return start >= bounds.start && start < bounds.end;
+    });
+    const recentPastCalls = matched
+      .filter((event): event is typeof event & { leadId: string } => {
+        if (!event.leadId) return false;
+        const start = new Date(event.start);
+        return start <= now && start >= lookback;
+      })
+      .map((event) => ({ leadId: event.leadId, start: event.start }));
+    const todayKey = denverWeekDays(now).find((d) => d.isToday)?.key;
     return {
       configured: true,
       today: weekEvents.filter((event) => event.dayKey === todayKey).length,
       week: weekEvents.length,
-      days: denverWeekDays(),
+      days: denverWeekDays(now),
       weekEvents,
+      recentPastCalls,
     };
   } catch (error) {
     console.error("Calendar calls for Today failed", error);
@@ -203,7 +208,11 @@ export async function registerRoutes(
   // Lead routes
   app.get("/api/leads", async (req, res) => {
     try {
-      const allLeads = await storage.getAllLeads();
+      const loaded = await storage.getAllLeads();
+      const allLeads = [];
+      for (const lead of loaded) {
+        allLeads.push(autoFollowedUpStage(lead) ? await applyFollowedUpStage(lead) : lead);
+      }
       res.json(allLeads);
     } catch (error: any) {
       console.error("Error fetching leads:", error);
@@ -704,9 +713,8 @@ export async function registerRoutes(
       let lead = null;
       if (leadId) {
         lead = await recordOutboundEmail(leadId, { to, subject, body, gmailId, threadId });
-        const next = nextFollowUpAfterSend((cadence as CadenceKind) || null);
         if (lead) {
-          lead = await storage.updateLead(leadId, { nextFollowUp: next ? new Date(next) : null }) || lead;
+          lead = await storage.updateLead(leadId, { nextFollowUp: null }) || lead;
         }
       }
       
@@ -738,12 +746,29 @@ export async function registerRoutes(
   app.get("/api/today-focus", async (req, res) => {
     try {
       const allLeads = await storage.getAllLeads();
-      const finishedEmails = finishedDealEmails(allLeads);
-      const due = [];
-      for (const lead of allLeads) {
-        const info = dueToday(lead, new Date(), finishedEmails);
-        if (!info.due) continue;
-        due.push({
+      const leadsById = new Map(allLeads.map((lead) => [lead.id, lead]));
+      const leadsByEmail = new Map(
+        allLeads
+          .filter((lead) => lead.email)
+          .map((lead) => [
+            lead.email!.trim().toLowerCase(),
+            { id: lead.id, name: lead.name },
+          ]),
+      );
+
+      const [stripeHistory, calls] = await Promise.all([
+        jumpseatPaidHistory(12).catch((error) => {
+          console.error("Stripe month total failed", error);
+          return { configured: false, thisMonth: 0, total: 0, byMonth: {} as Record<string, number> };
+        }),
+        loadTodayCalls(allLeads, leadsByEmail),
+      ]);
+
+      const queue = buildTodayQueue(allLeads, calls.recentPastCalls || []);
+      const due = queue.followUps.flatMap((row) => {
+        const lead = leadsById.get(row.leadId);
+        if (!lead) return [];
+        return [{
           lead: {
             id: lead.id,
             name: lead.name,
@@ -755,12 +780,13 @@ export async function registerRoutes(
             nextStepAi: lead.nextStepAi,
             nextStepManual: lead.nextStepManual,
           },
-          reason: info.reason,
-          cadence: info.cadence,
-          draft: templateDraftForLead(lead, info.cadence),
+          reason: row.reason,
+          cadence: row.cadence,
+          priority: row.priority,
+          draft: templateDraftForLead(lead, row.cadence),
           preview: false,
-        });
-      }
+        }];
+      });
 
       if (due.length === 0 && process.env.NODE_ENV !== "production") {
         const previewLeads = allLeads
@@ -785,32 +811,17 @@ export async function registerRoutes(
             },
             reason: "Localhost preview — not actually due. Set a follow-up date to test for real.",
             cadence: "same-day" as CadenceKind,
+            priority: 1,
             draft: templateDraftForLead(lead, "same-day"),
             preview: true,
           });
         }
       }
 
-      const leadsByEmail = new Map(
-        allLeads
-          .filter((lead) => lead.email)
-          .map((lead) => [
-            lead.email!.trim().toLowerCase(),
-            { id: lead.id, name: lead.name },
-          ]),
-      );
-
-      const [stripeHistory, calls] = await Promise.all([
-        jumpseatPaidHistory(12).catch((error) => {
-          console.error("Stripe month total failed", error);
-          return { configured: false, thisMonth: 0, total: 0, byMonth: {} as Record<string, number> };
-        }),
-        loadTodayCalls(allLeads, leadsByEmail),
-      ]);
-
-      const auditCalls = allLeads
-        .filter((lead) => needsAuditCall(lead))
-        .map((lead) => ({
+      const auditCalls = queue.auditCalls.flatMap((row) => {
+        const lead = row.id ? leadsById.get(row.id) : undefined;
+        if (!lead) return [];
+        return [{
           id: lead.id,
           name: lead.name,
           email: lead.email,
@@ -819,7 +830,8 @@ export async function registerRoutes(
           auditPdfUrl: lead.auditPdfUrl,
           jobTitle: lead.jobTitle,
           auditScore: lead.auditScore,
-        }));
+        }];
+      });
 
       res.json({
         count: due.length,

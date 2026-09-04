@@ -52,6 +52,16 @@ No pressure either way.
 
 – W.W.`,
   },
+  "reply": {
+    subject: "Re: your note",
+    body: `{First Name},
+
+Got your note.
+
+{Their point, then the next ask.}
+
+– W.W.`,
+  },
   "follow-up": {
     subject: "Following up",
     body: `{Name},
@@ -60,7 +70,7 @@ Just wanted to follow-up.
 
 I've got one slot left in the group and I'm mentally holding it open for you.
 
-    Let me know either way.
+Let me know either way.
 
 -W.W.`,
   },
@@ -87,6 +97,7 @@ export function templateForCadence(cadence: string | null, pipeline?: string | n
   if (cadence === "same-day") return "same-day";
   if (cadence === "day-3") return "day-3";
   if (cadence === "day-7") return "day-7";
+  if (cadence === "reply") return "reply";
   if (cadence?.startsWith("check-in")) return "check-in";
   return "follow-up";
 }

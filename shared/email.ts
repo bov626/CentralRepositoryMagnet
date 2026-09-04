@@ -29,12 +29,28 @@ export type CadenceKind =
   | "check-in-6"
   | "check-in-9"
   | "check-in-12"
-  | "follow-up-date";
+  | "follow-up-date"
+  | "reply";
 
 export type DueToday = {
   due: boolean;
   reason: string;
   cadence: CadenceKind | null;
+  priority: number;
+  callAt?: string | null;
+};
+
+export type RecentCallMatch = {
+  leadId: string;
+  start: string;
+};
+
+export type TodayFollowUp = {
+  leadId: string;
+  reason: string;
+  cadence: CadenceKind | null;
+  priority: number;
+  callAt: string | null;
 };
 
 function startOfDay(d: Date): Date {
@@ -74,15 +90,20 @@ export function noonIso(date: Date): string {
 }
 
 type FollowUpLead = {
+  id?: string;
   pipeline?: string | null;
   stage?: string | null;
   source?: string | null;
   tags?: string[] | null;
   archived?: boolean | null;
   email?: string | null;
+  summary?: string | null;
+  auditPdfUrl?: string | null;
   nextFollowUp?: string | Date | null;
   actionItemDates?: unknown;
   cadenceAnchor?: string | Date | null;
+  fathomRecordingId?: number | string | null;
+  recordingLink?: string | null;
   queueDismissedAt?: string | Date | null;
   auditFeedbackAt?: string | Date | null;
   createdAt?: string | Date | null;
@@ -112,20 +133,122 @@ export function effectiveFollowUp(lead: FollowUpLead): Date | null {
   return dates[0] ?? null;
 }
 
-function outboundEmailDates(lead: FollowUpLead): Date[] {
+function latestDate(dates: Date[]): Date | null {
+  if (!dates.length) return null;
+  return dates.reduce((a, b) => (a.getTime() >= b.getTime() ? a : b));
+}
+
+function emailDates(lead: FollowUpLead, direction: EmailDirection): Date[] {
   const threads = Array.isArray(lead.emailThreads) ? (lead.emailThreads as EmailThread[]) : [];
   const fromThreads = threads
-    .filter((t) => t.direction === "out")
+    .filter((t) => t.direction === direction)
     .map((t) => parseDate(t.date))
     .filter((d): d is Date => !!d);
 
   const history = Array.isArray(lead.history) ? (lead.history as HistoryItem[]) : [];
   const fromHistory = history
-    .filter((h) => h.type === "email" && h.direction === "out")
+    .filter((h) => {
+      if (h.type === "email" && h.direction === direction) return true;
+      if (direction === "out") return /^(sent):/i.test(h.action || "");
+      return /^(received):/i.test(h.action || "");
+    })
     .map((h) => parseDate(h.date))
     .filter((d): d is Date => !!d);
 
   return [...fromThreads, ...fromHistory];
+}
+
+function outboundEmailDates(lead: FollowUpLead): Date[] {
+  return emailDates(lead, "out");
+}
+
+export function lastOutboundAt(lead: FollowUpLead): Date | null {
+  return latestDate(emailDates(lead, "out"));
+}
+
+const FOLLOWED_UP_DAYS = 30;
+const FOLLOWED_UP_FROM = new Set(["backlog", "pitch-call", "decision-pending", "followed-up"]);
+
+export function autoFollowedUpStage(
+  lead: FollowUpLead,
+  now = new Date(),
+): "followed-up" | "pitch-call" | null {
+  if (lead.archived) return null;
+  if (lead.pipeline !== "jumpseat") return null;
+  const stage = String(lead.stage || "");
+  if (stage === "future-client" || stage === "closed" || stage === "disqualified") return null;
+  if (!FOLLOWED_UP_FROM.has(stage) && stage !== "backlog") return null;
+
+  const lastOut = lastOutboundAt(lead);
+  const age = lastOut ? daysApart(now, lastOut) : null;
+  const emailedThisMonth = age != null && age <= FOLLOWED_UP_DAYS;
+
+  if (theyEmailedLast(lead)) {
+    if (stage === "followed-up") return "pitch-call";
+  } else if (FOLLOWED_UP_FROM.has(stage) && emailedThisMonth) {
+    return stage === "followed-up" ? null : "followed-up";
+  }
+  if (stage === "followed-up") return "pitch-call";
+  if (stage === "backlog" && hadSalesCall(lead)) return "pitch-call";
+  return null;
+}
+
+export function lastInboundAt(lead: FollowUpLead): Date | null {
+  return latestDate(emailDates(lead, "in"));
+}
+
+export function theyEmailedLast(lead: FollowUpLead): boolean {
+  const lastIn = lastInboundAt(lead);
+  if (!lastIn) return false;
+  const lastOut = lastOutboundAt(lead);
+  if (!lastOut) return true;
+  return lastIn.getTime() > lastOut.getTime();
+}
+
+export function isWaitingOnReply(lead: FollowUpLead): boolean {
+  const lastOut = lastOutboundAt(lead);
+  if (!lastOut) return false;
+  const lastIn = lastInboundAt(lead);
+  if (!lastIn) return true;
+  return lastOut.getTime() > lastIn.getTime();
+}
+
+export function unansweredInboundReason(receivedAt: Date, now = new Date()): string {
+  const days = daysApart(now, receivedAt);
+  if (days <= 1) return "They emailed — no reply";
+  return `They emailed ${days} days ago — no reply`;
+}
+
+export function unansweredInboundDue(
+  lead: FollowUpLead,
+  now = new Date(),
+  finishedEmails?: Set<string>,
+): DueToday {
+  if (lead.archived || lead.pipeline === "appliers") return NOT_DUE;
+  if (isFinishedStage(lead.stage)) return NOT_DUE;
+  if (String(lead.stage || "") === "future-client") return NOT_DUE;
+  const email = String(lead.email || "").trim().toLowerCase();
+  if (email && finishedEmails?.has(email)) return NOT_DUE;
+  if (!theyEmailedLast(lead)) return NOT_DUE;
+  const lastIn = lastInboundAt(lead);
+  if (!lastIn) return NOT_DUE;
+  const hours = (now.getTime() - lastIn.getTime()) / (60 * 60 * 1000);
+  if (hours < 24) return NOT_DUE;
+  return {
+    due: true,
+    reason: unansweredInboundReason(lastIn, now),
+    cadence: "reply",
+    priority: 0,
+    callAt: lastIn.toISOString(),
+  };
+}
+
+function lastContactAt(lead: FollowUpLead): Date | null {
+  return latestDate(
+    [lastOutboundAt(lead), lastInboundAt(lead), parseDate(lead.cadenceAnchor), parseDate(lead.createdAt)].filter(
+      (d): d is Date => !!d,
+    ),
+  );
 }
 
 export function emailedWithinOneDay(lead: FollowUpLead, milestone: Date): boolean {
@@ -135,6 +258,19 @@ export function emailedWithinOneDay(lead: FollowUpLead, milestone: Date): boolea
 function emailedOnOrAfter(lead: FollowUpLead, milestone: Date): boolean {
   return outboundEmailDates(lead).some((sent) => daysApart(sent, milestone) >= -1);
 }
+
+export function emailedAfter(lead: FollowUpLead, after: Date): boolean {
+  return outboundEmailDates(lead).some((sent) => sent.getTime() >= after.getTime());
+}
+
+export function missedCallReason(callAt: Date, now = new Date()): string {
+  const days = daysApart(now, callAt);
+  if (days <= 0) return "Call today — no email sent";
+  if (days === 1) return "Call yesterday — no email sent";
+  return `Call ${days} days ago — no email sent`;
+}
+
+const NOT_DUE: DueToday = { due: false, reason: "", cadence: null, priority: 1, callAt: null };
 
 const CHECK_INS: Array<{ months: number; cadence: CadenceKind; reason: string }> = [
   { months: 3, cadence: "check-in-3", reason: "3-month check-in" },
@@ -155,13 +291,25 @@ export function isFinishedStage(stage?: string | null): boolean {
 }
 
 export function isAuditLead(lead: FollowUpLead): boolean {
-  return lead.source === "audit" || (Array.isArray(lead.tags) && lead.tags.includes("audit"));
+  if (lead.source === "audit") return true;
+  if (Array.isArray(lead.tags) && lead.tags.includes("audit")) return true;
+  if (lead.auditPdfUrl) return true;
+  return /overemployed risk audit/i.test(String(lead.summary || ""));
 }
 
-export function needsAuditCall(lead: FollowUpLead): boolean {
+export function hadSalesCall(lead: FollowUpLead, recentCallIds?: Set<string>): boolean {
+  if (parseDate(lead.cadenceAnchor)) return true;
+  if (lead.fathomRecordingId) return true;
+  if (lead.recordingLink) return true;
+  if (lead.source === "fathom" || lead.source === "calendar") return true;
+  return !!(lead.id && recentCallIds?.has(lead.id));
+}
+
+export function needsAuditCall(lead: FollowUpLead, recentCallIds?: Set<string>): boolean {
   if (lead.archived || lead.pipeline === "appliers") return false;
   if (isFinishedStage(lead.stage)) return false;
   if (!isAuditLead(lead)) return false;
+  if (hadSalesCall(lead, recentCallIds)) return false;
   return !parseDate(lead.auditFeedbackAt);
 }
 
@@ -175,61 +323,152 @@ export function finishedDealEmails(leads: FollowUpLead[]): Set<string> {
   return emails;
 }
 
-export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: Set<string>): DueToday {
-  if (lead.archived) return { due: false, reason: "", cadence: null };
-  if (lead.pipeline === "appliers") {
-    return { due: false, reason: "", cadence: null };
-  }
-  if (isFinishedStage(lead.stage)) {
-    return { due: false, reason: "", cadence: null };
-  }
+export function missedCallDue(
+  lead: FollowUpLead,
+  callAt: Date,
+  now = new Date(),
+  finishedEmails?: Set<string>,
+): DueToday {
+  if (lead.archived || lead.pipeline === "appliers") return NOT_DUE;
+  if (isFinishedStage(lead.stage)) return NOT_DUE;
   const email = String(lead.email || "").trim().toLowerCase();
-  if (email && finishedEmails?.has(email)) {
-    return { due: false, reason: "", cadence: null };
-  }
-  if (needsAuditCall(lead)) {
-    return { due: false, reason: "", cadence: null };
-  }
+  if (email && finishedEmails?.has(email)) return NOT_DUE;
+  if (parseDate(lead.queueDismissedAt)) return NOT_DUE;
+  if (Number.isNaN(callAt.getTime()) || callAt.getTime() > now.getTime()) return NOT_DUE;
+  const age = daysApart(now, callAt);
+  if (age < 0 || age > 7) return NOT_DUE;
+  if (emailedAfter(lead, callAt)) return NOT_DUE;
+  return {
+    due: true,
+    reason: missedCallReason(callAt, now),
+    cadence: "same-day",
+    priority: 1,
+    callAt: callAt.toISOString(),
+  };
+}
 
-  if (parseDate(lead.queueDismissedAt)) {
-    return { due: false, reason: "", cadence: null };
+export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: Set<string>): DueToday {
+  if (lead.archived) return NOT_DUE;
+  if (lead.pipeline === "appliers") return NOT_DUE;
+  if (isFinishedStage(lead.stage)) return NOT_DUE;
+  const email = String(lead.email || "").trim().toLowerCase();
+  if (email && finishedEmails?.has(email)) return NOT_DUE;
+
+  const unanswered = unansweredInboundDue(lead, now, finishedEmails);
+  if (unanswered.due) return unanswered;
+
+  if (isAuditLead(lead) && !parseDate(lead.cadenceAnchor)) return NOT_DUE;
+  if (parseDate(lead.queueDismissedAt)) return NOT_DUE;
+
+  const anchor = parseDate(lead.cadenceAnchor);
+  if (anchor) {
+    const missed = missedCallDue(lead, anchor, now, finishedEmails);
+    if (missed.due) return missed;
   }
 
   const follow = effectiveFollowUp(lead);
-  if (follow && daysApart(follow, now) <= 0) {
+  if (follow && daysApart(follow, now) <= 0 && !emailedOnOrAfter(lead, follow) && !isWaitingOnReply(lead)) {
     return {
       due: true,
       reason: isSameDay(follow, now) ? "Follow-up date" : "Overdue",
       cadence: "follow-up-date",
+      priority: 2,
+      callAt: null,
     };
   }
 
-  const anchor = parseDate(lead.cadenceAnchor);
   if (anchor) {
+    const sentAfterCall = emailedAfter(lead, anchor);
     for (const step of SHORT_CADENCE) {
       const when = addDays(anchor, step.days);
-      if (daysApart(when, now) > 0) continue;
+      const late = daysApart(now, when);
+      if (late < 0) continue;
+      if (step.days === 0 && anchor.getTime() > now.getTime()) continue;
       if (emailedOnOrAfter(lead, when)) continue;
+      if (sentAfterCall && late > 1) continue;
       return {
         due: true,
-        reason: isSameDay(when, now) ? step.reason : `${step.reason} (overdue)`,
+        reason: late === 0 ? step.reason : `${step.reason} (overdue)`,
         cadence: step.cadence,
+        priority: 2,
+        callAt: null,
       };
     }
   }
 
-  const created = parseDate(lead.createdAt);
-  if (created) {
+  const lastContact = lastContactAt(lead);
+  if (lastContact) {
     for (const check of CHECK_INS) {
-      const when = addMonths(created, check.months);
+      const when = addMonths(lastContact, check.months);
       const age = daysApart(now, when);
       if (age < 0 || age > 14) continue;
       if (emailedOnOrAfter(lead, when)) continue;
-      return { due: true, reason: check.reason, cadence: check.cadence };
+      return { due: true, reason: check.reason, cadence: check.cadence, priority: 2, callAt: null };
     }
   }
 
-  return { due: false, reason: "", cadence: null };
+  return NOT_DUE;
+}
+
+export function buildTodayQueue(
+  leads: FollowUpLead[],
+  recentCalls: RecentCallMatch[] = [],
+  now = new Date(),
+): { followUps: TodayFollowUp[]; auditCalls: FollowUpLead[] } {
+  const finishedEmails = finishedDealEmails(leads);
+  const calledIds = new Set(recentCalls.map((call) => call.leadId));
+  const leadsById = new Map(leads.filter((lead) => lead.id).map((lead) => [lead.id as string, lead]));
+  const byId = new Map<string, TodayFollowUp>();
+
+  const upsert = (lead: FollowUpLead, info: DueToday) => {
+    if (!info.due || !lead.id) return;
+    const next: TodayFollowUp = {
+      leadId: lead.id,
+      reason: info.reason,
+      cadence: info.cadence,
+      priority: info.priority ?? 1,
+      callAt: info.callAt ?? null,
+    };
+    const existing = byId.get(lead.id);
+    if (!existing || next.priority < existing.priority) {
+      byId.set(lead.id, next);
+      return;
+    }
+    if (next.priority === existing.priority && next.callAt && next.callAt > (existing.callAt || "")) {
+      byId.set(lead.id, next);
+    }
+  };
+
+  for (const lead of leads) {
+    upsert(lead, dueToday(lead, now, finishedEmails));
+  }
+  for (const call of recentCalls) {
+    const lead = leadsById.get(call.leadId);
+    if (!lead) continue;
+    upsert(lead, missedCallDue(lead, new Date(call.start), now, finishedEmails));
+  }
+
+  const auditCalls = leads.filter((lead) => needsAuditCall(lead, calledIds));
+  const auditIds = new Set(auditCalls.map((lead) => lead.id).filter((id): id is string => !!id));
+  const auditEmails = new Set(
+    auditCalls.map((lead) => String(lead.email || "").trim().toLowerCase()).filter(Boolean),
+  );
+
+  const followUps = Array.from(byId.values())
+    .filter((row) => {
+      if (auditIds.has(row.leadId)) return false;
+      const lead = leadsById.get(row.leadId);
+      const email = String(lead?.email || "").trim().toLowerCase();
+      return !(email && auditEmails.has(email));
+    })
+    .sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      if (a.priority === 0) return String(a.callAt || "").localeCompare(String(b.callAt || ""));
+      if (a.priority === 1) return String(b.callAt || "").localeCompare(String(a.callAt || ""));
+      return 0;
+    });
+
+  return { followUps, auditCalls };
 }
 
 export function nextFollowUpAfterSend(cadence: CadenceKind | null, now = new Date()): string | null {

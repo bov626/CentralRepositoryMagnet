@@ -130,6 +130,9 @@ export async function summarizeNextStep(input: {
     if (last?.direction === "in") {
       return `They emailed last (${last.subject}). Reply and push the sale forward.`;
     }
+    if (input.stage === "followed-up") {
+      return "You already emailed. Wait for them — don't send another follow-up until they reply or a month has passed.";
+    }
     if (input.stage === "pitch-call") {
       return "Call happened. Send the service outline and ask how they want to move forward.";
     }
@@ -208,7 +211,7 @@ ${threadBlock || "none"}`;
 Rules:
 - First sentence is the next action. Then 1-3 sentences of why, citing what they said or what he promised.
 - Do not write generic "follow up" or "nurture the relationship." Name the email, call, or wait.
-- Who spoke last matters. If he is waiting on them and nothing is due, say wait. If they asked something unanswered, answer that.
+- Who spoke last matters. If they emailed last, the next step is always reply to that email. Never say you are waiting on them if they already wrote. If he is waiting on them and nothing is due, say wait.
 - Jumpseat vs Skool: do not mix offers. Closed/bought/disqualified: no chase.
 - Audits with no pitch call: call for feedback on the report before a close email.
 - Future Client: not this cohort. Do not pitch. Check-in only if a 3/6/9/12 date is due.

@@ -215,6 +215,7 @@ export async function ingestAuditLead(input: {
       auditPdfUrl: input.pdfUrl || existing.auditPdfUrl,
       jobTitle: jobTitle || existing.jobTitle,
       auditScore: auditScore ?? existing.auditScore,
+      tags: Array.from(new Set([...(existing.tags || []), "audit"])),
       source: existing.source || "audit",
       summary,
       followUpAngle: frozen || existing.nextStepManual ? existing.followUpAngle : nextStep,
