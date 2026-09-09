@@ -168,7 +168,7 @@ export function lastOutboundAt(lead: FollowUpLead): Date | null {
 }
 
 const FOLLOWED_UP_DAYS = 30;
-const FOLLOWED_UP_FROM = new Set(["backlog", "pitch-call", "decision-pending", "followed-up"]);
+const FOLLOWED_UP_FROM = new Set(["backlog", "pitch-call", "followed-up"]);
 
 export function autoFollowedUpStage(
   lead: FollowUpLead,
@@ -177,15 +177,26 @@ export function autoFollowedUpStage(
   if (lead.archived) return null;
   if (lead.pipeline !== "jumpseat") return null;
   const stage = String(lead.stage || "");
-  if (stage === "future-client" || stage === "closed" || stage === "disqualified") return null;
+  if (
+    stage === "decision-pending" ||
+    stage === "future-client" ||
+    stage === "closed" ||
+    stage === "disqualified"
+  ) {
+    return null;
+  }
   if (!FOLLOWED_UP_FROM.has(stage) && stage !== "backlog") return null;
 
   const lastOut = lastOutboundAt(lead);
   const age = lastOut ? daysApart(now, lastOut) : null;
   const emailedThisMonth = age != null && age <= FOLLOWED_UP_DAYS;
+  const dateDue = !!followUpDateDue(lead, now);
 
   if (theyEmailedLast(lead)) {
     if (stage === "followed-up") return "pitch-call";
+  } else if (dateDue) {
+    if (stage === "followed-up") return "pitch-call";
+    return null;
   } else if (FOLLOWED_UP_FROM.has(stage) && emailedThisMonth) {
     return stage === "followed-up" ? null : "followed-up";
   }
@@ -262,6 +273,14 @@ function emailedOnOrAfter(lead: FollowUpLead, milestone: Date): boolean {
 
 export function emailedAfter(lead: FollowUpLead, after: Date): boolean {
   return outboundEmailDates(lead).some((sent) => sent.getTime() >= after.getTime());
+}
+
+export function followUpDateDue(lead: FollowUpLead, now = new Date()): Date | null {
+  const follow = effectiveFollowUp(lead);
+  if (!follow) return null;
+  if (daysApart(follow, now) > 0) return null;
+  if (emailedOnOrAfter(lead, follow)) return null;
+  return follow;
 }
 
 export function missedCallReason(callAt: Date, now = new Date()): string {
@@ -367,8 +386,8 @@ export function dueToday(lead: FollowUpLead, now = new Date(), finishedEmails?: 
     if (missed.due) return missed;
   }
 
-  const follow = effectiveFollowUp(lead);
-  if (follow && daysApart(follow, now) <= 0 && !emailedOnOrAfter(lead, follow) && !isWaitingOnReply(lead)) {
+  const follow = followUpDateDue(lead, now);
+  if (follow) {
     return {
       due: true,
       reason: isSameDay(follow, now) ? "Follow-up date" : "Overdue",

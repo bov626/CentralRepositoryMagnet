@@ -130,6 +130,9 @@ export async function summarizeNextStep(input: {
     if (last?.direction === "in") {
       return `They emailed last (${last.subject}). Reply and push the sale forward.`;
     }
+    if (input.nextFollowUp && new Date(input.nextFollowUp).getTime() <= Date.now()) {
+      return "Follow-up date is due. Send the bump you planned — don't wait.";
+    }
     if (input.stage === "followed-up") {
       return "You already emailed. Wait for them — don't send another follow-up until they reply or a month has passed.";
     }

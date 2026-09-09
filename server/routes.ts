@@ -8,7 +8,7 @@ import { listMeetings, isFathomConfigured } from "./fathom";
 import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
 import { ensureEmailSync, emailSyncStatus, recordOutboundEmail, syncLeadEmails } from "./email-sync";
 import { applyFollowedUpStage } from "./followed-up";
-import { draftEmailForLead, templateDraftForLead } from "./email-draft";
+import { draftEmailForLead } from "./email-draft";
 import { runNightlyJobs, sendSalesFocusEmail } from "./jobs";
 import { autoFollowedUpStage, buildTodayQueue, dueToday, type CadenceKind } from "@shared/email";
 import { parseAuditScore } from "@shared/audit";
@@ -815,25 +815,29 @@ export async function registerRoutes(
       ]);
 
       const queue = buildTodayQueue(allLeads, calls.recentPastCalls || []);
+      const todayLead = (lead: (typeof allLeads)[number]) => ({
+        id: lead.id,
+        name: lead.name,
+        email: lead.email,
+        company: lead.company,
+        stage: lead.stage,
+        summary: lead.summary,
+        followUpAngle: lead.followUpAngle,
+        nextStepAi: lead.nextStepAi,
+        nextStepManual: lead.nextStepManual,
+        recordingLink: lead.recordingLink,
+        history: lead.history,
+        emailThreads: lead.emailThreads,
+      });
+
       const due = queue.followUps.flatMap((row) => {
         const lead = leadsById.get(row.leadId);
         if (!lead) return [];
         return [{
-          lead: {
-            id: lead.id,
-            name: lead.name,
-            email: lead.email,
-            company: lead.company,
-            stage: lead.stage,
-            summary: lead.summary,
-            followUpAngle: lead.followUpAngle,
-            nextStepAi: lead.nextStepAi,
-            nextStepManual: lead.nextStepManual,
-          },
+          lead: todayLead(lead),
           reason: row.reason,
           cadence: row.cadence,
           priority: row.priority,
-          draft: templateDraftForLead(lead, row.cadence),
           preview: false,
         }];
       });
@@ -848,21 +852,10 @@ export async function registerRoutes(
           .slice(0, 3);
         for (const lead of previewLeads) {
           due.push({
-            lead: {
-              id: lead.id,
-              name: lead.name,
-              email: lead.email,
-              company: lead.company,
-              stage: lead.stage,
-              summary: lead.summary,
-              followUpAngle: lead.followUpAngle,
-              nextStepAi: lead.nextStepAi,
-              nextStepManual: lead.nextStepManual,
-            },
+            lead: todayLead(lead),
             reason: "Localhost preview — not actually due. Set a follow-up date to test for real.",
             cadence: "same-day" as CadenceKind,
             priority: 1,
-            draft: templateDraftForLead(lead, "same-day"),
             preview: true,
           });
         }

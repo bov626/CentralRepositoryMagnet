@@ -1,13 +1,11 @@
 import Layout from "@/components/layout";
 import { LeadDetails } from "@/components/lead-details";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { format } from "date-fns";
-import { Send, Loader2, ChevronDown, X, Phone } from "lucide-react";
+import { Loader2, ChevronDown, X, Phone, Mail, PlayCircle, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { SalesPulseCard, type MoneyView } from "@/components/sales-pulse-card";
 import { CallMetric, type CallStats } from "@/components/call-metric";
@@ -15,6 +13,7 @@ import { NextStepTeach } from "@/components/next-step-teach";
 import { auditScoreFromLead, jobTitleFromLead } from "@shared/audit";
 import { RoastResumeLink } from "@/components/roast-resume-link";
 import { CopyLeadName } from "@/components/copy-lead-email";
+import { isEmailHistoryItem, isIgnoredEmail } from "@shared/email";
 
 type AuditCall = {
   id: string;
@@ -25,6 +24,16 @@ type AuditCall = {
   auditPdfUrl?: string | null;
   jobTitle?: string | null;
   auditScore?: number | null;
+};
+
+type TodayEmail = {
+  date: string;
+  action?: string;
+  type?: string;
+  subject?: string;
+  summary?: string;
+  direction?: string;
+  gmailThreadId?: string;
 };
 
 type TodayItem = {
@@ -38,17 +47,29 @@ type TodayItem = {
     followUpAngle?: string | null;
     nextStepAi?: string | null;
     nextStepManual?: string | null;
+    recordingLink?: string | null;
+    history?: TodayEmail[];
+    emailThreads?: Array<{
+      date: string;
+      subject: string;
+      summary: string;
+      direction: string;
+    }>;
   };
   reason: string;
   cadence: string | null;
   priority?: number;
   preview?: boolean;
-  draft: {
-    subject: string;
-    body: string;
-    source: "closed-won" | "template";
-  };
 };
+
+function emailsForLead(lead: TodayItem["lead"]): TodayEmail[] {
+  const history = Array.isArray(lead.history) ? lead.history : [];
+  const fromHistory = history.filter((item) => isEmailHistoryItem(item) && !isIgnoredEmail(item));
+  const source = fromHistory.length
+    ? fromHistory
+    : (lead.emailThreads || []).filter((item) => !isIgnoredEmail(item));
+  return source.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
 
 export default function TodayPage() {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -304,77 +325,7 @@ function AuditCallRow({
 function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => void }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [subject, setSubject] = useState(item.draft.subject);
-  const [body, setBody] = useState(item.draft.body);
-  const [draftSource, setDraftSource] = useState(item.draft.source);
-  const [drafting, setDrafting] = useState(false);
-  const [edited, setEdited] = useState(false);
-
-  useEffect(() => {
-    if (!open || edited || draftSource === "closed-won") return;
-    let cancelled = false;
-    setDrafting(true);
-    fetch(`/api/email/draft/${item.lead.id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cadence: item.cadence }),
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "Failed to draft");
-        return data as { subject: string; body: string; source?: "closed-won" | "template" };
-      })
-      .then((draft) => {
-        if (cancelled || edited) return;
-        setSubject(draft.subject);
-        setBody(draft.body);
-        setDraftSource(draft.source || "closed-won");
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          toast({ title: "Draft stayed on template", description: error.message, variant: "destructive" });
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setDrafting(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, item.lead.id, item.cadence]);
-
-  const send = useMutation({
-    mutationFn: async () => {
-      if (!item.lead.email) throw new Error("This lead has no email address");
-      const res = await fetch("/api/email/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: item.lead.email,
-          subject,
-          body,
-          leadId: item.lead.id,
-          cadence: item.cadence,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to send");
-      return data;
-    },
-    onSuccess: (data) => {
-      toast({
-        title: data.mocked ? "Logged (not sent)" : "Sent",
-        description: data.mocked
-          ? `Saved to ${item.lead.name}'s timeline. Real send happens on Replit.`
-          : `Sent to ${item.lead.email}`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["today-focus"] });
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Could not send", description: error.message, variant: "destructive" });
-    },
-  });
+  const emails = emailsForLead(item.lead);
 
   const dismiss = useMutation({
     mutationFn: async () => {
@@ -443,63 +394,79 @@ function QueueRow({ item, onOpenLead }: { item: TodayItem; onOpenLead: () => voi
       </div>
 
       {open && (
-        <div className="border-t border-border p-4 space-y-3">
+        <div className="border-t border-border p-4 space-y-5">
           <NextStepTeach lead={item.lead} />
-          {item.lead.summary && (
-            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-4">
-              {item.lead.summary}
-            </p>
-          )}
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Subject</label>
-            <Input
-              value={subject}
-              onChange={(e) => {
-                setEdited(true);
-                setSubject(e.target.value);
-              }}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Draft {drafting ? "· writing…" : draftSource === "closed-won" ? "· from Closed emails" : "· template"}
-            </label>
-            <Textarea
-              value={body}
-              onChange={(e) => {
-                setEdited(true);
-                setBody(e.target.value);
-              }}
-              className="min-h-[200px] resize-none font-mono text-sm"
-            />
-          </div>
-          <div className="flex items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-3">
-              {item.lead.email ? (
+          <section className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <PlayCircle className="h-3.5 w-3.5" />
+                Fathom call summary
+              </h3>
+              {item.lead.recordingLink && (
                 <a
-                  href={gmailSearchUrl(item.lead.email)}
+                  href={item.lead.recordingLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
                 >
-                  Open in Gmail
+                  View recording <ExternalLink className="h-3 w-3" />
                 </a>
-              ) : (
-                <span className="text-xs text-muted-foreground">No email</span>
               )}
-              {item.lead.email && <RoastResumeLink email={item.lead.email} />}
-              <button
-                type="button"
-                onClick={onOpenLead}
+            </div>
+            {item.lead.summary ? (
+              <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                {item.lead.summary}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">No Fathom notes on this card yet.</p>
+            )}
+          </section>
+          <section className="space-y-3">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Email exchanges
+            </h3>
+            {emails.length > 0 ? (
+              <div className="space-y-4 border-l-2 border-muted pl-4 ml-1">
+                {emails.map((email, i) => (
+                  <div key={`${email.gmailThreadId || email.date}-${i}`} className="relative">
+                    <div className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-background bg-primary" />
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      {email.direction === "in" ? "Received" : "Sent"}
+                    </p>
+                    <p className="text-sm font-medium text-foreground">{email.subject || email.action}</p>
+                    {email.summary && (
+                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">{email.summary}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">{format(new Date(email.date), "MMM d, h:mm a")}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No emails on this card yet.</p>
+            )}
+          </section>
+          <div className="flex items-center gap-3 pt-1">
+            {item.lead.email ? (
+              <a
+                href={gmailSearchUrl(item.lead.email)}
+                target="_blank"
+                rel="noreferrer"
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
-                CRM card
-              </button>
-            </div>
-            <Button onClick={() => send.mutate()} disabled={send.isPending || !item.lead.email} className="gap-2">
-              {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {send.isPending ? "Sending…" : "Send"}
-            </Button>
+                Open in Gmail
+              </a>
+            ) : (
+              <span className="text-xs text-muted-foreground">No email</span>
+            )}
+            {item.lead.email && <RoastResumeLink email={item.lead.email} />}
+            <button
+              type="button"
+              onClick={onOpenLead}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              CRM card
+            </button>
           </div>
         </div>
       )}
