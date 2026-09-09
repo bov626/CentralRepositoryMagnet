@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeadSchema, insertBlockerSchema, insertOnboardingSubmissionSchema } from "@shared/schema";
 import { z } from "zod";
-import { getUpcomingEvents, createEvent, denverWeekBounds, denverWeekDays, denverWeekRangeLabel, listSalesCallsBetween, matchCallsToLeads, probeCalendarConnection, calendarReconnectUrl } from "./google-calendar";
+import { getUpcomingEvents, createEvent, denverWeekBounds, denverWeekDays, denverWeekRangeLabel, listSalesCallsBetween, matchCallsToLeads, probeCalendarConnection } from "./google-calendar";
 import { listMeetings, isFathomConfigured } from "./fathom";
 import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
 import { ensureEmailSync, emailSyncStatus, recordOutboundEmail, syncLeadEmails } from "./email-sync";
@@ -71,6 +71,7 @@ async function loadTodayCalls(
     closeRate: 0,
     weeksAgo: offset,
     rangeLabel: "",
+    error: "",
     days: denverWeekDays(new Date(), offset),
     weekEvents: [] as Array<{
       id: string;
@@ -138,7 +139,10 @@ async function loadTodayCalls(
     };
   } catch (error) {
     console.error("Calendar calls for Today failed", error);
-    return empty;
+    return {
+      ...empty,
+      error: error instanceof Error ? error.message : "Google Calendar failed",
+    };
   }
 }
 
@@ -395,7 +399,6 @@ export async function registerRoutes(
     res.json({
       ok: false,
       error: result.error,
-      connectUrl: calendarReconnectUrl(),
     });
   });
 

@@ -1,14 +1,52 @@
 // Google Calendar Integration
-import { google } from 'googleapis';
+import { google } from "googleapis";
 
 let connectionSettings: any;
 
+type ReplitToken = { header: string; label: string };
+
+function replitAuthTokens(): ReplitToken[] {
+  const tokens: ReplitToken[] = [];
+  if (process.env.REPL_IDENTITY) tokens.push({ header: "repl " + process.env.REPL_IDENTITY, label: "workspace" });
+  if (process.env.WEB_REPL_RENEWAL) tokens.push({ header: "depl " + process.env.WEB_REPL_RENEWAL, label: "publish" });
+  return tokens;
+}
+
+function connectorNameOf(conn: any): string {
+  return String(conn?.connector_name || conn?.connectorName || conn?.name || conn?.connector || "").toLowerCase();
+}
+
+function looksLikeCalendar(conn: any): boolean {
+  const name = connectorNameOf(conn);
+  return name.includes("calendar") || name.includes("google-workspace") || name.includes("google_workspace");
+}
+
 function calendarAccessToken(settings: any): string | null {
+  const s = settings?.settings || settings || {};
+  const oauth = s.oauth || {};
+  const creds = oauth.credentials || s.credentials || {};
+  const token = s.token || {};
   return (
-    settings?.settings?.access_token ||
-    settings?.settings?.oauth?.credentials?.access_token ||
+    s.access_token ||
+    oauth.access_token ||
+    creds.access_token ||
+    token.access_token ||
+    s.accessToken ||
     null
   );
+}
+
+function calendarExpiresAt(settings: any): Date | null {
+  const s = settings?.settings || settings || {};
+  const raw = s.expires_at || s.expiresAt || s.oauth?.credentials?.expiry_date || s.oauth?.expires_at;
+  if (raw == null || raw === "") return null;
+  if (typeof raw === "number") {
+    const ms = raw < 1e12 ? raw * 1000 : raw;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 export function resetCalendarConnection() {
@@ -19,44 +57,78 @@ export function calendarReconnectUrl(): string {
   return "https://replit.com/integrations";
 }
 
+async function listReplitConnections(auth: ReplitToken, query: string): Promise<any[]> {
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME || "connectors.replit.com";
+  const res = await fetch(`https://${hostname}/api/v2/connection?include_secrets=true${query}`, {
+    headers: {
+      Accept: "application/json",
+      X_REPLIT_TOKEN: auth.header,
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || data.error || `Calendar connector HTTP ${res.status}`);
+  }
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+async function loadCalendarConnection(): Promise<{ conn: any; via: string }> {
+  const auths = replitAuthTokens();
+  if (!auths.length) {
+    throw new Error("This published app has no Replit identity, so it cannot read Calendar.");
+  }
+
+  const queries = [
+    "&connector_names=google-calendar",
+    "&connector_names=google-workspace",
+    "",
+  ];
+  const seen: string[] = [];
+  let lastError = "";
+
+  for (const auth of auths) {
+    for (const query of queries) {
+      try {
+        const items = await listReplitConnections(auth, query);
+        for (const item of items) {
+          const name = connectorNameOf(item) || "unnamed";
+          if (!seen.includes(`${auth.label}:${name}`)) seen.push(`${auth.label}:${name}`);
+        }
+        const match =
+          items.find((item) => looksLikeCalendar(item) && calendarAccessToken(item)) ||
+          items.find((item) => looksLikeCalendar(item)) ||
+          (query.includes("google-calendar") ? items[0] : undefined);
+        if (match && calendarAccessToken(match)) {
+          return { conn: match, via: `${auth.label}:${connectorNameOf(match) || "google-calendar"}` };
+        }
+      } catch (error: any) {
+        lastError = error?.message || String(error);
+      }
+    }
+  }
+
+  const found = seen.length ? `Saw ${seen.join(", ")}.` : "Replit returned no connectors for this app.";
+  throw new Error(
+    lastError
+      ? `${lastError} ${found}`
+      : `Google Calendar is connected in Replit, but this app did not get a Calendar token. ${found}`,
+  );
+}
+
 async function getAccessToken() {
-  if (
+  const stillGood =
     connectionSettings &&
     calendarAccessToken(connectionSettings) &&
-    connectionSettings.settings?.expires_at &&
-    new Date(connectionSettings.settings.expires_at).getTime() > Date.now()
-  ) {
-    return calendarAccessToken(connectionSettings);
-  }
+    calendarExpiresAt(connectionSettings) &&
+    calendarExpiresAt(connectionSettings)!.getTime() - Date.now() > 2 * 60 * 1000;
+  if (stillGood) return calendarAccessToken(connectionSettings);
 
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY
-    ? "repl " + process.env.REPL_IDENTITY
-    : process.env.WEB_REPL_RENEWAL
-      ? "depl " + process.env.WEB_REPL_RENEWAL
-      : null;
-
-  if (!hostname || !xReplitToken) {
-    throw new Error("X_REPLIT_TOKEN not found for repl/depl");
-  }
-
-  connectionSettings = await fetch(
-    "https://" + hostname + "/api/v2/connection?include_secrets=true&connector_names=google-calendar",
-    {
-      headers: {
-        Accept: "application/json",
-        X_REPLIT_TOKEN: xReplitToken,
-      },
-    },
-  )
-    .then((res) => res.json())
-    .then((data) => data.items?.[0]);
-
+  const { conn } = await loadCalendarConnection();
+  connectionSettings = conn;
   const accessToken = calendarAccessToken(connectionSettings);
-
-  if (!connectionSettings || !accessToken) {
+  if (!accessToken) {
     connectionSettings = null;
-    throw new Error("Google Calendar not connected");
+    throw new Error("Google Calendar connection is missing an access token.");
   }
   return accessToken;
 }
@@ -78,10 +150,18 @@ export async function probeCalendarConnection(): Promise<{ ok: true } | { ok: fa
   resetCalendarConnection();
   try {
     const calendar = await getGoogleCalendarClient();
-    await calendar.calendarList.list({ maxResults: 1 });
+    const now = new Date();
+    await calendar.events.list({
+      calendarId: "primary",
+      timeMin: now.toISOString(),
+      timeMax: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
+      maxResults: 1,
+      singleEvents: true,
+    });
     return { ok: true };
   } catch (error: any) {
-    return { ok: false, error: error?.message || "Google Calendar is not connected" };
+    const googleMessage = error?.response?.data?.error?.message || error?.message;
+    return { ok: false, error: googleMessage || "Google Calendar is not connected" };
   }
 }
 
@@ -238,29 +318,45 @@ export async function listRecentMatchedCalls(
     .map((event) => ({ leadId: event.leadId, start: event.start }));
 }
 
-export async function listSalesCallsBetween(start: Date, end: Date): Promise<SalesCall[]> {
-  const calendar = await getGoogleCalendarClient();
-  const response = await calendar.events.list({
-    calendarId: "primary",
-    timeMin: start.toISOString(),
-    timeMax: end.toISOString(),
-    maxResults: 150,
-    singleEvents: true,
-    orderBy: "startTime",
-  });
+function isGoogleAuthError(error: any): boolean {
+  const status = error?.code || error?.status || error?.response?.status;
+  const message = String(error?.message || "").toLowerCase();
+  return status === 401 || status === 403 || message.includes("invalid_grant") || message.includes("invalid credentials");
+}
 
-  return (response.data.items || [])
-    .filter((event) => isTimedMeeting(event))
-    .map((event) => ({
-      id: event.id || `${event.start?.dateTime}-${event.summary}`,
-      title: event.summary || "Call",
-      start: event.start?.dateTime || "",
-      recurringEventId: event.recurringEventId || null,
-      attendees: (event.attendees || [])
-        .filter((a) => !a.self && !isWilsonEmail(a.email))
-        .map((a) => ({ name: a.displayName || null, email: a.email || null })),
-    }))
-    .filter((event) => event.attendees.length > 0);
+export async function listSalesCallsBetween(start: Date, end: Date): Promise<SalesCall[]> {
+  const run = async () => {
+    const calendar = await getGoogleCalendarClient();
+    const response = await calendar.events.list({
+      calendarId: "primary",
+      timeMin: start.toISOString(),
+      timeMax: end.toISOString(),
+      maxResults: 150,
+      singleEvents: true,
+      orderBy: "startTime",
+    });
+
+    return (response.data.items || [])
+      .filter((event) => isTimedMeeting(event))
+      .map((event) => ({
+        id: event.id || `${event.start?.dateTime}-${event.summary}`,
+        title: event.summary || "Call",
+        start: event.start?.dateTime || "",
+        recurringEventId: event.recurringEventId || null,
+        attendees: (event.attendees || [])
+          .filter((a) => !a.self && !isWilsonEmail(a.email))
+          .map((a) => ({ name: a.displayName || null, email: a.email || null })),
+      }))
+      .filter((event) => event.attendees.length > 0);
+  };
+
+  try {
+    return await run();
+  } catch (error) {
+    if (!isGoogleAuthError(error)) throw error;
+    resetCalendarConnection();
+    return await run();
+  }
 }
 
 export async function getUpcomingEvents(maxResults: number = 20) {

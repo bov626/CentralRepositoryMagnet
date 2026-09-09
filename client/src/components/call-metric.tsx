@@ -31,6 +31,7 @@ export type CallStats = {
   closeRate?: number;
   weeksAgo?: number;
   rangeLabel?: string;
+  error?: string;
   days?: WeekDay[];
   weekEvents?: TodayCall[];
   todayEvents?: TodayCall[];
@@ -63,7 +64,7 @@ function ReconnectCalendarButton() {
       const res = await fetch("/api/calendar/reconnect", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Could not check Calendar");
-      return data as { ok: boolean; connectUrl?: string; error?: string };
+      return data as { ok: boolean; error?: string };
     },
     onSuccess: (data) => {
       if (data.ok) {
@@ -72,15 +73,14 @@ function ReconnectCalendarButton() {
         toast({ title: "Calendar connected" });
         return;
       }
-      const url = data.connectUrl || "https://replit.com/integrations";
-      window.open(url, "_blank", "noopener,noreferrer");
       toast({
-        title: "Reconnect on Replit",
-        description: "Connect Google Calendar, then click this button again.",
+        title: "Calendar still failing",
+        description: data.error || "The Replit Calendar connector did not give this app a token.",
+        variant: "destructive",
       });
     },
     onError: (error: Error) => {
-      toast({ title: "Could not reconnect", description: error.message, variant: "destructive" });
+      toast({ title: "Could not retry Calendar", description: error.message, variant: "destructive" });
     },
   });
 
@@ -92,7 +92,7 @@ function ReconnectCalendarButton() {
       className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50 disabled:opacity-50"
     >
       {reconnect.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calendar className="h-3.5 w-3.5" />}
-      {reconnect.isPending ? "Checking…" : "Reconnect Calendar"}
+      {reconnect.isPending ? "Checking…" : "Retry Calendar"}
     </button>
   );
 }
@@ -155,6 +155,9 @@ export function CallMetric({
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Calls</p>
           <p className="text-sm text-muted-foreground mt-1">Google Calendar is not connected.</p>
+          {calls.error && (
+            <p className="text-xs text-muted-foreground mt-1 max-w-xl leading-relaxed">{calls.error}</p>
+          )}
         </div>
         <ReconnectCalendarButton />
       </div>
