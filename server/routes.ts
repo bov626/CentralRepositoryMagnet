@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeadSchema, insertBlockerSchema, insertOnboardingSubmissionSchema } from "@shared/schema";
 import { z } from "zod";
-import { getUpcomingEvents, createEvent, denverWeekBounds, denverWeekDays, denverWeekRangeLabel, listSalesCallsBetween, matchCallsToLeads } from "./google-calendar";
+import { getUpcomingEvents, createEvent, denverWeekBounds, denverWeekDays, denverWeekRangeLabel, listSalesCallsBetween, matchCallsToLeads, probeCalendarConnection, calendarReconnectUrl } from "./google-calendar";
 import { listMeetings, isFathomConfigured } from "./fathom";
 import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
 import { ensureEmailSync, emailSyncStatus, recordOutboundEmail, syncLeadEmails } from "./email-sync";
@@ -387,6 +387,16 @@ export async function registerRoutes(
       console.error("Error loading calls week:", error);
       res.status(500).json({ error: "Failed to load calls week" });
     }
+  });
+
+  app.post("/api/calendar/reconnect", async (_req, res) => {
+    const result = await probeCalendarConnection();
+    if (result.ok) return res.json({ ok: true });
+    res.json({
+      ok: false,
+      error: result.error,
+      connectUrl: calendarReconnectUrl(),
+    });
   });
 
   app.post("/api/calls/dismiss", async (req, res) => {

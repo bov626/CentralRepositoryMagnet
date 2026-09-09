@@ -3,36 +3,60 @@ import { google } from 'googleapis';
 
 let connectionSettings: any;
 
-async function getAccessToken() {
-  if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
-    return connectionSettings.settings.access_token;
-  }
-  
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME
-  const xReplitToken = process.env.REPL_IDENTITY 
-    ? 'repl ' + process.env.REPL_IDENTITY 
-    : process.env.WEB_REPL_RENEWAL 
-    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
-    : null;
+function calendarAccessToken(settings: any): string | null {
+  return (
+    settings?.settings?.access_token ||
+    settings?.settings?.oauth?.credentials?.access_token ||
+    null
+  );
+}
 
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+export function resetCalendarConnection() {
+  connectionSettings = null;
+}
+
+export function calendarReconnectUrl(): string {
+  return "https://replit.com/integrations";
+}
+
+async function getAccessToken() {
+  if (
+    connectionSettings &&
+    calendarAccessToken(connectionSettings) &&
+    connectionSettings.settings?.expires_at &&
+    new Date(connectionSettings.settings.expires_at).getTime() > Date.now()
+  ) {
+    return calendarAccessToken(connectionSettings);
+  }
+
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY
+    ? "repl " + process.env.REPL_IDENTITY
+    : process.env.WEB_REPL_RENEWAL
+      ? "depl " + process.env.WEB_REPL_RENEWAL
+      : null;
+
+  if (!hostname || !xReplitToken) {
+    throw new Error("X_REPLIT_TOKEN not found for repl/depl");
   }
 
   connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=google-calendar',
+    "https://" + hostname + "/api/v2/connection?include_secrets=true&connector_names=google-calendar",
     {
       headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
-      }
-    }
-  ).then(res => res.json()).then(data => data.items?.[0]);
+        Accept: "application/json",
+        X_REPLIT_TOKEN: xReplitToken,
+      },
+    },
+  )
+    .then((res) => res.json())
+    .then((data) => data.items?.[0]);
 
-  const accessToken = connectionSettings?.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
+  const accessToken = calendarAccessToken(connectionSettings);
 
   if (!connectionSettings || !accessToken) {
-    throw new Error('Google Calendar not connected');
+    connectionSettings = null;
+    throw new Error("Google Calendar not connected");
   }
   return accessToken;
 }
@@ -47,7 +71,18 @@ export async function getGoogleCalendarClient() {
     access_token: accessToken
   });
 
-  return google.calendar({ version: 'v3', auth: oauth2Client });
+  return google.calendar({ version: "v3", auth: oauth2Client });
+}
+
+export async function probeCalendarConnection(): Promise<{ ok: true } | { ok: false; error: string }> {
+  resetCalendarConnection();
+  try {
+    const calendar = await getGoogleCalendarClient();
+    await calendar.calendarList.list({ maxResults: 1 });
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error?.message || "Google Calendar is not connected" };
+  }
 }
 
 const DENVER = "America/Denver";

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -56,6 +56,47 @@ function callLabel(event: TodayCall): string {
   return event.title;
 }
 
+function ReconnectCalendarButton() {
+  const queryClient = useQueryClient();
+  const reconnect = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/calendar/reconnect", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Could not check Calendar");
+      return data as { ok: boolean; connectUrl?: string; error?: string };
+    },
+    onSuccess: (data) => {
+      if (data.ok) {
+        queryClient.invalidateQueries({ queryKey: ["today-focus"] });
+        queryClient.invalidateQueries({ queryKey: ["calls-week"] });
+        toast({ title: "Calendar connected" });
+        return;
+      }
+      const url = data.connectUrl || "https://replit.com/integrations";
+      window.open(url, "_blank", "noopener,noreferrer");
+      toast({
+        title: "Reconnect on Replit",
+        description: "Connect Google Calendar, then click this button again.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Could not reconnect", description: error.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={() => reconnect.mutate()}
+      disabled={reconnect.isPending}
+      className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50 disabled:opacity-50"
+    >
+      {reconnect.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calendar className="h-3.5 w-3.5" />}
+      {reconnect.isPending ? "Checking…" : "Reconnect Calendar"}
+    </button>
+  );
+}
+
 export function CallMetric({
   calls,
   onOpenLead,
@@ -110,9 +151,12 @@ export function CallMetric({
 
   if (!calls.configured) {
     return (
-      <div className="rounded-md border border-dashed border-border px-4 py-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Calls</p>
-        <p className="text-sm text-muted-foreground mt-1">Google Calendar is not connected.</p>
+      <div className="rounded-md border border-dashed border-border px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Calls</p>
+          <p className="text-sm text-muted-foreground mt-1">Google Calendar is not connected.</p>
+        </div>
+        <ReconnectCalendarButton />
       </div>
     );
   }

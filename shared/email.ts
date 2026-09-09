@@ -244,6 +244,8 @@ export function unansweredInboundDue(
   if (!theyEmailedLast(lead)) return NOT_DUE;
   const lastIn = lastInboundAt(lead);
   if (!lastIn) return NOT_DUE;
+  const dismissedAt = parseDate(lead.queueDismissedAt);
+  if (dismissedAt && lastIn.getTime() <= dismissedAt.getTime()) return NOT_DUE;
   const hours = (now.getTime() - lastIn.getTime()) / (60 * 60 * 1000);
   if (hours < 24) return NOT_DUE;
   return {
