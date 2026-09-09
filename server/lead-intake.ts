@@ -127,6 +127,10 @@ export async function ingestFathomMeetingData(meeting: FathomMeeting): Promise<{
     return { lead: updated!, created: false, moved };
   }
 
+  if (await storage.isRejectedLead({ email, fathomRecordingId: meeting.recording_id })) {
+    throw new Error("rejected-lead");
+  }
+
   const stage = stageAfterCall(null, intent);
   const created = await storage.createLead({
     name: leadData.name,
@@ -173,11 +177,23 @@ export async function autoImportFathomCalls(): Promise<{ imported: number; skipp
       skipped++;
       continue;
     }
+    const email = extractLeadDataFromMeeting(meeting).email;
+    const existingByEmail = email ? await storage.getLeadByEmail(email) : undefined;
+    if (
+      !already &&
+      !existingByEmail &&
+      (await storage.isRejectedLead({ email, fathomRecordingId: meeting.recording_id }))
+    ) {
+      skipped++;
+      continue;
+    }
     try {
       await ingestFathomMeetingData(meeting);
       imported++;
-    } catch (error) {
-      console.error(`Fathom auto-import failed for ${meeting.recording_id}:`, error);
+    } catch (error: any) {
+      if (error?.message !== "rejected-lead") {
+        console.error(`Fathom auto-import failed for ${meeting.recording_id}:`, error);
+      }
       skipped++;
     }
   }
@@ -224,6 +240,10 @@ export async function ingestAuditLead(input: {
       history: [...history, { date: new Date().toISOString(), action: "Audit received" }],
     });
     return { lead: updated!, created: false };
+  }
+
+  if (email && (await storage.isRejectedLead({ email }))) {
+    throw new Error("rejected-lead");
   }
 
   const lead = await storage.createLead({
@@ -286,6 +306,10 @@ export async function ingestSkoolMember(input: {
     }
     const updated = await storage.updateLead(existing.id, updates);
     return { lead: updated!, created: false };
+  }
+
+  if (email && (await storage.isRejectedLead({ email }))) {
+    throw new Error("rejected-lead");
   }
 
   const lead = await storage.createLead({

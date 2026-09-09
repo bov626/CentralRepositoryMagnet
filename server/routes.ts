@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeadSchema, insertBlockerSchema, insertOnboardingSubmissionSchema } from "@shared/schema";
 import { z } from "zod";
-import { getUpcomingEvents, createEvent, denverWeekBounds, denverWeekDays, listSalesCallsBetween, matchCallsToLeads } from "./google-calendar";
+import { getUpcomingEvents, createEvent, denverWeekBounds, denverWeekDays, denverWeekRangeLabel, listSalesCallsBetween, matchCallsToLeads } from "./google-calendar";
 import { listMeetings, isFathomConfigured } from "./fathom";
 import { sendEmail, isGmailConfigured, searchEmails } from "./gmail";
 import { ensureEmailSync, emailSyncStatus, recordOutboundEmail, syncLeadEmails } from "./email-sync";
@@ -12,7 +12,7 @@ import { draftEmailForLead, templateDraftForLead } from "./email-draft";
 import { runNightlyJobs, sendSalesFocusEmail } from "./jobs";
 import { autoFollowedUpStage, buildTodayQueue, dueToday, type CadenceKind } from "@shared/email";
 import { parseAuditScore } from "@shared/audit";
-import { buildMoneyView } from "@shared/money";
+import { buildMoneyView, isSoldLead } from "@shared/money";
 import { isStripeConfigured, jumpseatPaidHistory } from "./stripe";
 import {
   autoImportFathomCalls,
@@ -59,13 +59,19 @@ function verifyToken(token: string, secret: string): { exp: number } | null {
 
 async function loadTodayCalls(
   _allLeads: Awaited<ReturnType<typeof storage.getAllLeads>>,
-  leadsByEmail: Map<string, { id: string; name: string }>,
+  leadsByEmail: Map<string, { id: string; name: string; sold?: boolean }>,
+  weeksAgo = 0,
 ) {
+  const offset = Math.max(0, Math.min(26, weeksAgo));
   const empty = {
     configured: false,
     today: 0,
     week: 0,
-    days: denverWeekDays(),
+    sold: 0,
+    closeRate: 0,
+    weeksAgo: offset,
+    rangeLabel: "",
+    days: denverWeekDays(new Date(), offset),
     weekEvents: [] as Array<{
       id: string;
       title: string;
@@ -75,14 +81,17 @@ async function loadTodayCalls(
       attendees: Array<{ name?: string | null; email?: string | null }>;
       leadId?: string | null;
       leadName?: string | null;
+      sold?: boolean;
     }>,
     recentPastCalls: [] as Array<{ leadId: string; start: string }>,
   };
   try {
     const now = new Date();
-    const bounds = denverWeekBounds(now);
+    const bounds = denverWeekBounds(now, offset);
     const lookback = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const fetchStart = lookback.getTime() < bounds.start.getTime() ? lookback : bounds.start;
+    const fetchStart = offset === 0 && lookback.getTime() < bounds.start.getTime()
+      ? lookback
+      : bounds.start;
     let dismissed: Array<{ eventId: string; recurringEventId: string | null }> = [];
     try {
       dismissed = await storage.getDismissedCalendarEvents();
@@ -104,19 +113,26 @@ async function loadTodayCalls(
       const start = new Date(event.start);
       return start >= bounds.start && start < bounds.end;
     });
-    const recentPastCalls = matched
-      .filter((event): event is typeof event & { leadId: string } => {
-        if (!event.leadId) return false;
-        const start = new Date(event.start);
-        return start <= now && start >= lookback;
-      })
-      .map((event) => ({ leadId: event.leadId, start: event.start }));
-    const todayKey = denverWeekDays(now).find((d) => d.isToday)?.key;
+    const recentPastCalls = offset === 0
+      ? matched
+          .filter((event): event is typeof event & { leadId: string } => {
+            if (!event.leadId) return false;
+            const start = new Date(event.start);
+            return start <= now && start >= lookback;
+          })
+          .map((event) => ({ leadId: event.leadId, start: event.start }))
+      : [];
+    const todayKey = denverWeekDays(now, offset).find((d) => d.isToday)?.key;
+    const sold = weekEvents.filter((event) => event.sold).length;
     return {
       configured: true,
       today: weekEvents.filter((event) => event.dayKey === todayKey).length,
       week: weekEvents.length,
-      days: denverWeekDays(now),
+      sold,
+      closeRate: weekEvents.length ? Math.round((sold / weekEvents.length) * 100) : 0,
+      weeksAgo: offset,
+      rangeLabel: denverWeekRangeLabel(bounds.start, bounds.end),
+      days: denverWeekDays(now, offset),
       weekEvents,
       recentPastCalls,
     };
@@ -198,6 +214,9 @@ export async function registerRoutes(
       });
       res.status(result.created ? 201 : 200).json(result);
     } catch (error: any) {
+      if (error?.message === "rejected-lead") {
+        return res.status(200).json({ created: false, skipped: true });
+      }
       res.status(500).json({ error: error.message || "Failed to ingest Skool member" });
     }
   }
@@ -351,6 +370,25 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/calls/week", async (req, res) => {
+    try {
+      const weeksAgo = Math.max(0, Math.min(26, Number(req.query.weeksAgo) || 0));
+      const allLeads = await storage.getAllLeads();
+      const leadsByEmail = new Map(
+        allLeads
+          .filter((lead) => lead.email)
+          .map((lead) => [
+            lead.email!.trim().toLowerCase(),
+            { id: lead.id, name: lead.name, sold: isSoldLead(lead) },
+          ]),
+      );
+      res.json(await loadTodayCalls(allLeads, leadsByEmail, weeksAgo));
+    } catch (error) {
+      console.error("Error loading calls week:", error);
+      res.status(500).json({ error: "Failed to load calls week" });
+    }
+  });
+
   app.post("/api/calls/dismiss", async (req, res) => {
     try {
       const eventId = String(req.body?.eventId || "").trim();
@@ -369,10 +407,12 @@ export async function registerRoutes(
 
   app.delete("/api/leads/:id", async (req, res) => {
     try {
-      const success = await storage.deleteLead(req.params.id);
-      if (!success) {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
         return res.status(404).json({ error: "Lead not found" });
       }
+      await storage.rejectLead(lead);
+      await storage.deleteLead(lead.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting lead:", error);
@@ -476,6 +516,9 @@ export async function registerRoutes(
       const result = await ingestFathomMeeting(recordingId);
       res.status(result.created ? 201 : 200).json(result.lead);
     } catch (error: any) {
+      if (error?.message === "rejected-lead") {
+        return res.status(200).json({ created: false, skipped: true });
+      }
       console.error("Error importing from Fathom:", error);
       res.status(500).json({ error: error.message || "Failed to import meeting" });
     }
@@ -525,6 +568,9 @@ export async function registerRoutes(
       });
       res.status(result.created ? 201 : 200).json(result);
     } catch (error: any) {
+      if (error?.message === "rejected-lead") {
+        return res.status(200).json({ created: false, skipped: true });
+      }
       res.status(500).json({ error: error.message || "Failed to ingest audit" });
     }
   });
@@ -551,6 +597,10 @@ export async function registerRoutes(
         const existingByEvent = event.id ? await storage.getLeadByCalendarEventId(event.id) : null;
         
         if (existingByEmail || existingByEvent) {
+          skippedCount.existing++;
+          continue;
+        }
+        if (await storage.isRejectedLead({ email: externalAttendee.email, calendarEventId: event.id })) {
           skippedCount.existing++;
           continue;
         }
@@ -752,7 +802,7 @@ export async function registerRoutes(
           .filter((lead) => lead.email)
           .map((lead) => [
             lead.email!.trim().toLowerCase(),
-            { id: lead.id, name: lead.name },
+            { id: lead.id, name: lead.name, sold: isSoldLead(lead) },
           ]),
       );
 

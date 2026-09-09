@@ -293,7 +293,7 @@ export async function searchThreadsForLead(leadEmail: string): Promise<{
   draftThreadIds: string[];
 }> {
   const gmail = await getUncachableGmailClient();
-  const query = `${leadEmail} -in:spam -in:trash -in:drafts -is:draft`;
+  const query = `${leadEmail} -in:spam -in:trash -in:drafts -is:draft -subject:"Sales Focus Email"`;
   const ids: string[] = [];
   let pageToken: string | undefined;
   do {

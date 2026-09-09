@@ -38,6 +38,8 @@ function appUrl(): string {
   return "http://localhost:5000";
 }
 
+const SALES_FOCUS_JOB = "sales-focus-email";
+
 let lastSyncDay = "";
 let lastFocusDay = "";
 
@@ -47,55 +49,74 @@ export async function sendSalesFocusEmail(): Promise<{ sent: boolean; count: num
     return { sent: false, count: 0, skipped: true };
   }
 
-  const leads = await storage.getAllLeads();
-  const leadsByEmail = new Map(
-    leads
-      .filter((lead) => lead.email)
-      .map((lead) => [lead.email!.trim().toLowerCase(), { id: lead.id, name: lead.name }]),
-  );
-  const recentCalls = await listRecentMatchedCalls(leadsByEmail).catch((error) => {
-    console.error("[jobs] recent calendar calls failed", error);
-    return [];
-  });
-  const { followUps, auditCalls } = buildTodayQueue(leads, recentCalls);
-  if (followUps.length === 0 && auditCalls.length === 0) {
+  let claimed = false;
+  try {
+    claimed = await storage.claimJobRun(SALES_FOCUS_JOB, dayKey);
+  } catch (error) {
+    console.error("[jobs] sales focus lock unavailable", error);
+    return { sent: false, count: 0, skipped: true };
+  }
+  if (!claimed) {
     lastFocusDay = dayKey;
-    return { sent: false, count: 0 };
+    return { sent: false, count: 0, skipped: true };
   }
+  lastFocusDay = dayKey;
 
-  const nameOf = (id: string | undefined) => leads.find((lead) => lead.id === id)?.name || "Lead";
-  const theyEmailed = followUps.filter((row) => row.priority === 0);
-  const missed = followUps.filter((row) => row.priority === 1);
-  const rest = followUps.filter((row) => row.priority > 1);
-  const parts = [];
-  if (theyEmailed.length) {
-    parts.push(
-      `${theyEmailed.length} ${theyEmailed.length === 1 ? "person emailed you" : "people emailed you"} with no reply.\n\n- ${theyEmailed.map((row) => nameOf(row.leadId)).join("\n- ")}`,
+  try {
+    const leads = await storage.getAllLeads();
+    const leadsByEmail = new Map(
+      leads
+        .filter((lead) => lead.email)
+        .map((lead) => [lead.email!.trim().toLowerCase(), { id: lead.id, name: lead.name }]),
     );
-  }
-  if (missed.length) {
-    parts.push(
-      `${missed.length} call${missed.length === 1 ? "" : "s"} with no follow-up email.\n\n- ${missed.map((row) => nameOf(row.leadId)).join("\n- ")}`,
-    );
-  }
-  if (rest.length) {
-    parts.push(
-      `${rest.length} follow-up${rest.length === 1 ? "" : "s"} today.\n\n- ${rest.map((row) => nameOf(row.leadId)).join("\n- ")}`,
-    );
-  }
-  if (auditCalls.length) {
-    parts.push(
-      `Call ${auditCalls.length} audit completer${auditCalls.length === 1 ? "" : "s"} for feedback.\n\n- ${auditCalls.map((lead) => nameOf(lead.id)).join("\n- ")}`,
-    );
-  }
-  const body = `${parts.join("\n\n")}
+    const recentCalls = await listRecentMatchedCalls(leadsByEmail).catch((error) => {
+      console.error("[jobs] recent calendar calls failed", error);
+      return [];
+    });
+    const { followUps, auditCalls } = buildTodayQueue(leads, recentCalls);
+    if (followUps.length === 0 && auditCalls.length === 0) {
+      return { sent: false, count: 0 };
+    }
+
+    const nameOf = (id: string | undefined) => leads.find((lead) => lead.id === id)?.name || "Lead";
+    const theyEmailed = followUps.filter((row) => row.priority === 0);
+    const missed = followUps.filter((row) => row.priority === 1);
+    const rest = followUps.filter((row) => row.priority > 1);
+    const parts = [];
+    if (theyEmailed.length) {
+      parts.push(
+        `${theyEmailed.length} ${theyEmailed.length === 1 ? "person emailed you" : "people emailed you"} with no reply.\n\n- ${theyEmailed.map((row) => nameOf(row.leadId)).join("\n- ")}`,
+      );
+    }
+    if (missed.length) {
+      parts.push(
+        `${missed.length} call${missed.length === 1 ? "" : "s"} with no follow-up email.\n\n- ${missed.map((row) => nameOf(row.leadId)).join("\n- ")}`,
+      );
+    }
+    if (rest.length) {
+      parts.push(
+        `${rest.length} follow-up${rest.length === 1 ? "" : "s"} today.\n\n- ${rest.map((row) => nameOf(row.leadId)).join("\n- ")}`,
+      );
+    }
+    if (auditCalls.length) {
+      parts.push(
+        `Call ${auditCalls.length} audit completer${auditCalls.length === 1 ? "" : "s"} for feedback.\n\n- ${auditCalls.map((lead) => nameOf(lead.id)).join("\n- ")}`,
+      );
+    }
+    const body = `${parts.join("\n\n")}
 
 Open Today's Focus:
 ${appUrl()}/today`;
 
-  await sendEmail("wyedoyoudothis@gmail.com", "Sales Focus Email", body);
-  lastFocusDay = dayKey;
-  return { sent: true, count: followUps.length + auditCalls.length };
+    await sendEmail("wyedoyoudothis@gmail.com", "Sales Focus Email", body);
+    return { sent: true, count: followUps.length + auditCalls.length };
+  } catch (error) {
+    lastFocusDay = "";
+    await storage.releaseJobRun(SALES_FOCUS_JOB, dayKey).catch((releaseError) => {
+      console.error("[jobs] sales focus lock release failed", releaseError);
+    });
+    throw error;
+  }
 }
 
 export async function runNightlyJobs() {

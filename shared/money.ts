@@ -63,6 +63,17 @@ export function communityBought(lead: MoneyLead): boolean {
   return lead.pipeline === "community" && lead.stage === "bought" && !lead.archived;
 }
 
+export function isSoldLead(lead: {
+  pipeline?: string | null;
+  stage?: string | null;
+  archived?: boolean | null;
+}): boolean {
+  if (lead.archived) return false;
+  if (lead.pipeline === "jumpseat" && lead.stage === "closed") return true;
+  if (lead.pipeline === "community" && lead.stage === "bought") return true;
+  return false;
+}
+
 export function boughtThisMonth(lead: MoneyLead, now = new Date()): boolean {
   if (!communityBought(lead)) return false;
   if (lead.boughtAt) return isThisMonth(lead.boughtAt, now);

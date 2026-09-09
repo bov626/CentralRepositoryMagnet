@@ -42,4 +42,31 @@ export async function ensureLeadColumns(): Promise<void> {
   } catch (error) {
     console.error("[startup] dismissed_calendar_events table skipped", error);
   }
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS rejected_leads (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        email text UNIQUE,
+        fathom_recording_id integer,
+        calendar_event_id text,
+        name text,
+        rejected_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+  } catch (error) {
+    console.error("[startup] rejected_leads table skipped", error);
+  }
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS job_runs (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        job text NOT NULL,
+        day_key text NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now(),
+        UNIQUE (job, day_key)
+      )
+    `);
+  } catch (error) {
+    console.error("[startup] job_runs table skipped", error);
+  }
 }

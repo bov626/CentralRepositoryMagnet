@@ -1,5 +1,6 @@
-import { Loader2, X } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
@@ -12,6 +13,7 @@ export type TodayCall = {
   attendees: Array<{ name?: string | null; email?: string | null }>;
   leadId?: string | null;
   leadName?: string | null;
+  sold?: boolean;
 };
 
 export type WeekDay = {
@@ -25,6 +27,10 @@ export type CallStats = {
   configured: boolean;
   today: number;
   week: number;
+  sold?: number;
+  closeRate?: number;
+  weeksAgo?: number;
+  rangeLabel?: string;
   days?: WeekDay[];
   weekEvents?: TodayCall[];
   todayEvents?: TodayCall[];
@@ -58,8 +64,25 @@ export function CallMetric({
   onOpenLead: (leadId: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const days = calls.days || [];
-  const events = calls.weekEvents || calls.todayEvents || [];
+  const [weeksAgo, setWeeksAgo] = useState(0);
+
+  const { data: weekCalls, isFetching } = useQuery<CallStats>({
+    queryKey: ["calls-week", weeksAgo],
+    queryFn: async () => {
+      const res = await fetch(`/api/calls/week?weeksAgo=${weeksAgo}`);
+      if (!res.ok) throw new Error("Failed to load that week");
+      return res.json();
+    },
+    enabled: weeksAgo > 0,
+    placeholderData: (previous) => previous,
+  });
+
+  const view = weeksAgo === 0 ? calls : weekCalls;
+  const days = view?.days || [];
+  const events = view?.weekEvents || view?.todayEvents || [];
+  const sold = view?.sold ?? 0;
+  const week = view?.week ?? 0;
+  const closeRate = view?.closeRate ?? (week ? Math.round((sold / week) * 100) : 0);
 
   const dismiss = useMutation({
     mutationFn: async (event: TodayCall) => {
@@ -78,6 +101,7 @@ export function CallMetric({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["today-focus"] });
+      queryClient.invalidateQueries({ queryKey: ["calls-week"] });
     },
     onError: (error: Error) => {
       toast({ title: "Could not remove", description: error.message, variant: "destructive" });
@@ -96,14 +120,49 @@ export function CallMetric({
   return (
     <div className="space-y-2">
       <div className="flex items-baseline gap-6">
+        <div className="flex items-center gap-1 self-center">
+          <button
+            type="button"
+            onClick={() => setWeeksAgo((n) => Math.min(26, n + 1))}
+            disabled={weeksAgo >= 26 || isFetching}
+            title="Previous week"
+            aria-label="Previous week"
+            className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setWeeksAgo((n) => Math.max(0, n - 1))}
+            disabled={weeksAgo === 0 || isFetching}
+            title="Newer week"
+            aria-label="Newer week"
+            className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
         <p className="text-sm">
-          <span className="text-2xl font-bold tabular-nums">{calls.today}</span>
-          <span className="text-muted-foreground ml-2">today</span>
+          <span className={cn("text-2xl font-bold tabular-nums", sold > 0 && "text-emerald-400")}>
+            {sold}
+          </span>
+          <span className="text-muted-foreground ml-2">sold</span>
         </p>
         <p className="text-sm">
-          <span className="text-2xl font-bold tabular-nums">{calls.week}</span>
-          <span className="text-muted-foreground ml-2">this week</span>
+          <span className="text-2xl font-bold tabular-nums">{week}</span>
+          <span className="text-muted-foreground ml-2">{weeksAgo === 0 ? "this week" : "calls"}</span>
         </p>
+        <p className="text-sm">
+          <span className={cn("text-2xl font-bold tabular-nums", closeRate > 0 && "text-emerald-400")}>
+            {closeRate}%
+          </span>
+          <span className="text-muted-foreground ml-2">close</span>
+        </p>
+        {weeksAgo > 0 && view?.rangeLabel && (
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground self-center">
+            {isFetching ? "Loading…" : view.rangeLabel}
+          </span>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -134,7 +193,11 @@ export function CallMetric({
                     key={event.id}
                     className={cn(
                       "group flex items-start gap-0.5 rounded px-1 py-0.5",
-                      day.isToday ? "bg-red-500/15" : "bg-muted/50",
+                      event.sold
+                        ? "bg-emerald-500/20"
+                        : day.isToday
+                          ? "bg-red-500/15"
+                          : "bg-muted/50",
                     )}
                   >
                     <button
@@ -145,10 +208,20 @@ export function CallMetric({
                         event.leadId && "hover:text-primary",
                       )}
                     >
-                      <span className="block text-[10px] tabular-nums text-muted-foreground leading-tight">
+                      <span
+                        className={cn(
+                          "block text-[10px] tabular-nums leading-tight",
+                          event.sold ? "text-emerald-400/80" : "text-muted-foreground",
+                        )}
+                      >
                         {callTime(event.start)}
                       </span>
-                      <span className="block text-xs font-medium truncate leading-tight">
+                      <span
+                        className={cn(
+                          "block text-xs font-medium truncate leading-tight",
+                          event.sold && "text-emerald-300",
+                        )}
+                      >
                         {callLabel(event)}
                       </span>
                     </button>

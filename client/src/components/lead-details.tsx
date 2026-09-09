@@ -25,6 +25,7 @@ import { NextStepTeach } from "@/components/next-step-teach";
 import { auditScoreFromLead, jobTitleFromLead } from "@shared/audit";
 import { RoastResumeLink } from "@/components/roast-resume-link";
 import { CopyableEmail } from "@/components/copy-lead-email";
+import { isIgnoredEmail } from "@shared/email";
 
 interface LeadDetailsProps {
   leadId: string | null;
@@ -576,7 +577,7 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                       subject?: string;
                       summary?: string;
                       direction?: string;
-                    }>).slice().reverse().map((item, i) => (
+                    }>).filter((item) => !isIgnoredEmail(item)).slice().reverse().map((item, i) => (
                         <div key={i} className="relative">
                             <div className={`absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-background ${
                               item.type === "email" ? "bg-primary" : "bg-muted"

@@ -141,13 +141,14 @@ function latestDate(dates: Date[]): Date | null {
 function emailDates(lead: FollowUpLead, direction: EmailDirection): Date[] {
   const threads = Array.isArray(lead.emailThreads) ? (lead.emailThreads as EmailThread[]) : [];
   const fromThreads = threads
-    .filter((t) => t.direction === direction)
+    .filter((t) => t.direction === direction && !isIgnoredEmail(t))
     .map((t) => parseDate(t.date))
     .filter((d): d is Date => !!d);
 
   const history = Array.isArray(lead.history) ? (lead.history as HistoryItem[]) : [];
   const fromHistory = history
     .filter((h) => {
+      if (isIgnoredEmail(h)) return false;
       if (h.type === "email" && h.direction === direction) return true;
       if (direction === "out") return /^(sent):/i.test(h.action || "");
       return /^(received):/i.test(h.action || "");
@@ -532,6 +533,26 @@ export function isCalendarNotification(item: { from?: string | null; subject?: s
     return true;
   }
   return /^(new event|updated|canceled|cancelled|invitation):/i.test(subject);
+}
+
+export function isSalesFocusEmail(item: {
+  subject?: string | null;
+  action?: string | null;
+}): boolean {
+  const subject = (item.subject || "").toLowerCase();
+  const action = (item.action || "").toLowerCase();
+  return subject.includes("sales focus email") || action.includes("sales focus email");
+}
+
+export function isIgnoredEmail(item: {
+  from?: string | null;
+  subject?: string | null;
+  action?: string | null;
+  summary?: string | null;
+  gmailThreadId?: string | null;
+  gmailMessageId?: string | null;
+}): boolean {
+  return isFakeSampleEmail(item) || isCalendarNotification(item) || isSalesFocusEmail(item);
 }
 
 export function isEmailHistoryItem(item: HistoryItem): boolean {

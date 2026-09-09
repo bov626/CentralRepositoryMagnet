@@ -101,7 +101,7 @@ function denverYmd(date: Date): { year: number; month: number; day: number; week
   };
 }
 
-export function denverWeekBounds(now = new Date()): { start: Date; end: Date; todayStart: Date; todayEnd: Date } {
+export function denverWeekBounds(now = new Date(), weeksAgo = 0): { start: Date; end: Date; todayStart: Date; todayEnd: Date } {
   const today = denverYmd(now);
   const todayStart = denverMidnight(today.year, today.month, today.day);
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
@@ -114,7 +114,10 @@ export function denverWeekBounds(now = new Date()): { start: Date; end: Date; to
     Sat: 5,
     Sun: 6,
   };
-  const start = new Date(todayStart.getTime() - (fromMonday[today.weekday] ?? 0) * 24 * 60 * 60 * 1000);
+  const weeks = Math.max(0, weeksAgo);
+  const start = new Date(
+    todayStart.getTime() - ((fromMonday[today.weekday] ?? 0) + weeks * 7) * 24 * 60 * 60 * 1000,
+  );
   const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
   return { start, end, todayStart, todayEnd };
 }
@@ -126,20 +129,32 @@ export function denverDayKey(date: Date): string {
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
-export function denverWeekDays(now = new Date()): Array<{
+export function denverWeekDays(now = new Date(), weeksAgo = 0): Array<{
   key: string;
   label: string;
   day: number;
   isToday: boolean;
 }> {
-  const { start, todayStart } = denverWeekBounds(now);
+  const { start, todayStart } = denverWeekBounds(now, weeksAgo);
   const todayKey = denverDayKey(todayStart);
   return WEEKDAY_LABELS.map((label, i) => {
     const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
     const ymd = denverYmd(d);
     const key = denverDayKey(d);
-    return { key, label, day: ymd.day, isToday: key === todayKey };
+    return { key, label, day: ymd.day, isToday: weeksAgo === 0 && key === todayKey };
   });
+}
+
+export function denverWeekRangeLabel(start: Date, endExclusive: Date): string {
+  const last = new Date(endExclusive.getTime() - 1);
+  const fmt = (date: Date, options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", ...options }).format(date);
+  const startMonth = fmt(start, { month: "short" });
+  const startDay = fmt(start, { day: "numeric" });
+  const endMonth = fmt(last, { month: "short" });
+  const endDay = fmt(last, { day: "numeric" });
+  if (startMonth === endMonth) return `${startMonth} ${startDay} – ${endDay}`;
+  return `${startMonth} ${startDay} – ${endMonth} ${endDay}`;
 }
 
 function isTimedMeeting(event: {
@@ -160,8 +175,8 @@ export type SalesCall = {
 
 export function matchCallsToLeads(
   calls: SalesCall[],
-  leadsByEmail: Map<string, { id: string; name: string }>,
-): Array<SalesCall & { leadId: string | null; leadName: string | null; dayKey: string }> {
+  leadsByEmail: Map<string, { id: string; name: string; sold?: boolean }>,
+): Array<SalesCall & { leadId: string | null; leadName: string | null; sold: boolean; dayKey: string }> {
   return calls.map((event) => {
     const match = event.attendees
       .map((a) => a.email?.trim().toLowerCase())
@@ -172,6 +187,7 @@ export function matchCallsToLeads(
       dayKey: denverDayKey(new Date(event.start)),
       leadId: lead?.id || null,
       leadName: lead?.name || null,
+      sold: !!lead?.sold,
     };
   });
 }

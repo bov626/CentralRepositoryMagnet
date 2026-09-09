@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { type User, type InsertUser, type Lead, type InsertLead, type Blocker, type InsertBlocker, type OnboardingSubmission, type InsertOnboardingSubmission, users, leads, blockers, onboardingSubmissions, dismissedCalendarEvents } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { type User, type InsertUser, type Lead, type InsertLead, type Blocker, type InsertBlocker, type OnboardingSubmission, type InsertOnboardingSubmission, users, leads, blockers, onboardingSubmissions, dismissedCalendarEvents, rejectedLeads, jobRuns } from "@shared/schema";
+import { and, eq, or, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -30,6 +30,10 @@ export interface IStorage {
   createOnboardingSubmission(submission: InsertOnboardingSubmission): Promise<OnboardingSubmission>;
   getDismissedCalendarEvents(): Promise<Array<{ eventId: string; recurringEventId: string | null }>>;
   dismissCalendarEvent(input: { eventId: string; recurringEventId?: string | null; title?: string | null }): Promise<void>;
+  rejectLead(lead: Pick<Lead, "name" | "email" | "fathomRecordingId" | "calendarEventId">): Promise<void>;
+  isRejectedLead(input: { email?: string | null; fathomRecordingId?: number | null; calendarEventId?: string | null }): Promise<boolean>;
+  claimJobRun(job: string, dayKey: string): Promise<boolean>;
+  releaseJobRun(job: string, dayKey: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -60,7 +64,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getLeadByEmail(email: string): Promise<Lead | undefined> {
-    const [lead] = await db.select().from(leads).where(eq(leads.email, email));
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return undefined;
+    const [lead] = await db.select().from(leads).where(sql`lower(${leads.email}) = ${normalized}`);
     return lead;
   }
 
@@ -153,6 +159,69 @@ export class DatabaseStorage implements IStorage {
         title: input.title || null,
       })
       .onConflictDoNothing();
+  }
+
+  async rejectLead(lead: Pick<Lead, "name" | "email" | "fathomRecordingId" | "calendarEventId">): Promise<void> {
+    const email = (lead.email || "").trim().toLowerCase() || null;
+    const existing = await this.findRejectedLead({
+      email,
+      fathomRecordingId: lead.fathomRecordingId,
+      calendarEventId: lead.calendarEventId,
+    });
+    if (existing) {
+      await db
+        .update(rejectedLeads)
+        .set({
+          email: existing.email || email,
+          fathomRecordingId: existing.fathomRecordingId || lead.fathomRecordingId || null,
+          calendarEventId: existing.calendarEventId || lead.calendarEventId || null,
+          name: existing.name || lead.name,
+        })
+        .where(eq(rejectedLeads.id, existing.id));
+      return;
+    }
+    await db.insert(rejectedLeads).values({
+      email,
+      fathomRecordingId: lead.fathomRecordingId || null,
+      calendarEventId: lead.calendarEventId || null,
+      name: lead.name,
+    });
+  }
+
+  async isRejectedLead(input: {
+    email?: string | null;
+    fathomRecordingId?: number | null;
+    calendarEventId?: string | null;
+  }): Promise<boolean> {
+    return !!(await this.findRejectedLead(input));
+  }
+
+  private async findRejectedLead(input: {
+    email?: string | null;
+    fathomRecordingId?: number | null;
+    calendarEventId?: string | null;
+  }) {
+    const email = (input.email || "").trim().toLowerCase() || null;
+    const parts = [];
+    if (email) parts.push(eq(rejectedLeads.email, email));
+    if (input.fathomRecordingId) parts.push(eq(rejectedLeads.fathomRecordingId, input.fathomRecordingId));
+    if (input.calendarEventId) parts.push(eq(rejectedLeads.calendarEventId, input.calendarEventId));
+    if (parts.length === 0) return undefined;
+    const [row] = await db.select().from(rejectedLeads).where(or(...parts)).limit(1);
+    return row;
+  }
+
+  async claimJobRun(job: string, dayKey: string): Promise<boolean> {
+    const inserted = await db
+      .insert(jobRuns)
+      .values({ job, dayKey })
+      .onConflictDoNothing()
+      .returning({ id: jobRuns.id });
+    return inserted.length > 0;
+  }
+
+  async releaseJobRun(job: string, dayKey: string): Promise<void> {
+    await db.delete(jobRuns).where(and(eq(jobRuns.job, job), eq(jobRuns.dayKey, dayKey)));
   }
 }
 

@@ -1,9 +1,8 @@
 import { storage } from "./storage";
 import {
   emailHistoryItem,
-  isCalendarNotification,
   isEmailHistoryItem,
-  isFakeSampleEmail,
+  isIgnoredEmail,
   type EmailThread,
   type HistoryItem,
 } from "@shared/email";
@@ -114,10 +113,10 @@ export async function syncLeadEmails(
   const gmailReady = await isGmailConfigured();
   if (!gmailReady) {
     const existing = Array.isArray(lead.emailThreads)
-      ? (lead.emailThreads as EmailThread[]).filter((thread) => !isFakeSampleEmail(thread))
+      ? (lead.emailThreads as EmailThread[]).filter((thread) => !isIgnoredEmail(thread))
       : [];
     const existingHistory = Array.isArray(lead.history)
-      ? (lead.history as HistoryItem[]).filter((item) => !isFakeSampleEmail(item))
+      ? (lead.history as HistoryItem[]).filter((item) => !isIgnoredEmail(item))
       : [];
     await storage.updateLead(leadId, {
       emailThreads: existing,
@@ -127,9 +126,7 @@ export async function syncLeadEmails(
   }
 
   const found = await searchThreadsForLead(lead.email);
-  const incoming = found.threads.filter(
-    (thread) => !isFakeSampleEmail(thread) && !isCalendarNotification(thread),
-  );
+  const incoming = found.threads.filter((thread) => !isIgnoredEmail(thread));
   const existing = Array.isArray(lead.emailThreads) ? (lead.emailThreads as EmailThread[]) : [];
   const existingIds = new Set(existing.map((t) => t.gmailMessageId));
   const added = incoming.filter((thread) => !existingIds.has(thread.gmailMessageId));
@@ -139,7 +136,7 @@ export async function syncLeadEmails(
   const prior = (lead.nextStepManual || lead.followUpAngle || "").trim();
 
   const crmHistory = (Array.isArray(lead.history) ? (lead.history as HistoryItem[]) : []).filter(
-    (item) => !isEmailHistoryItem(item) && !isFakeSampleEmail(item),
+    (item) => !isEmailHistoryItem(item) && !isIgnoredEmail(item),
   );
   const history = [
     ...crmHistory,
@@ -200,12 +197,8 @@ export async function purgeFakeSampleEmails(): Promise<number> {
   for (const lead of leads) {
     const threads = Array.isArray(lead.emailThreads) ? (lead.emailThreads as EmailThread[]) : [];
     const history = Array.isArray(lead.history) ? (lead.history as HistoryItem[]) : [];
-    const nextThreads = threads.filter(
-      (thread) => !isFakeSampleEmail(thread) && !isCalendarNotification(thread),
-    );
-    const nextHistory = history.filter(
-      (item) => !isFakeSampleEmail(item) && !isCalendarNotification(item),
-    );
+    const nextThreads = threads.filter((thread) => !isIgnoredEmail(thread));
+    const nextHistory = history.filter((item) => !isIgnoredEmail(item));
     if (nextThreads.length === threads.length && nextHistory.length === history.length) continue;
     await storage.updateLead(lead.id, {
       emailThreads: nextThreads,

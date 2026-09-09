@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, jsonb, integer, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -78,6 +78,15 @@ export const onboardingSubmissions = pgTable("onboarding_submissions", {
   submittedAt: timestamp("submitted_at").notNull().defaultNow(),
 });
 
+export const rejectedLeads = pgTable("rejected_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").unique(),
+  fathomRecordingId: integer("fathom_recording_id"),
+  calendarEventId: text("calendar_event_id"),
+  name: text("name"),
+  rejectedAt: timestamp("rejected_at").notNull().defaultNow(),
+});
+
 export const dismissedCalendarEvents = pgTable("dismissed_calendar_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   eventId: text("event_id").notNull().unique(),
@@ -85,6 +94,17 @@ export const dismissedCalendarEvents = pgTable("dismissed_calendar_events", {
   title: text("title"),
   dismissedAt: timestamp("dismissed_at").notNull().defaultNow(),
 });
+
+export const jobRuns = pgTable(
+  "job_runs",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    job: text("job").notNull(),
+    dayKey: text("day_key").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [unique("job_runs_job_day_key").on(table.job, table.dayKey)],
+);
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
