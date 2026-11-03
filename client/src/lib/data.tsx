@@ -109,7 +109,6 @@ interface StoreContextType {
   deleteLead: (id: string) => void;
   archiveLead: (id: string) => void;
   moveLead: (id: string, pipeline: PipelineType, stage: string) => void;
-  moveOnboardingLead: (id: string, onboardingStage: OnboardingStage) => void;
   addBlocker: (
     blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">,
   ) => void;
@@ -241,9 +240,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ],
       };
 
-      // If moving to "closed", automatically add to onboarding at "call-1"
-      if (stage === "closed" && !lead.onboardingStage) {
-        updates.onboardingStage = "call-1";
+      // Onboarding progress is tracked in Jumpseat Hub; the CRM no longer
+      // places closed leads on an onboarding stage.
+      if (stage === "closed") {
         updates.nextFollowUp = null;
         updates.cadenceAnchor = null;
       }
@@ -277,10 +276,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ...lead,
               pipeline,
               stage,
-              onboardingStage:
-                stage === "closed" && !lead.onboardingStage
-                  ? ("call-1" as OnboardingStage)
-                  : lead.onboardingStage,
               boughtAt:
                 stage === "bought" && pipeline === "community"
                   ? new Date().toISOString()
@@ -299,67 +294,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     onError: (_err, _variables, context) => {
       // Rollback on error
-      if (context?.previousLeads) {
-        queryClient.setQueryData(["leads"], context.previousLeads);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
-    },
-  });
-
-  // Move onboarding lead mutation with optimistic updates
-  const moveOnboardingLeadMutation = useMutation({
-    mutationFn: async ({
-      id,
-      onboardingStage,
-    }: {
-      id: string;
-      onboardingStage: OnboardingStage;
-    }) => {
-      const lead = leads.find((l) => l.id === id);
-      if (!lead) throw new Error("Lead not found");
-
-      const updatedHistory = Array.isArray(lead.history) ? lead.history : [];
-      const stageLabels: Record<OnboardingStage, string> = {
-        "future-cohort": "Future Cohort",
-        "call-1": "Call #1",
-        "call-2": "Call #2",
-        "document-creation": "Document Creation",
-        "apply-ready": "Apply Ready",
-      };
-
-      const res = await fetch(`/api/leads/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          onboardingStage,
-          history: [
-            ...updatedHistory,
-            {
-              date: new Date().toISOString(),
-              action: `Onboarding: ${stageLabels[onboardingStage]}`,
-            },
-          ],
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to move onboarding lead");
-      return res.json();
-    },
-    onMutate: async ({ id, onboardingStage }) => {
-      await queryClient.cancelQueries({ queryKey: ["leads"] });
-      const previousLeads = queryClient.getQueryData<Lead[]>(["leads"]);
-
-      queryClient.setQueryData<Lead[]>(["leads"], (old) => {
-        if (!old) return old;
-        return old.map((lead) =>
-          lead.id === id ? { ...lead, onboardingStage } : lead,
-        );
-      });
-
-      return { previousLeads };
-    },
-    onError: (_err, _variables, context) => {
       if (context?.previousLeads) {
         queryClient.setQueryData(["leads"], context.previousLeads);
       }
@@ -432,10 +366,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     moveLeadMutation.mutate({ id, pipeline, stage });
   };
 
-  const moveOnboardingLead = (id: string, onboardingStage: OnboardingStage) => {
-    moveOnboardingLeadMutation.mutate({ id, onboardingStage });
-  };
-
   const addBlocker = (
     blocker: Omit<Blocker, "id" | "count" | "exampleLeadIds" | "createdAt">,
   ) => {
@@ -462,7 +392,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         deleteLead,
         archiveLead,
         moveLead,
-        moveOnboardingLead,
         addBlocker,
         incrementBlocker,
       }}

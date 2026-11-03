@@ -3,6 +3,18 @@ export const AGENCY_UPFRONT = 7000;
 export const AGENCY_HALF = 4000;
 export const COMMUNITY_MRR_PER_MEMBER = 250;
 
+export const PITCH_AMOUNT_TIERS = [
+  { value: "low", label: "Low · $7k", full: 7000 },
+  { value: "mid", label: "Mid · $9k", full: 9000 },
+  { value: "high", label: "High · $11k", full: 11000 },
+] as const;
+
+export type PitchAmountTier = (typeof PITCH_AMOUNT_TIERS)[number]["value"];
+
+export function isPitchAmountTier(value: string | null | undefined): value is PitchAmountTier {
+  return value === "low" || value === "mid" || value === "high";
+}
+
 export type PaymentPlan = "upfront" | "fifty_fifty";
 
 function firstDollarAmount(text: string | null | undefined): number | null {
@@ -33,8 +45,14 @@ type MoneyLead = {
   history?: unknown;
 };
 
+function pitchAmountDollars(text: string | null | undefined): number | null {
+  const tier = PITCH_AMOUNT_TIERS.find((t) => t.value === text);
+  if (tier) return tier.full;
+  return firstDollarAmount(text);
+}
+
 export function agencyExpected(lead: MoneyLead): number {
-  const custom = firstDollarAmount(lead.pitchAmount);
+  const custom = pitchAmountDollars(lead.pitchAmount);
   if (lead.paymentPlan === "upfront") return custom && custom !== AGENCY_LIST ? custom : AGENCY_UPFRONT;
   if (custom) return custom;
   return AGENCY_LIST;

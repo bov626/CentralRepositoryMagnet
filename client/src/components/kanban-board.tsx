@@ -4,7 +4,6 @@ import {
   PipelineType,
   JumpseatStage,
   CommunityStage,
-  ApplierStage,
 } from "@/lib/data";
 import {
   DndContext,
@@ -29,7 +28,7 @@ import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
-import { Search, X, Video, Users } from "lucide-react";
+import { Search, X, Video } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 // Column Definitions
@@ -50,20 +49,19 @@ const COMMUNITY_COLUMNS: { id: CommunityStage; title: string }[] = [
   { id: "bought", title: "Bought" },
 ];
 
-const APPLIER_COLUMNS: { id: ApplierStage; title: string }[] = [
-  { id: "interview", title: "Interview" },
-  { id: "to_hire", title: "To Hire" },
-  { id: "onboarded", title: "Onboarded" },
-];
+// Stored leads may still have pipeline === "appliers"; do not surface that board.
+type VisiblePipeline = "jumpseat" | "community";
+type ActiveTab = VisiblePipeline;
+
+function toVisiblePipeline(value: string): VisiblePipeline {
+  return value === "community" ? "community" : "jumpseat";
+}
 
 // Default stages when dropping on a tab
-const DEFAULT_STAGES: Record<PipelineType, string> = {
+const DEFAULT_STAGES: Record<VisiblePipeline, string> = {
   jumpseat: "backlog",
   community: "backlog",
-  appliers: "interview",
 };
-
-type ActiveTab = "jumpseat" | "community" | "appliers";
 
 interface UnifiedKanbanBoardProps {
   onLeadClick: (id: string) => void;
@@ -77,7 +75,7 @@ function DroppableTab({
   children,
   activeId,
 }: {
-  pipeline: PipelineType;
+  pipeline: VisiblePipeline;
   isActive: boolean;
   onClick: () => void;
   children: React.ReactNode;
@@ -98,9 +96,6 @@ function DroppableTab({
         isActive &&
           pipeline === "community" &&
           "border-secondary text-secondary-foreground",
-        isActive &&
-          pipeline === "appliers" &&
-          "border-emerald-500 text-emerald-400",
         !isActive &&
           "border-transparent text-muted-foreground hover:text-foreground",
         // Highlight when dragging over
@@ -175,9 +170,8 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
     // Check if over a column
     const jumpseatCol = JUMPSEAT_COLUMNS.find((c) => c.id === overId);
     const communityCol = COMMUNITY_COLUMNS.find((c) => c.id === overId);
-    const applierCol = APPLIER_COLUMNS.find((c) => c.id === overId);
 
-    if (jumpseatCol || communityCol || applierCol) {
+    if (jumpseatCol || communityCol) {
       setOverColumnId(overId);
     } else {
       // Over a card - find its column
@@ -204,7 +198,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
 
     // Check if dropped on a tab
     if (overId.startsWith("tab-")) {
-      const pipeline = overId.replace("tab-", "") as PipelineType;
+      const pipeline = toVisiblePipeline(overId.replace("tab-", ""));
       targetPipeline = pipeline;
       targetStage = DEFAULT_STAGES[pipeline];
     }
@@ -227,19 +221,10 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
       }
     }
 
-    // Check Applier Columns
-    if (!targetPipeline) {
-      const applierCol = APPLIER_COLUMNS.find((c) => c.id === overId);
-      if (applierCol) {
-        targetPipeline = "appliers";
-        targetStage = applierCol.id;
-      }
-    }
-
     // If dropped over a card, find that card's column
     if (!targetPipeline) {
       const overLead = leads.find((l) => l.id === overId);
-      if (overLead) {
+      if (overLead && overLead.pipeline !== "appliers") {
         targetPipeline = overLead.pipeline;
         targetStage = overLead.stage;
       }
@@ -345,21 +330,6 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
               </span>
             </span>
           </DroppableTab>
-          <DroppableTab
-            pipeline="appliers"
-            isActive={activeTab === "appliers"}
-            onClick={() => setActiveTab("appliers")}
-            activeId={activeId}
-          >
-            <span className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Appliers Pipeline
-              <span className="text-xs opacity-70 tabular-nums">
-                ({filteredLeads.filter((l) => l.pipeline === "appliers").length}
-                )
-              </span>
-            </span>
-          </DroppableTab>
         </div>
 
         {/* Search & Actions */}
@@ -448,33 +418,6 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
             </div>
           </section>
         )}
-
-        {/* Appliers Pipeline */}
-        {activeTab === "appliers" && (
-          <section className="flex-1 min-h-[650px] flex flex-col">
-            <div className="flex-1 min-h-0 flex gap-4 overflow-x-auto pb-4">
-              {APPLIER_COLUMNS.map((col) => (
-                <KanbanColumn
-                  key={col.id}
-                  id={col.id}
-                  title={col.title}
-                  leads={filteredLeads.filter(
-                    (l) => l.pipeline === "appliers" && l.stage === col.id,
-                  )}
-                  onLeadClick={onLeadClick}
-                  showGhost={overColumnId === col.id && activeId !== null}
-                  ghostLead={activeLead}
-                  activeId={activeId}
-                  colorScheme="emerald"
-                />
-              ))}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2 px-1">
-              <Video className="h-3 w-3 text-emerald-500" />
-              <span>= Enhanced with Fathom notes</span>
-            </div>
-          </section>
-        )}
       </div>
 
       {createPortal(
@@ -482,10 +425,7 @@ export function UnifiedKanbanBoard({ onLeadClick }: UnifiedKanbanBoardProps) {
           {activeLead ? (
             <div
               className={cn(
-                "w-[280px] cursor-grabbing scale-105 shadow-2xl",
-                activeLead.pipeline === "appliers"
-                  ? "shadow-emerald-500/20"
-                  : "shadow-primary/20",
+                "w-[280px] cursor-grabbing scale-105 shadow-2xl shadow-primary/20",
               )}
               style={{
                 transform: `rotate(${dragRotation}deg)`,

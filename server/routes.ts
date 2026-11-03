@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { attachOnboardingResume, upsertOnboardingLead, type HubOnboardingEvent } from "./hub-onboarding";
 import { insertLeadSchema, insertBlockerSchema, insertOnboardingSubmissionSchema } from "@shared/schema";
 import { z } from "zod";
 import { getUpcomingEvents, createEvent, denverWeekBounds, denverWeekDays, denverWeekRangeLabel, listSalesCallsBetween, matchCallsToLeads, probeCalendarConnection } from "./google-calendar";
@@ -956,6 +957,17 @@ export async function registerRoutes(
 
       const savedSubmission = await storage.createOnboardingSubmission(submissionData);
 
+      const submitEmail = (answers?.email as string | undefined) || null;
+      await upsertOnboardingLead({
+        name,
+        email: submitEmail,
+        linkedIn: linkedIn || null,
+        event: "questionnaire_submitted",
+        hubClientId: answers?.hubClientId || null,
+        resumePath: resumePath || null,
+        coverLetterPath: coverLetterPath || null,
+      });
+
       // Format the answers into a readable email
       const formatSection = (title: string, items: {label: string, value: string}[]) => {
         const content = items
@@ -978,13 +990,8 @@ Points: ${totalPoints || 0}
 Tier: ${tier || 'N/A'}`;
 
       const careerSection = formatSection('📖 CAREER NARRATIVE', [
-        { label: 'Best job ever:', value: answers.bestJob },
+        { label: 'Target role titles (and most qualified for):', value: answers.targetRoles },
         { label: 'How they chose their career:', value: answers.careerChoice },
-        { label: 'Teachers & mentors:', value: answers.mentors },
-        { label: 'Beyond job description:', value: answers.beyondJobDescription },
-        { label: 'What colleagues come to them for:', value: answers.colleaguesComeToYouFor },
-        { label: 'Full career history:', value: answers.careerHistory },
-        { label: 'Target role titles:', value: answers.targetRoles },
       ]);
 
       const impactSection = formatSection('💥 YOUR IMPACT', [
@@ -992,23 +999,31 @@ Tier: ${tier || 'N/A'}`;
         { label: 'Impact metrics:', value: answers.impactMetrics },
       ]);
 
-      const thinkingSection = formatSection('🧠 HOW YOU THINK', [
-        { label: 'Guiding quote or idea:', value: answers.principlesQuotes },
-        { label: 'Book or movie seen more than once:', value: answers.bookOrMovie },
-      ]);
-
       const perspectiveSection = formatSection('🔍 PERSPECTIVE', [
         { label: 'Unlisted accomplishment:', value: answers.unlistedAccomplishment },
         { label: 'Hobbies & side projects:', value: answers.hobbiesSideProjects },
-        { label: 'Sabbatical plans:', value: answers.sabbatical },
-        { label: 'Anything else:', value: answers.anythingElse },
+      ]);
+
+      const str = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+      const cityStateZip = [str(answers?.addressCity), [str(answers?.addressState), str(answers?.addressZip)].filter(Boolean).join(' ')]
+        .filter(Boolean)
+        .join(', ');
+      const addressJoined = [str(answers?.addressStreet), str(answers?.addressApt), cityStateZip, str(answers?.addressCountry)]
+        .filter(Boolean)
+        .join('\n');
+      const minSalary = str(answers?.minSalary);
+
+      const detailsSection = formatSection('📋 DETAILS', [
+        { label: 'Minimum yearly salary:', value: minSalary ? `$${Number(minSalary).toLocaleString()}` : '' },
+        { label: 'Address:', value: addressJoined },
+        { label: 'Phone (WhatsApp):', value: str(answers?.phone) },
       ]);
 
       const emailBody = `ONBOARDING QUESTIONNAIRE SUBMISSION
 
 Submitted: ${new Date().toLocaleString()}
 
-${[infoSection, careerSection, impactSection, thinkingSection, perspectiveSection].filter(Boolean).join('\n\n\n')}`;
+${[infoSection, careerSection, impactSection, perspectiveSection, detailsSection].filter(Boolean).join('\n\n\n')}`;
 
       await sendEmail(
         'wyedoyoudothis@gmail.com',
@@ -1020,6 +1035,58 @@ ${[infoSection, careerSection, impactSection, thinkingSection, perspectiveSectio
     } catch (error: any) {
       console.error("Error submitting onboarding form:", error);
       res.status(500).json({ error: error.message || "Failed to submit form" });
+    }
+  });
+
+  // Hub already uploaded the quiz resume through /api/uploads/request-url.
+  // This records that object path on the lead. No email.
+  app.post("/api/hub-onboarding/resume", async (req, res) => {
+    try {
+      const { name, email, resumePath } = req.body || {};
+      if (!name || typeof name !== "string") {
+        return res.status(400).json({ error: "Name is required" });
+      }
+      if (!resumePath || typeof resumePath !== "string") {
+        return res.status(400).json({ error: "Resume path is required" });
+      }
+      const lead = await attachOnboardingResume({ name, email, resumePath });
+      res.json({ ok: true, leadId: lead.id, resumePathA: lead.resumePathA ?? resumePath });
+    } catch (error: any) {
+      console.error("Error storing hub resume:", error);
+      res.status(500).json({ error: error.message || "Failed to store resume" });
+    }
+  });
+
+  // Hub → CRM: land the client on the Onboarding Kanban. No client email is sent.
+  app.post("/api/hub-onboarding", async (req, res) => {
+    try {
+      const { event, name, email, linkedIn, hubClientId, resumePath, coverLetterPath } = req.body || {};
+      if (!name || typeof name !== "string") {
+        return res.status(400).json({ error: "Name is required" });
+      }
+      const allowed: HubOnboardingEvent[] = [
+        "account_created",
+        "outline_done",
+        "questionnaire_submitted",
+        "call_booked",
+        "payment_selected",
+      ];
+      if (!allowed.includes(event)) {
+        return res.status(400).json({ error: "Unknown event" });
+      }
+      const lead = await upsertOnboardingLead({
+        name,
+        email,
+        linkedIn,
+        event,
+        hubClientId,
+        resumePath,
+        coverLetterPath,
+      });
+      res.json({ ok: true, leadId: lead.id, onboardingStage: lead.onboardingStage });
+    } catch (error: any) {
+      console.error("Error handling hub onboarding event:", error);
+      res.status(500).json({ error: error.message || "Failed to update onboarding lead" });
     }
   });
 

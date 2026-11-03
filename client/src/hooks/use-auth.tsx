@@ -2,6 +2,13 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Lock } from "lucide-react";
+import {
+  clearAdminStubSession,
+  isAdminStubEnabled,
+  isAdminStubSession,
+  startAdminStubSession,
+} from "@/lib/adminStub";
+
 
 const AUTH_KEY = "jumpseat_auth";
 
@@ -35,6 +42,7 @@ function LoadingScreen({ progress }: { progress: number }) {
 interface AuthContextType {
   isAuthenticated: boolean;
   login: (password: string) => Promise<boolean>;
+  loginAsAdmin: () => void;
   logout: () => void;
 }
 
@@ -46,6 +54,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isAdminStubSession()) {
+      setIsAuthenticated(true);
+      setChecking(false);
+      return;
+    }
     const stored = sessionStorage.getItem(AUTH_KEY);
     if (stored) {
       fetch("/api/auth/verify", {
@@ -89,7 +102,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginAsAdmin = () => {
+    startAdminStubSession();
+    setIsAuthenticated(true);
+  };
+
   const logout = () => {
+    clearAdminStubSession();
     sessionStorage.removeItem(AUTH_KEY);
     setIsAuthenticated(false);
   };
@@ -103,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, loginAsAdmin, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -118,7 +137,7 @@ export function useAuth() {
 }
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, loginAsAdmin } = useAuth();
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -207,6 +226,16 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
             {loading ? "Signing in..." : "Sign In"}
           </Button>
         </form>
+        {isAdminStubEnabled() && (
+          <button
+            type="button"
+            className="w-full text-xs text-zinc-500 hover:text-white transition-colors"
+            onClick={() => loginAsAdmin()}
+            data-testid="button-admin-stub"
+          >
+            Test as admin
+          </button>
+        )}
       </div>
     </div>
   );

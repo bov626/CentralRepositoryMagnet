@@ -26,6 +26,7 @@ import { auditScoreFromLead, jobTitleFromLead } from "@shared/audit";
 import { RoastResumeLink } from "@/components/roast-resume-link";
 import { CopyableEmail } from "@/components/copy-lead-email";
 import { isIgnoredEmail } from "@shared/email";
+import { isPitchAmountTier, PITCH_AMOUNT_TIERS } from "@shared/money";
 
 interface LeadDetailsProps {
   leadId: string | null;
@@ -123,8 +124,9 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
     updateLead(lead.id, { nextFollowUp: null });
   };
 
-  const handleSavePitchAmount = () => {
-    updateLead(lead.id, { pitchAmount: pitchAmount || null });
+  const handleSelectPitchAmount = (value: string) => {
+    setPitchAmount(value);
+    updateLead(lead.id, { pitchAmount: value });
   };
 
   const handleSavePayment = (plan: "upfront" | "fifty_fifty" | "", paid: string) => {
@@ -441,14 +443,29 @@ export function LeadDetails({ leadId, onClose }: LeadDetailsProps) {
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4" /> Pitch Amount
                 </h3>
-                <Input
-                    value={pitchAmount}
-                    onChange={(e) => setPitchAmount(e.target.value)}
-                    onBlur={handleSavePitchAmount}
-                    placeholder="e.g. $8,000 list, $7k upfront, or $4k+$4k"
-                    className="bg-muted/30 border-border/50"
-                    data-testid="input-pitch-amount"
-                />
+                <div className="flex gap-2" data-testid="pitch-amount-tiers">
+                    {PITCH_AMOUNT_TIERS.map((tier) => {
+                      const selected = pitchAmount === tier.value;
+                      return (
+                        <Button
+                          key={tier.value}
+                          type="button"
+                          variant={selected ? "default" : "outline"}
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleSelectPitchAmount(tier.value)}
+                          data-testid={`button-pitch-${tier.value}`}
+                        >
+                          {tier.label}
+                        </Button>
+                      );
+                    })}
+                </div>
+                {pitchAmount && !isPitchAmountTier(pitchAmount) && (
+                  <p className="text-xs text-muted-foreground" data-testid="text-pitch-amount-legacy">
+                    {pitchAmount}
+                  </p>
+                )}
                 <div className="flex gap-2">
                     <select
                       value={paymentPlan}

@@ -42,14 +42,18 @@ const STEPS = [
   { id: 'linkedin', title: 'LinkedIn', group: 'linkedin' },
   { id: 'coverletter', title: 'Cover Letter', group: 'coverletter' },
   { id: 'career', title: 'Career Narrative', group: 'career' },
-  { id: 'career2', title: 'Career Narrative Part 2', group: 'career' },
   { id: 'puzzle', title: 'Palate Cleanser', group: 'puzzle' },
   { id: 'impact', title: 'Your Impact', group: 'impact' },
-  { id: 'thinking', title: 'How You Think', group: 'thinking' },
   { id: 'trivia', title: 'Trivia', group: 'trivia' },
   { id: 'perspective', title: 'Perspective', group: 'perspective' },
-  { id: 'perspective2', title: 'Perspective Part 2', group: 'perspective' },
+  { id: 'details', title: 'Last Step', group: 'details' },
   { id: 'results', title: 'Results', group: 'results' },
+];
+
+const US_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+  "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+  "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
 ];
 
 const UNIQUE_GROUPS = Array.from(new Set(STEPS.filter(s => s.group !== 'results').map(s => s.group)));
@@ -95,7 +99,7 @@ const SUDOKU_SOLUTION = [
   [3, 4, 5, 2, 8, 6, 1, 7, 9],
 ];
 
-function DraggablePiece({ piece }: { piece: typeof PUZZLE_PIECES[0] }) {
+function DraggablePiece({ piece, onPickup }: { piece: typeof PUZZLE_PIECES[0]; onPickup?: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: piece.id,
   });
@@ -113,6 +117,10 @@ function DraggablePiece({ piece }: { piece: typeof PUZZLE_PIECES[0] }) {
       style={style}
       {...listeners}
       {...attributes}
+      onPointerDown={(event) => {
+        onPickup?.();
+        listeners.onPointerDown?.(event);
+      }}
       className={`cursor-grab active:cursor-grabbing select-none ${isDragging ? 'opacity-70 z-50' : 'hover:scale-105 transition-transform'}`}
     >
       <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${cols}, 28px)` }}>
@@ -191,14 +199,15 @@ export default function OnboardingForm() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [showContent, setShowContent] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [highestStep, setHighestStep] = useState(0);
   const [clickedContinue, setClickedContinue] = useState(false);
   const [tipShown, setTipShown] = useState(false);
   const [continueCount, setContinueCount] = useState(0);
   const [cheerMessage, setCheerMessage] = useState<string | null>(null);
   const [wowShown, setWowShown] = useState(false);
   const [wowStep] = useState(() => {
-    const validSteps = [0, 1, 2, 3, 5, 6, 7, 8, 9, 10];
+    // Even steps only, so cover letter (step 3) is never chosen.
+    // Step 4 shows "yeahhhhh" and returns before WOW.
+    const validSteps = [0, 2, 6, 8];
     return validSteps[Math.floor(Math.random() * validSteps.length)];
   });
   const [submitting, setSubmitting] = useState(false);
@@ -243,10 +252,12 @@ export default function OnboardingForm() {
   const [awardedSteps, setAwardedSteps] = useState<Set<number>>(new Set());
   const [easterEggClaimed, setEasterEggClaimed] = useState(false);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeUploadedPath, setResumeUploadedPath] = useState<string | null>(null);
   const [resumeScanning, setResumeScanning] = useState(false);
   const [resumeScanMessage, setResumeScanMessage] = useState<string | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const [coverLetterMessage, setCoverLetterMessage] = useState<string | null>(null);
+  const [coverLetterNudge, setCoverLetterNudge] = useState(false);
   const [placements, setPlacements] = useState<Map<number, {row: number, col: number}>>(new Map());
   const [availablePieces, setAvailablePieces] = useState(PUZZLE_PIECES.map(p => p.id));
   const [previewCells, setPreviewCells] = useState<{cells: string[], valid: boolean, color: string} | null>(null);
@@ -313,6 +324,9 @@ export default function OnboardingForm() {
   
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const coverLetterInputRef = useRef<HTMLInputElement>(null);
+  const coverLetterNudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const columnRef = useRef<HTMLDivElement>(null);
+  const [footerFrame, setFooterFrame] = useState<{ left: number; width: number } | null>(null);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -323,57 +337,36 @@ export default function OnboardingForm() {
   );
 
   const [answers, setAnswers] = useState({
-    bestJob: "",
     careerChoice: "",
-    mentors: "",
-    beyondJobDescription: "",
-    colleaguesComeToYouFor: "",
-    careerHistory: "",
     targetRoles: "",
     impactPerRole: "",
     impactMetrics: "",
-    principlesQuotes: "",
-    bookOrMovie: "",
     unlistedAccomplishment: "",
     hobbiesSideProjects: "",
-    sabbatical: "",
-    anythingElse: "",
+    minSalary: "",
+    addressStreet: "",
+    addressApt: "",
+    addressCity: "",
+    addressState: "",
+    addressZip: "",
+    addressCountry: "United States",
+    phone: "",
   });
 
   const updateAnswer = (key: keyof typeof answers, value: string) => {
     setAnswers(prev => ({ ...prev, [key]: value }));
   };
 
-  const currentGroup = STEPS[Math.max(highestStep, currentStep)].group;
+  const currentGroup = STEPS[currentStep]?.group ?? STEPS[0].group;
   const rawGroupIndex = UNIQUE_GROUPS.indexOf(currentGroup);
   const currentGroupIndex = rawGroupIndex === -1 ? UNIQUE_GROUPS.length - 1 : rawGroupIndex;
   
   const calculateProgress = () => {
-    if (currentStep === 12) return 100;
-    const stepId = STEPS[currentStep].id;
-    const group = STEPS[currentStep].group;
-    const multiPartGroups = ['career', 'perspective'];
-    
-    let completedGroups = currentGroupIndex;
-    let subProgress = 0;
-    
-    if (multiPartGroups.includes(group)) {
-      const isSecondPart = stepId.endsWith('2');
-      subProgress = isSecondPart ? 1 : 0.5;
-    } else {
-      subProgress = 1;
-    }
-    
-    return ((completedGroups + subProgress) / UNIQUE_GROUPS.length) * 100;
+    if (currentStep === STEPS.length - 1) return 100;
+    return ((currentGroupIndex + 1) / UNIQUE_GROUPS.length) * 100;
   };
   
   const progress = calculateProgress();
-
-  useEffect(() => {
-    if (currentStep > highestStep) {
-      setHighestStep(currentStep);
-    }
-  }, [currentStep, highestStep]);
 
   useEffect(() => {
     if (totalPoints > prevTotalPoints) {
@@ -409,7 +402,7 @@ export default function OnboardingForm() {
   }, [totalPoints]);
 
   useEffect(() => {
-    if (currentStep === 12 && !resultsShown) {
+    if (currentStep === STEPS.length - 1 && !resultsShown) {
       let current = 0;
       const target = totalPoints;
       const duration = 2000;
@@ -424,7 +417,7 @@ export default function OnboardingForm() {
           clearInterval(timer);
           setResultsShown(true);
           
-          if (totalPoints >= 2700) {
+          if (totalPoints >= 2300) {
             confetti({
               particleCount: 200,
               spread: 100,
@@ -438,7 +431,7 @@ export default function OnboardingForm() {
               });
             }, 500);
             setTimeout(() => setShowAward(true), 1000);
-          } else if (totalPoints >= 2400) {
+          } else if (totalPoints >= 2000) {
             confetti({
               particleCount: 50,
               spread: 60,
@@ -488,20 +481,21 @@ export default function OnboardingForm() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentStep, submitting, name, resumeFile, linkedIn, noLinkedIn, continueCount]);
+  // DECISION: answers is in the deps so Enter on the details inputs scores the current values, not a stale closure.
+  }, [currentStep, submitting, name, resumeFile, linkedIn, noLinkedIn, coverLetterFile, continueCount, answers]);
 
   useEffect(() => {
     const sudokuComplete = sudokuGrid.every((row, ri) => row.every((cell, ci) => cell === SUDOKU_SOLUTION[ri][ci]));
-    if (sudokuComplete && puzzleMode === 'sudoku' && !awardedSteps.has(6)) {
+    if (sudokuComplete && puzzleMode === 'sudoku' && !awardedSteps.has(5)) {
       setTotalPoints(prev => prev + 250);
       setPointsAnimation(250);
       setTimeout(() => setPointsAnimation(null), 1500);
-      setAwardedSteps(prev => new Set(Array.from(prev).concat(6)));
+      setAwardedSteps(prev => new Set(Array.from(prev).concat(5)));
     }
   }, [sudokuGrid, puzzleMode, awardedSteps]);
 
   useEffect(() => {
-    if (currentStep === 6 && !puzzleSolved) {
+    if (currentStep === 5 && !puzzleSolved) {
       const timer = setInterval(() => {
         setPuzzleTimeSpent(prev => prev + 1);
       }, 1000);
@@ -510,10 +504,45 @@ export default function OnboardingForm() {
   }, [currentStep, puzzleSolved]);
 
   useEffect(() => {
-    if ((puzzlePickups >= 4 || puzzleTimeSpent >= 60) && !puzzleShowNo) {
+    if ((puzzlePickups >= 1 || puzzleTimeSpent >= 15) && !puzzleShowNo) {
       setPuzzleShowNo(true);
     }
   }, [puzzlePickups, puzzleTimeSpent, puzzleShowNo]);
+
+  // Parts 1-9. Part 10 (details) keeps the footer in normal flow.
+  const pinFooter = currentStep < 9;
+
+  const clearCoverLetterNudge = () => {
+    if (coverLetterNudgeTimerRef.current != null) {
+      clearTimeout(coverLetterNudgeTimerRef.current);
+      coverLetterNudgeTimerRef.current = null;
+    }
+    setCoverLetterNudge(false);
+  };
+
+  useEffect(() => {
+    if (STEPS[currentStep]?.id !== "coverletter") {
+      clearCoverLetterNudge();
+    }
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (!pinFooter || isLoading) return;
+    const el = columnRef.current;
+    if (!el) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setFooterFrame({ left: rect.left, width: rect.width });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [pinFooter, isLoading]);
 
   const canProceed = () => {
     if (currentStep === 0) return name.trim() !== "";
@@ -534,32 +563,24 @@ export default function OnboardingForm() {
     } else if (currentStep === 3) {
       if (coverLetterFile) points += 100;
     } else if (currentStep === 4) {
-      if (answers.bestJob.length > 4) points += 100;
-      if (answers.careerChoice.length > 4) points += 100;
-      if (answers.mentors.length > 4) points += 100;
-      if (answers.beyondJobDescription.length > 4) points += 100;
-      if (answers.colleaguesComeToYouFor.length > 4) points += 100;
-    } else if (currentStep === 5) {
-      if (answers.careerHistory.length > 4) points += 100;
       if (answers.targetRoles.length > 4) points += 100;
-    } else if (currentStep === 6) {
+      if (answers.careerChoice.length > 4) points += 100;
+    } else if (currentStep === 5) {
       if (puzzleSolved) points += 250;
       const sudokuComplete = sudokuGrid.every((row, ri) => row.every((cell, ci) => cell === SUDOKU_SOLUTION[ri][ci]));
       if (sudokuComplete && puzzleMode === 'sudoku') points += 250;
-    } else if (currentStep === 7) {
+    } else if (currentStep === 6) {
       if (answers.impactPerRole.length > 4) points += 100;
       if (answers.impactMetrics.length > 4) points += 100;
-    } else if (currentStep === 8) {
-      if (answers.principlesQuotes.length > 4) points += 100;
-      if (answers.bookOrMovie.length > 4) points += 100;
-    } else if (currentStep === 9) {
+    } else if (currentStep === 7) {
       // Trivia points are awarded immediately per question
-    } else if (currentStep === 10) {
+    } else if (currentStep === 8) {
       if (answers.unlistedAccomplishment.length > 4) points += 100;
       if (answers.hobbiesSideProjects.length > 4) points += 100;
-    } else if (currentStep === 11) {
-      if (answers.sabbatical.length > 4) points += 100;
-      if (answers.anythingElse.length > 4) points += 100;
+    } else if (currentStep === 9) {
+      if (answers.minSalary.trim().length > 0) points += 100;
+      if (answers.addressStreet.trim() && answers.addressCity.trim() && answers.addressState.trim() && answers.addressZip.trim()) points += 100;
+      if (answers.phone.trim().length > 4) points += 100;
     }
 
     return points;
@@ -578,29 +599,46 @@ export default function OnboardingForm() {
       toast({ title: "LinkedIn Required", description: "Please enter your LinkedIn URL or check N/A", variant: "destructive" });
       return;
     }
-    
-    if (currentStep === 6 && !puzzleSolved && !awardedSteps.has(6)) {
-      setPuzzleSkippedMessage("All gas no breaks");
-      setTimeout(() => setPuzzleSkippedMessage(null), 2000);
-    }
-    
-    if (!awardedSteps.has(currentStep)) {
-      const stepPoints = calculateStepPoints();
-      if (stepPoints > 0) {
-        setPointsAnimation(stepPoints);
-        setTotalPoints(prev => prev + stepPoints);
-        setTimeout(() => setPointsAnimation(null), 1500);
-        setAwardedSteps(prev => new Set(Array.from(prev).concat(currentStep)));
+
+    const advance = () => {
+      if (currentStep === 5 && !puzzleSolved && !awardedSteps.has(5)) {
+        setPuzzleSkippedMessage("All gas no breaks");
+        setTimeout(() => setPuzzleSkippedMessage(null), 2000);
       }
+
+      if (!awardedSteps.has(currentStep)) {
+        const stepPoints = calculateStepPoints();
+        if (stepPoints > 0) {
+          setPointsAnimation(stepPoints);
+          setTotalPoints(prev => prev + stepPoints);
+          setTimeout(() => setPointsAnimation(null), 1500);
+          setAwardedSteps(prev => new Set(Array.from(prev).concat(currentStep)));
+        }
+      }
+
+      if (currentStep < STEPS.length - 1) {
+        setCurrentStep(prev => prev + 1);
+      }
+    };
+
+    // DECISION: 800ms flash, then auto-advance. Flag is not a two-click gate.
+    if (STEPS[currentStep]?.id === "coverletter" && !coverLetterFile) {
+      if (coverLetterNudgeTimerRef.current != null) return;
+      setCoverLetterNudge(true);
+      coverLetterNudgeTimerRef.current = setTimeout(() => {
+        coverLetterNudgeTimerRef.current = null;
+        setCoverLetterNudge(false);
+        advance();
+      }, 800);
+      return;
     }
-    
-    if (currentStep < STEPS.length - 1) {
-      setCurrentStep(prev => prev + 1);
-    }
+
+    advance();
   };
 
   const handleBack = () => {
     if (currentStep > 0) {
+      clearCoverLetterNudge();
       setCurrentStep(prev => prev - 1);
       if (currentStep === 1) {
         setClickedContinue(false);
@@ -612,6 +650,10 @@ export default function OnboardingForm() {
     const file = e.target.files?.[0];
     if (file) {
       setResumeFile(file);
+      setResumeUploadedPath(null);
+      uploadFileToStorage(file).then((path) => {
+        if (path) setResumeUploadedPath(path);
+      });
       setResumeScanning(true);
       setResumeScanMessage("Scanning resume...");
       setTimeout(() => {
@@ -639,15 +681,15 @@ export default function OnboardingForm() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const tier = totalPoints >= 2700 ? 'Perfectionist' :
-                   totalPoints >= 2400 ? 'Main Character' :
-                   totalPoints > 1900 ? 'Gamer Status' :
+      const tier = totalPoints >= 2300 ? 'Perfectionist' :
+                   totalPoints >= 2000 ? 'Main Character' :
+                   totalPoints > 1500 ? 'Gamer Status' :
                    totalPoints >= 1200 ? 'Operator Status' : 'NPC Status';
 
-      let resumePath: string | null = null;
+      let resumePath: string | null = resumeUploadedPath;
       let coverLetterPath: string | null = null;
 
-      if (resumeFile) {
+      if (resumeFile && !resumePath) {
         resumePath = await uploadFileToStorage(resumeFile);
         if (!resumePath) {
           throw new Error("Failed to upload resume. Please try again.");
@@ -781,7 +823,7 @@ export default function OnboardingForm() {
     <div className={`min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white transition-opacity duration-700 ${showContent ? 'opacity-100' : 'opacity-0'}`}>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-800/20 via-transparent to-transparent pointer-events-none" />
       
-      <div className="relative max-w-2xl mx-auto px-6 py-12">
+      <div ref={columnRef} className={`relative max-w-2xl mx-auto px-6 pt-12 ${pinFooter ? "pb-28" : "pb-12"}`}>
         <div className={`flex items-center justify-start mb-8 transition-all duration-700 delay-100 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
           <img 
             src="/jumpseat-logo.png" 
@@ -794,9 +836,6 @@ export default function OnboardingForm() {
           <div className="inline-block mb-4">
             <span className="text-xs font-medium tracking-widest uppercase text-zinc-500">Onboarding</span>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight mb-2">
-            <span className="bg-red-600 px-5 py-2 inline-block">Session I</span>
-          </h1>
           {currentStep > 0 && (
             <div className="mb-2 flex flex-col items-center h-12">
               <span className={`text-lg font-semibold text-amber-400 transition-transform duration-100 ${isCountingUp ? 'scale-110' : 'scale-100'}`}>
@@ -816,7 +855,7 @@ export default function OnboardingForm() {
           )}
         </div>
 
-        {currentStep < 12 && (
+        {currentStep < STEPS.length - 1 && (
           <div className={`mb-12 transition-all duration-700 delay-300 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
             <div className="flex items-center justify-between text-sm mb-3">
               <span className="text-zinc-400 font-medium">
@@ -883,8 +922,8 @@ export default function OnboardingForm() {
               </div>
               
               <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">Current Resume <span className="text-red-400">*</span></label>
+                <div className="space-y-1">
+                  <label className="mb-1 block text-sm font-medium text-zinc-300">Current Resume <span className="text-red-400">*</span></label>
                   <input
                     ref={resumeInputRef}
                     type="file"
@@ -926,7 +965,7 @@ export default function OnboardingForm() {
                         {!resumeScanning && (
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); setResumeFile(null); setResumeScanMessage(null); }}
+                            onClick={(e) => { e.stopPropagation(); setResumeFile(null); setResumeUploadedPath(null); setResumeScanMessage(null); }}
                             className="ml-2 p-1 text-zinc-500 hover:text-white transition-colors"
                           >
                             <X className="h-4 w-4" />
@@ -966,8 +1005,8 @@ export default function OnboardingForm() {
               </div>
               
               <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">LinkedIn Profile <span className="text-red-400">*</span></label>
+                <div className="space-y-1">
+                  <label className="mb-1 block text-sm font-medium text-zinc-300">LinkedIn Profile <span className="text-red-400">*</span></label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2">
                       <Link className="h-4 w-4 text-zinc-600" />
@@ -1006,8 +1045,8 @@ export default function OnboardingForm() {
               </div>
               
               <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">Cover Letter <span className="text-zinc-600">(optional)</span></label>
+                <div className="space-y-1">
+                  <label className="mb-1 block text-sm font-medium text-zinc-300">Cover Letter <span className="text-zinc-600">(optional)</span></label>
                   <input
                     ref={coverLetterInputRef}
                     type="file"
@@ -1054,11 +1093,6 @@ export default function OnboardingForm() {
                       {coverLetterMessage}
                     </p>
                   )}
-                  {!coverLetterMessage && (
-                    <p className="text-center text-sm text-zinc-600 mt-4">
-                      No cover letter? No problem - just click Continue.
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
@@ -1068,24 +1102,24 @@ export default function OnboardingForm() {
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">Career Narrative</h2>
-                <p className="text-zinc-500 text-sm">Your story, your strengths, your people</p>
+                <p className="text-zinc-500 text-sm">Your story, your strengths</p>
               </div>
 
               <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    What's the best job you've ever had?
+                <div className="space-y-1">
+                  <label className="mb-1 block text-sm font-medium text-zinc-300">
+                    High level what are the top 3 role titles that we are targeting? And which role are you the most qualified for?
                   </label>
                   <Textarea
-                    value={answers.bestJob}
-                    onChange={(e) => updateAnswer('bestJob', e.target.value)}
-                    placeholder="Your best job experience..."
+                    value={answers.targetRoles}
+                    onChange={(e) => updateAnswer('targetRoles', e.target.value)}
+                    placeholder="e.g. Senior Product Manager, Director of Operations, VP of Strategy"
                     className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
+                <div className="space-y-1">
+                  <label className="mb-1 block text-sm font-medium text-zinc-300">
                     How did you choose your career? When was it apparent to you that you were good?
                   </label>
                   <Textarea
@@ -1095,82 +1129,11 @@ export default function OnboardingForm() {
                     className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
-
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    Did you have any teachers or mentors that helped you along the way? Name dropping is great for cover letters.
-                  </label>
-                  <Textarea
-                    value={answers.mentors}
-                    onChange={(e) => updateAnswer('mentors', e.target.value)}
-                    placeholder="People who shaped your career..."
-                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    What's something you do that wasn't originally part of your job?
-                  </label>
-                  <Textarea
-                    value={answers.beyondJobDescription}
-                    onChange={(e) => updateAnswer('beyondJobDescription', e.target.value)}
-                    placeholder="Things you took on beyond your role..."
-                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    What do colleagues or managers come to you specifically for?
-                  </label>
-                  <Textarea
-                    value={answers.colleaguesComeToYouFor}
-                    onChange={(e) => updateAnswer('colleaguesComeToYouFor', e.target.value)}
-                    placeholder="Your go-to reputation..."
-                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
-                  />
-                </div>
               </div>
             </div>
           )}
 
           {currentStep === 5 && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="mb-8">
-                <h2 className="text-2xl font-light tracking-tight mb-2">Career Narrative Part 2</h2>
-                <p className="text-zinc-500 text-sm">The full picture and where you're headed</p>
-              </div>
-
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300 leading-relaxed">
-                    Bring me up to date on your full career. Start from the beginning, include the weird jobs, the short term stint, everything. We're not putting it all on the resume but it helps paint a better picture of you.
-                  </label>
-                  <Textarea
-                    value={answers.careerHistory}
-                    onChange={(e) => updateAnswer('careerHistory', e.target.value)}
-                    placeholder="Your full career journey..."
-                    className="min-h-[140px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    High level what are the top 3 role titles that we are targeting?
-                  </label>
-                  <Textarea
-                    value={answers.targetRoles}
-                    onChange={(e) => updateAnswer('targetRoles', e.target.value)}
-                    placeholder="e.g. Senior Product Manager, Director of Operations, VP of Strategy"
-                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 6 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8 text-center">
                 <h2 className="text-3xl font-light tracking-tight mb-2">
@@ -1182,11 +1145,11 @@ export default function OnboardingForm() {
                           type="button"
                           onClick={() => {
                             setPuzzleSolved(true);
-                            if (!awardedSteps.has(6)) {
+                            if (!awardedSteps.has(5)) {
                               setTotalPoints(prev => prev + 250);
                               setPointsAnimation(250);
                               setTimeout(() => setPointsAnimation(null), 1500);
-                              setAwardedSteps(prev => new Set(Array.from(prev).concat(6)));
+                              setAwardedSteps(prev => new Set(Array.from(prev).concat(5)));
                             }
                           }}
                           className="ml-3 px-4 py-1 text-lg font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors animate-in fade-in duration-300"
@@ -1221,7 +1184,6 @@ export default function OnboardingForm() {
                       ? Number(activeId.replace('placed-', '')) 
                       : Number(activeId);
                     setDraggingPieceId(pieceId);
-                    setPuzzlePickups(prev => prev + 1);
                   }}
                   onDragMove={(event: DragMoveEvent) => {
                     const { active, over } = event;
@@ -1398,7 +1360,7 @@ export default function OnboardingForm() {
                         {availablePieces.map(pieceId => {
                           const piece = PUZZLE_PIECES.find(p => p.id === pieceId)!;
                           return (
-                            <DraggablePiece key={pieceId} piece={piece} />
+                            <DraggablePiece key={pieceId} piece={piece} onPickup={() => setPuzzlePickups(prev => prev + 1)} />
                           );
                         })}
                       </div>
@@ -1463,7 +1425,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 7 && (
+          {currentStep === 6 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">Your Impact</h2>
@@ -1471,8 +1433,8 @@ export default function OnboardingForm() {
               </div>
 
               <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300 leading-relaxed">
+                <div className="space-y-1">
+                  <label className="mb-1 block text-sm font-medium text-zinc-300 leading-relaxed">
                     For each role on your resume, tell me the single most important project or contribution. What was broken or missing, what did you do?
                   </label>
                   <Textarea
@@ -1483,17 +1445,17 @@ export default function OnboardingForm() {
                   />
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300 leading-relaxed">
+                <div className="space-y-1">
+                  <label className="mb-1 block text-sm font-medium text-zinc-300 leading-relaxed">
                     For the above answers can you think of specific metrics that would support it?
                   </label>
-                  <p className="text-xs text-zinc-600 italic leading-relaxed">
-                    Examples: Time saved, dollars saved or generated, number of people or systems impacted, error reduction. Even rough estimates work — "cut report time from 3 hours to 10 minutes" is exactly the kind of thing we're looking for.
+                  <p className="text-xs text-zinc-500 italic leading-relaxed">
+                    This is the most important question
                   </p>
                   <Textarea
                     value={answers.impactMetrics}
                     onChange={(e) => updateAnswer('impactMetrics', e.target.value)}
-                    placeholder="Metrics and numbers that back up your impact..."
+                    placeholder="This is the most important question"
                     className="min-h-[120px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
                   />
                 </div>
@@ -1501,42 +1463,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 8 && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="mb-8">
-                <h2 className="text-2xl font-light tracking-tight mb-2">How You Think</h2>
-                <p className="text-zinc-500 text-sm">Patterns, principles, and what sticks with you</p>
-              </div>
-
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    Is there a quote or idea that changed how you approach your work or life? What was happening when it clicked?
-                  </label>
-                  <Textarea
-                    value={answers.principlesQuotes}
-                    onChange={(e) => updateAnswer('principlesQuotes', e.target.value)}
-                    placeholder="A quote or idea that changed your approach..."
-                    className="min-h-[120px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    Tell me about a book or movie you have seen more than once. Why do you keep going back?
-                  </label>
-                  <Textarea
-                    value={answers.bookOrMovie}
-                    onChange={(e) => updateAnswer('bookOrMovie', e.target.value)}
-                    placeholder="A book or movie you revisit and why..."
-                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 9 && (
+          {currentStep === 7 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8 text-center">
                 <h2 className="text-3xl font-light tracking-tight mb-2">Trivia</h2>
@@ -1872,7 +1799,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 10 && (
+          {currentStep === 8 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
                 <h2 className="text-2xl font-light tracking-tight mb-2">Perspective</h2>
@@ -1880,8 +1807,8 @@ export default function OnboardingForm() {
               </div>
 
               <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
+                <div className="space-y-1">
+                  <label className="mb-1 block text-sm font-medium text-zinc-300">
                     What's one accomplishment you're proud of that you've never put on a resume?
                   </label>
                   <Textarea
@@ -1892,8 +1819,8 @@ export default function OnboardingForm() {
                   />
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
+                <div className="space-y-1">
+                  <label className="mb-1 block text-sm font-medium text-zinc-300">
                     Outside of work what do you spend time on? Hobbies, side projects, the weirder and more niche the better.
                   </label>
                   <Textarea
@@ -1907,42 +1834,105 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {currentStep === 11 && (
+          {currentStep === 9 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="mb-8">
-                <h2 className="text-2xl font-light tracking-tight mb-2">Perspective Part 2</h2>
-                <p className="text-zinc-500 text-sm">Motivation and anything we missed</p>
+                <h2 className="text-2xl font-light tracking-tight mb-2">Last step, almost done</h2>
               </div>
 
               <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    If your company gave you a one-year paid sabbatical, how would you spend it?
+                <div className="space-y-1">
+                  <label className="mb-1 block text-sm font-medium text-zinc-300">
+                    What is the minimum yearly salary that you would accept?
                   </label>
-                  <Textarea
-                    value={answers.sabbatical}
-                    onChange={(e) => updateAnswer('sabbatical', e.target.value)}
-                    placeholder="How you'd spend a sabbatical..."
-                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
-                  />
+                  <p className="text-xs text-zinc-500 leading-relaxed">
+                    We will discuss this more on our first call, just a ballpark.
+                  </p>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={answers.minSalary}
+                      onChange={(e) => updateAnswer("minSalary", e.target.value.replace(/[^\d]/g, ""))}
+                      placeholder="100000"
+                      className="h-14 pl-8 bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    Is there anything else you want us to know? Anything we didn't ask that feels important?
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-zinc-300">
+                    Some applications ask for an Address, what is the best address we can use?
                   </label>
-                  <Textarea
-                    value={answers.anythingElse}
-                    onChange={(e) => updateAnswer('anythingElse', e.target.value)}
-                    placeholder="Anything else on your mind..."
-                    className="min-h-[100px] bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl resize-none transition-all duration-200"
+                  <div className="space-y-3">
+                  <Input
+                    value={answers.addressStreet}
+                    onChange={(e) => updateAnswer("addressStreet", e.target.value)}
+                    placeholder="Street address"
+                    className="h-12 bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl"
+                  />
+                  <Input
+                    value={answers.addressApt}
+                    onChange={(e) => updateAnswer("addressApt", e.target.value)}
+                    placeholder="Apt, suite, unit (optional)"
+                    className="h-12 bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      value={answers.addressCity}
+                      onChange={(e) => updateAnswer("addressCity", e.target.value)}
+                      placeholder="City"
+                      className="h-12 bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl"
+                    />
+                    <select
+                      value={answers.addressState}
+                      onChange={(e) => updateAnswer("addressState", e.target.value)}
+                      aria-label="State"
+                      className="h-12 bg-zinc-900/50 border border-zinc-800 focus:border-red-500/50 text-white rounded-xl px-3"
+                    >
+                      <option value="">State</option>
+                      {US_STATES.map((state) => (
+                        <option key={state} value={state}>
+                          {state}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      value={answers.addressZip}
+                      onChange={(e) => updateAnswer("addressZip", e.target.value)}
+                      placeholder="ZIP code"
+                      className="h-12 bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl"
+                    />
+                    <Input
+                      value={answers.addressCountry}
+                      onChange={(e) => updateAnswer("addressCountry", e.target.value)}
+                      placeholder="Country"
+                      className="h-12 bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl"
+                    />
+                  </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="mb-1 block text-sm font-medium text-zinc-300">
+                    What phone number should we use for this process (Wilson will text you Via WhatsApp)?
+                  </label>
+                  <Input
+                    type="tel"
+                    value={answers.phone}
+                    onChange={(e) => updateAnswer("phone", e.target.value)}
+                    placeholder="(555) 123-4567"
+                    className="h-14 bg-zinc-900/50 border-zinc-800 focus:border-red-500/50 focus:ring-red-500/20 text-white placeholder:text-zinc-600 rounded-xl"
                   />
                 </div>
               </div>
             </div>
           )}
 
-          {currentStep === 12 && (
+          {currentStep === 10 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="text-center space-y-8">
                 <div className="space-y-4">
@@ -1958,25 +1948,25 @@ export default function OnboardingForm() {
                       <h3 className="text-2xl font-medium text-white">
                         Good work, you reached{' '}
                         <span className={
-                          totalPoints >= 2700 ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-400' :
-                          totalPoints >= 2400 ? 'text-purple-400' :
-                          totalPoints > 1900 ? 'text-emerald-400' :
+                          totalPoints >= 2300 ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-400' :
+                          totalPoints >= 2000 ? 'text-purple-400' :
+                          totalPoints > 1500 ? 'text-emerald-400' :
                           totalPoints >= 1200 ? 'text-blue-400' :
                           'text-zinc-400'
                         }>
-                          {totalPoints >= 2700 ? 'Perfectionist' :
-                           totalPoints >= 2400 ? 'Main Character' :
-                           totalPoints > 1900 ? 'Gamer Status' :
+                          {totalPoints >= 2300 ? 'Perfectionist' :
+                           totalPoints >= 2000 ? 'Main Character' :
+                           totalPoints > 1500 ? 'Gamer Status' :
                            totalPoints >= 1200 ? 'Operator Status' :
                            'NPC Status'}
                         </span>
                       </h3>
                       <div className="text-sm text-zinc-400 max-w-md mx-auto">
-                        {totalPoints >= 2700 ? (
+                        {totalPoints >= 2300 ? (
                           <p className="text-yellow-400 font-medium">Perfect score! You found every point possible.</p>
-                        ) : totalPoints >= 2400 ? (
-                          <p>Nice! The highest possible was 2,800.</p>
-                        ) : totalPoints > 1900 ? (
+                        ) : totalPoints >= 2000 ? (
+                          <p>Nice! The highest possible was 2,400.</p>
+                        ) : totalPoints > 1500 ? (
                           <p>Love the effort on the extras. We see you.</p>
                         ) : totalPoints >= 1200 ? (
                           <p>Solid answers all around. We've got what we need to get started.</p>
@@ -1987,7 +1977,7 @@ export default function OnboardingForm() {
                       <p className="text-zinc-500">Too bad these points are useless.</p>
                     </div>
 
-                    {showAward && totalPoints >= 2700 && (
+                    {showAward && totalPoints >= 2300 && (
                       <div className="animate-in zoom-in duration-700 flex flex-col items-center gap-4 p-8">
                         <div className="relative">
                           <Trophy className="h-24 w-24 text-yellow-400" />
@@ -2035,8 +2025,19 @@ export default function OnboardingForm() {
           )}
         </div>
 
-        {currentStep < 12 && (
-        <div className="flex justify-between pt-10 mt-10 border-t border-zinc-800/50">
+        {currentStep < STEPS.length - 1 && (
+        <div
+          className={pinFooter
+            ? "fixed z-30 border-t border-zinc-800/50 bg-black"
+            : "mt-10 border-t border-zinc-800/50 pt-10"}
+          style={pinFooter ? {
+            left: footerFrame?.left ?? 0,
+            width: footerFrame?.width,
+            bottom: 0,
+            visibility: footerFrame ? "visible" : "hidden",
+          } : undefined}
+        >
+        <div className={`flex justify-between ${pinFooter ? "px-6 py-4" : ""}`}>
           <Button
             type="button"
             variant="ghost"
@@ -2058,7 +2059,15 @@ export default function OnboardingForm() {
                   Tip: Press Enter to continue faster
                 </span>
               )}
-              <div className="relative">
+              <div className="relative" key={`continue-overlays-${currentStep}`}>
+                {coverLetterNudge && STEPS[currentStep]?.id === "coverletter" && !coverLetterFile && (
+                  <p
+                    className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap text-sm font-medium text-yellow-400"
+                    data-testid="should-have-one"
+                  >
+                    You really should have one.
+                  </p>
+                )}
                 {cheerMessage && (
                   <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 animate-in fade-in zoom-in duration-200">
                     <Sparkles className="h-4 w-4 text-yellow-400" />
@@ -2102,6 +2111,7 @@ export default function OnboardingForm() {
               )}
             </Button>
           )}
+        </div>
         </div>)}
       </div>
     </div>
