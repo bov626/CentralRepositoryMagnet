@@ -23,6 +23,7 @@ import {
 } from "./lead-intake";
 import { lookupRoastResume, isRoastConfigured } from "./roast-resume";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { ObjectStorageService, ObjectNotFoundError } from "./replit_integrations/object_storage/objectStorage";
 import crypto from "crypto";
 
 function signToken(payload: object, secret: string): string {
@@ -936,6 +937,66 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/onboarding-submissions/:id/file/:kind", async (req, res) => {
+    const kind = req.params.kind === "resume" || req.params.kind === "cover-letter" ? req.params.kind : null;
+    if (!kind) return res.status(400).json({ error: "Unknown file" });
+    try {
+      const submission = await storage.getOnboardingSubmission(req.params.id);
+      if (!submission) return res.status(404).json({ error: "Submission not found" });
+      const stored = kind === "resume" ? submission.resumePath : submission.coverLetterPath;
+      if (!stored) return res.status(404).json({ error: "No file on this form" });
+      const answers = (submission.answers || {}) as Record<string, unknown>;
+      const named = kind === "resume" ? answers.resumeFileName : answers.coverLetterFileName;
+      const fileName = typeof named === "string" && named.trim()
+        ? named.trim().replace(/[/\\"]/g, "")
+        : kind === "resume" ? "resume" : "cover-letter";
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+
+      if (stored.startsWith("/objects/")) {
+        try {
+          const file = await new ObjectStorageService().getObjectEntityFile(stored);
+          await new ObjectStorageService().downloadObject(file, res);
+          return;
+        } catch (error) {
+          if (res.headersSent) throw error;
+          if (!(error instanceof ObjectNotFoundError)) {
+            console.warn("[onboarding-file] CRM storage miss, trying Hub:", error);
+          }
+        }
+      }
+
+      const hubOrigin = process.env.HUB_APP_URL || "https://jumpseathub.com";
+      const upstreamUrl = stored.startsWith("http")
+        ? stored
+        : `${hubOrigin}${stored.startsWith("/") ? stored : `/${stored}`}`;
+      const upstream = await fetch(upstreamUrl);
+      const type = upstream.headers.get("content-type") || "";
+      if (!upstream.ok || !upstream.body || type.includes("text/html")) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      if (type) res.setHeader("Content-Type", type);
+      const length = upstream.headers.get("content-length");
+      if (length) res.setHeader("Content-Length", length);
+      const { Readable } = await import("node:stream");
+      Readable.fromWeb(upstream.body as import("node:stream/web").ReadableStream).pipe(res);
+    } catch (error) {
+      console.error("Error downloading onboarding file:", error);
+      if (!res.headersSent) res.status(500).json({ error: "Failed to download file" });
+    }
+  });
+
+  app.post("/api/onboarding-submissions/:id/archive", async (req, res) => {
+    try {
+      const archived = req.body?.archived !== false;
+      const updated = await storage.setOnboardingSubmissionArchived(req.params.id, archived);
+      if (!updated) return res.status(404).json({ error: "Submission not found" });
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error archiving onboarding submission:", error);
+      res.status(500).json({ error: "Failed to archive submission" });
+    }
+  });
+
   app.post("/api/onboarding-form", async (req, res) => {
     try {
       const { name, linkedIn, resumePath, coverLetterPath, answers, totalPoints, tier } = req.body;
@@ -990,7 +1051,7 @@ Points: ${totalPoints || 0}
 Tier: ${tier || 'N/A'}`;
 
       const careerSection = formatSection('📖 CAREER NARRATIVE', [
-        { label: 'Target role titles (and most qualified for):', value: answers.targetRoles },
+        { label: 'Qualified title:', value: answers.qualifiedTitle || answers.targetRoles },
         { label: 'How they chose their career:', value: answers.careerChoice },
       ]);
 
@@ -1005,17 +1066,10 @@ Tier: ${tier || 'N/A'}`;
       ]);
 
       const str = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
-      const cityStateZip = [str(answers?.addressCity), [str(answers?.addressState), str(answers?.addressZip)].filter(Boolean).join(' ')]
-        .filter(Boolean)
-        .join(', ');
-      const addressJoined = [str(answers?.addressStreet), str(answers?.addressApt), cityStateZip, str(answers?.addressCountry)]
-        .filter(Boolean)
-        .join('\n');
       const minSalary = str(answers?.minSalary);
 
       const detailsSection = formatSection('📋 DETAILS', [
         { label: 'Minimum yearly salary:', value: minSalary ? `$${Number(minSalary).toLocaleString()}` : '' },
-        { label: 'Address:', value: addressJoined },
         { label: 'Phone (WhatsApp):', value: str(answers?.phone) },
       ]);
 

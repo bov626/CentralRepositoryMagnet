@@ -27,7 +27,9 @@ export interface IStorage {
 
   // Onboarding submission methods
   getAllOnboardingSubmissions(): Promise<OnboardingSubmission[]>;
+  getOnboardingSubmission(id: string): Promise<OnboardingSubmission | undefined>;
   createOnboardingSubmission(submission: InsertOnboardingSubmission): Promise<OnboardingSubmission>;
+  setOnboardingSubmissionArchived(id: string, archived: boolean): Promise<OnboardingSubmission | undefined>;
   getDismissedCalendarEvents(): Promise<Array<{ eventId: string; recurringEventId: string | null }>>;
   dismissCalendarEvent(input: { eventId: string; recurringEventId?: string | null; title?: string | null }): Promise<void>;
   rejectLead(lead: Pick<Lead, "name" | "email" | "fathomRecordingId" | "calendarEventId">): Promise<void>;
@@ -133,9 +135,28 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(onboardingSubmissions).orderBy(desc(onboardingSubmissions.submittedAt));
   }
 
+  async getOnboardingSubmission(id: string): Promise<OnboardingSubmission | undefined> {
+    const [submission] = await db.select().from(onboardingSubmissions).where(eq(onboardingSubmissions.id, id));
+    return submission;
+  }
+
   async createOnboardingSubmission(insertSubmission: InsertOnboardingSubmission): Promise<OnboardingSubmission> {
     const [submission] = await db.insert(onboardingSubmissions).values(insertSubmission).returning();
     return submission;
+  }
+
+  async setOnboardingSubmissionArchived(id: string, archived: boolean): Promise<OnboardingSubmission | undefined> {
+    const [existing] = await db.select().from(onboardingSubmissions).where(eq(onboardingSubmissions.id, id));
+    if (!existing) return undefined;
+    const answers = { ...((existing.answers as Record<string, unknown>) || {}) };
+    if (archived) answers._archived = true;
+    else delete answers._archived;
+    const [updated] = await db
+      .update(onboardingSubmissions)
+      .set({ answers })
+      .where(eq(onboardingSubmissions.id, id))
+      .returning();
+    return updated;
   }
 
   async getDismissedCalendarEvents(): Promise<Array<{ eventId: string; recurringEventId: string | null }>> {
